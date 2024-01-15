@@ -2,5 +2,11 @@
 
 export(FILES_find_newest_file)
 export(adjust_file_path_to_current_machine)
+export(if_no_csv_for_colnames_make_one)
+export(obtain_column_name_paths_for_all_survey_versions)
+export(obtain_connection_to_zip_files_for_versions)
+export(obtain_initial_column_names_for_version)
 export(obtain_newest_file_per_directory)
 export(prepare_version_directory_paths)
+export(read_csv_in_zip)
+export(read_survey_data)
