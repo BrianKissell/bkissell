@@ -405,3 +405,346 @@ read_survey_data <- function(survey_monkey_raw_data_path){
   # Return the df
   return(survey_data_list)
 }
+
+
+
+
+
+
+
+
+
+
+#' get_file_paths_from_excel_workbooks_list
+#'
+#' @param path_to_excel_file path_to_excel_file
+#'
+#' @return file_paths_df
+#' @export
+#'
+get_file_paths_from_excel_workbooks_df <- function(
+    path_to_excel_file
+){
+  # Obtain the list of sheets
+  list_of_sheets <- readxl::excel_sheets(path_to_excel_file)
+
+  # What videos have been coded
+  list_of_sheets <- list_of_sheets[!(list_of_sheets %in% c("Template","Data Validation"))]
+
+  # Read in the data
+  file_paths_df <- purrr::map_df(list_of_sheets, ~{
+    data.frame(file_path = path_to_excel_file, sheet_name = .x)
+  }, path_to_excel_file)
+
+  # Return the variable
+  return(file_paths_df)
+}
+
+#' get_file_paths_from_excel_workbooks_df_all_paths
+#'
+#' @param video_coding_docs_file_paths video_coding_docs_file_paths
+#'
+#' @return file_paths_df_all_paths
+#' @export
+#'
+get_file_paths_from_excel_workbooks_df_all_paths <- function(video_coding_docs_file_paths) {
+
+  file_paths_df_all_paths <- purrr::map_df(video_coding_docs_file_paths, ~{
+    bkissell::get_file_paths_from_excel_workbooks_df(.x)
+  })
+  return(file_paths_df_all_paths)
+}
+
+#' get_initial_read_data_from_excel_workbooks
+#'
+#' @param path_to_excel_file path_to_excel_file
+#' @param sheet_name sheet_name
+#'
+#' @return initial_read_data
+#' @export
+#'
+get_initial_read_data_from_excel_workbooks <- function(
+    path_to_excel_file, sheet_name
+){
+
+  initial_read_data <- readxl::read_excel(path_to_excel_file, sheet_name) %>%
+    suppressWarnings()
+
+  # Return the variable
+  return(initial_read_data)
+}
+
+
+#' get_initial_read_data_from_excel_workbooks_with_converted_columns
+#'
+#' @param path_to_excel_file path_to_excel_file
+#' @param sheet_name sheet_name
+#'
+#' @return initial_data
+#' @export
+#'
+get_initial_read_data_from_excel_workbooks_with_converted_columns <- function(
+    path_to_excel_file, sheet_name
+){
+
+  initial_data <- bkissell::get_initial_read_data_from_excel_workbooks(path_to_excel_file, sheet_name)
+
+  # Change the variable names to snakecase
+  names(initial_data) <- snakecase::to_snake_case(names(initial_data))
+
+  # Return object
+  return(initial_data)
+}
+
+
+#' get_file_paths_and_column_data_from_excel_workbooks_list
+#'
+#' @param video_coding_docs_file_paths video_coding_docs_file_paths
+#'
+#' @return file_paths_df_all_paths
+#' @export
+#'
+get_file_paths_and_column_data_from_excel_workbooks_list <- function(
+    video_coding_docs_file_paths
+){
+
+  file_paths_df_all_paths <- bkissell::get_file_paths_from_excel_workbooks_df_all_paths(video_coding_docs_file_paths)
+
+  all_column_names_list <- purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
+    initial_data <- bkissell::get_initial_read_data_from_excel_workbooks_with_converted_columns(file_paths_df_all_paths[.x, "file_path"], file_paths_df_all_paths[.x, "sheet_name"])
+    names(initial_data)
+  }, file_paths_df_all_paths)
+
+  file_paths_df_all_paths$column_names_list <- all_column_names_list
+
+  file_paths_df_all_paths$column_types_list <- purrr::map(all_column_names_list, ~{
+    convert_specific_column_names_to_data_type(.x)
+  })
+
+  # Return the variable
+  return(file_paths_df_all_paths)
+}
+
+#' process_video_data
+#'
+#' @param video_coding_docs_file_paths video_coding_docs_file_paths
+#'
+#' @return sheet_coding_data_df
+#' @export
+#'
+process_video_data <- function(
+    video_coding_docs_file_paths
+){
+
+  file_paths_df_all_paths <- bkissell::get_file_paths_and_column_data_from_excel_workbooks_list(
+    video_coding_docs_file_paths
+  )
+
+  # Read in the data
+  sheet_coding_data_df_list <- purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
+    sheet_coding_data <- readxl::read_excel(
+      file_paths_df_all_paths[.x, "file_path"],
+      sheet = file_paths_df_all_paths[.x, "sheet_name"],
+      col_names = unlist(file_paths_df_all_paths[.x, "column_names_list"]),
+      col_types = unlist(file_paths_df_all_paths[.x, "column_types_list"]))
+
+    sheet_coding_data <- sheet_coding_data[-1, ]
+
+    # Add Video Name
+    sheet_coding_data$video_name <- sheet_coding_data$video_name[[1]]
+
+    # Change the variable names to snakecase
+    names(sheet_coding_data) <- snakecase::to_snake_case(names(sheet_coding_data))
+
+    # Convert starts into 1 and 0s
+    section_number <-  ifelse(sheet_coding_data$section == "Start of Section", 1, 0) %>%
+      tidyr::replace_na(0) %>%
+      cumsum() %>%
+      stringr::str_pad(width = 2, side = "left", pad = "0")
+
+    # Create the section label
+    sheet_coding_data$section_label <- paste0("Section ", section_number)
+
+    # Get the name of the coder
+    coded_by <- stringr::str_extract(file_paths_df_all_paths[.x, "file_path"], "__.+xlsx$") %>%
+      stringr::str_replace("__", "") %>%
+      stringr::str_replace(".xlsx$", "") %>%
+      snakecase::to_snake_case()
+
+    # Add coded data to df
+    sheet_coding_data$coded_by <- coded_by
+
+    sheet_coding_data
+  }, file_paths_df_all_paths)
+
+  multiple_choice_variables <- create_multiple_choice_variables_for_coding_data()
+  category_variables <- create_category_variables_for_coding_data()
+
+  sheet_coding_data_df_list <- purrr::map(sheet_coding_data_df_list, ~{
+    # Convert data to characters and snakecase
+    sheet_coding_data_df <- .x %>%
+      dplyr::mutate(dplyr::across(starts_with(multiple_choice_variables), snakecase::to_snake_case))
+
+    # Convert NAs to 0
+    sheet_coding_data_df <- sheet_coding_data_df %>%
+      dplyr::mutate(dplyr::across(starts_with(category_variables), ~{tidyr::replace_na(.x, 0)}))
+
+    # Re-order the data
+    sheet_coding_data_df <- sheet_coding_data_df %>% select(section_label, everything())
+
+    # Get the duration of the video
+    sheet_coding_data_df <- sheet_coding_data_df |>
+      dplyr::group_by(.data[["video_name"]]) |>
+      dplyr::mutate(duration_of_video = .data[["time_point"]] |> max() |> round())
+
+    sheet_coding_data_df
+  }, multiple_choice_variables, category_variables)
+
+  sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
+  # Return the variable
+  return(sheet_coding_data_df)
+}
+
+#' prepare_data_for_calcs
+#'
+#' @param sheet_coding_data sheet_coding_data created with `process_video_data`
+#'
+#' @return wide_data_for_calcs
+#' @export
+#'
+prepare_data_for_calcs <- function(sheet_coding_data) {
+
+  multiple_choice_vars <- create_multiple_choice_variables_for_coding_data()
+
+  # Prep the data
+  data_for_calcs <- sheet_coding_data
+
+  # Create a helper function that creates the multiple choice tables
+  pavd_create_mc_df_table <- function(data, mc_var_name, video_name_var = "video_name", time_point_var = "time_point") {
+
+    # Remove missing data
+    data <- data %>% dplyr::filter(!is.na(.data[[{{mc_var_name}}]]))
+
+    # Create data to help with the pivot
+    data$element_present <- 1
+
+    # Pivot the table
+    mc_data_for_calcs <- data %>%
+      dplyr::select({{video_name_var}}, {{time_point_var}}, {{mc_var_name}}, "element_present") %>%
+      tidyr::pivot_wider(
+        id_cols = c({{video_name_var}}, {{time_point_var}}),
+        names_from = .data[[{{mc_var_name}}]],
+        names_glue = paste0({{mc_var_name}}, "__{.name}"),
+        values_from = .data[["element_present"]]
+      ) %>%
+      dplyr::mutate(across(starts_with(paste0({{mc_var_name}}, "__")), ~tidyr::replace_na(.x, 0)))
+
+    # Return the table
+    return(mc_data_for_calcs)
+  }
+
+  # add to the multiple choice vector
+  the_multiple_choice_vars <- c(multiple_choice_vars, "coded_by", "duration_of_video")
+
+  # Create the tables for the multiple choice variable
+  list_of_data_for_calcs <- purrr::map(the_multiple_choice_vars, ~{
+    pavd_create_mc_df_table(
+      data = data_for_calcs,
+      mc_var_name = {{.x}},
+      video_name_var = "video_name",
+      time_point_var = "time_point"
+    )
+  })
+
+  # Join all of the dfs together
+  new_data_for_calcs <- list_of_data_for_calcs %>%
+    purrr::reduce(dplyr::left_join, by = c("video_name", "time_point"))
+
+  # Replace the na
+  wide_multiple_choice_df <- new_data_for_calcs %>%
+    dplyr::mutate(across(everything(), ~tidyr::replace_na(.x, 0)))
+
+  # Join the mc data
+  wide_data_for_calcs <- data_for_calcs %>%
+    dplyr::left_join(wide_multiple_choice_df, by = c("video_name", "time_point"))
+
+  # Return the data
+  return(wide_data_for_calcs)
+}
+
+
+
+#' prepare_first_occurrence_data
+#'
+#' @param data_for_calcs_wide data_for_calcs_wide
+#' @param all_vars_to_count_duration ll_vars_to_count_duration
+#'
+#' @return prepared_first_occurence_data
+#' @export
+#'
+prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count_duration) {
+
+  video_names_df <- data.frame(video_name = data_for_calcs_wide$video_name %>% unique())
+
+  df_for_new_vars <- purrr::map_dfc(all_vars_to_count_duration, ~{
+
+    new_var_name <- paste0("first_occurence__", {{.x}})
+
+    first_occur_df_prep <- data_for_calcs_wide %>%
+      dplyr::filter(.data[[{{.x}}]] == 1)
+
+    if(nrow(first_occur_df_prep) == 0) {
+      new_var_for_df <- data.frame(video_name = unique(data_for_calcs_wide$video_name))
+
+      new_var_for_df <- new_var_for_df %>%
+        group_by(video_name) %>%
+        dplyr::summarize({{new_var_name}} := NA)
+
+    } else {
+      new_var_for_df <- first_occur_df_prep %>%
+        dplyr::filter(.data[[{{.x}}]] == 1) %>%
+        dplyr::group_by(video_name) %>%
+        dplyr::summarize({{new_var_name}} := min(time_point, na.rm = TRUE))
+    }
+
+    video_names_df %>%
+      dplyr::left_join(new_var_for_df, by = "video_name") %>%
+      dplyr::select(-"video_name")
+  }, wide_data_for_calcs, video_names_df)
+
+  prepared_first_occurence_data <- cbind(video_names_df, df_for_new_vars)
+
+  return(prepared_first_occurence_data)
+}
+
+#' prepare_video_duration_data
+#'
+#' @param data_for_calcs_wide data_for_calcs_wide
+#' @param all_vars_to_count_duration all_vars_to_count_duration
+#'
+#' @return prepared_video_duration_data
+#'
+prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_duration) {
+
+  section_duration_df <- data_for_calcs_wide %>%
+    dplyr::group_by(.data[["section_label"]], .data[["video_name"]], .data[["duration_of_video"]]) %>%
+    dplyr::mutate(across(all_of(all_vars_to_count_duration), ~as.numeric(.x))) %>%
+    dplyr::summarize(
+      ms_duration = n() * 3,
+      across(all_of(all_vars_to_count_duration), ~sum(.x) * 3, .names = "duration_of_{.col}"), .groups = "drop")
+
+  prepared_video_duration_data <- section_duration_df %>%
+    dplyr::group_by(video_name) %>%
+    dplyr::summarize(
+      n_sections = n(),
+      mean_section_seconds_duration = mean(ms_duration, na.rm = TRUE) / 90 %>% round(2),
+      sd_section_seconds_duration = sd(ms_duration, na.rm = TRUE) / 90 %>% round(2),
+      total_seconds_duration = sum(ms_duration, na.rm = TRUE) / 90  %>% round(2),
+      across(starts_with("duration_of_"), ~ sum(.x, na.rm = TRUE) / 90 %>% round(2), .names = "sum_of_seconds_{.col}")
+    )
+
+  return(prepared_video_duration_data)
+}
+
+
+
