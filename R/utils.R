@@ -41,7 +41,6 @@ adjust_file_path_to_current_machine <- function(file_path){
 }
 
 
-
 #' prepare_version_directory_paths
 #'
 #' @param survey_directory_path path to the surveymonkeydata folder
