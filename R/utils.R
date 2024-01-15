@@ -30,7 +30,6 @@ adjust_file_path_to_current_machine <- function(file_path){
     # Recreate the file path
     goal_file_path <- paste0(parts_of_file_path, collapse = "/")
     # goal_file_path <- file.path(parts_of_file_path, fsep= "/")
-    print(goal_file_path)
     return(goal_file_path)
 
   } else {
