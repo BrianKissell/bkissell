@@ -28,8 +28,8 @@ adjust_file_path_to_current_machine <- function(file_path){
     parts_of_file_path[[3]] <- parts_of_wd[[3]]
 
     # Recreate the file path
-    # goal_file_path <- paste0(parts_of_file_path, collapse = "/")
-    goal_file_path <- file.path(parts_of_file_path, fsep= "/")
+    goal_file_path <- paste0(parts_of_file_path, collapse = "/")
+    # goal_file_path <- file.path(parts_of_file_path, fsep= "/")
     return(goal_file_path)
 
   } else {
