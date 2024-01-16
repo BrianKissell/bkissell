@@ -4,7 +4,13 @@
 \alias{process_video_data}
 \title{process_video_data}
 \usage{
-process_video_data(video_coding_docs_file_paths, text_names, numeric_names)
+process_video_data(
+  video_coding_docs_file_paths,
+  text_names,
+  numeric_names,
+  multiple_choice_variables,
+  category_variables
+)
 }
 \arguments{
 \item{video_coding_docs_file_paths}{video_coding_docs_file_paths}

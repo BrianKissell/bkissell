@@ -16,6 +16,20 @@ convert_specific_column_names_to_data_type <- function(column_name_vector, text_
 }
 
 
+create_multiple_choice_variables_for_coding_data <- function() {
+  c("visual_type", "phone_and_url_present", "type_of_text_on_screen",
+    "story_chapter", "global_variables_have_been_entered")
+}
+
+create_category_variables_for_coding_data <- function() {
+  c("direct_eye_contact_with_camera_for_any_animals_or_people",
+    "qr_code_present", "logo_present", "lower_third_present",
+    "credit_card_symbols_present", "trust_indicator_present",
+    "donor_directed_language")
+}
+
+
+
 
 #' adjust_file_path_to_current_machine
 #' This code converts any path so that it works on the current computerfor the user.
@@ -541,7 +555,7 @@ get_file_paths_and_column_data_from_excel_workbooks_list <- function(
 
 
 
-  })
+  }, text_names, numeric_names)
 
   # Return the variable
   return(file_paths_df_all_paths)
@@ -555,14 +569,14 @@ get_file_paths_and_column_data_from_excel_workbooks_list <- function(
 #' @export
 #'
 process_video_data <- function(
-    video_coding_docs_file_paths, text_names, numeric_names
+    video_coding_docs_file_paths, text_names, numeric_names, multiple_choice_variables, category_variables
 ){
 
   file_paths_df_all_paths <- bkissell::get_file_paths_and_column_data_from_excel_workbooks_list(
     video_coding_docs_file_paths, text_names, numeric_names
   )
 
-  convert_specific_column_names_to_data_type(.x, text_names, numeric_names)
+  # convert_specific_column_names_to_data_type(.x, text_names, numeric_names)
   # Read in the data
   sheet_coding_data_df_list <- purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
     sheet_coding_data <- readxl::read_excel(
@@ -600,8 +614,8 @@ process_video_data <- function(
     sheet_coding_data
   }, file_paths_df_all_paths)
 
-  multiple_choice_variables <- create_multiple_choice_variables_for_coding_data()
-  category_variables <- create_category_variables_for_coding_data()
+  # multiple_choice_variables <- create_multiple_choice_variables_for_coding_data()
+  # category_variables <- create_category_variables_for_coding_data()
 
   sheet_coding_data_df_list <- purrr::map(sheet_coding_data_df_list, ~{
     # Convert data to characters and snakecase
@@ -635,9 +649,9 @@ process_video_data <- function(
 #' @return wide_data_for_calcs
 #' @export
 #'
-prepare_data_for_calcs <- function(sheet_coding_data) {
+prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
 
-  multiple_choice_vars <- create_multiple_choice_variables_for_coding_data()
+  # multiple_choice_vars <- create_multiple_choice_variables_for_coding_data()
 
   # Prep the data
   data_for_calcs <- sheet_coding_data
