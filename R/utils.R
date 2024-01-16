@@ -785,4 +785,75 @@ prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_d
 }
 
 
+#' FULL_coding_data
+#'
+#' @return prepared_video_data
+#' @export
+#'
+FULL_coding_data <- function() {
+  # Where are the coding data files?
+  qualitative_coding_path <- "Qualitative Coding/Version 2"
+
+  # Provide all of the names to the coding worksheets
+  names_of_all_video_coding_docs <- paste0("Video_Coding_V2__", c("Ben","Brian", "Jill", "Sarah", "Talia"), ".xlsx")
+
+  # Create the paths for the copding documents
+  video_coding_docs_file_paths <- paste0(qualitative_coding_path, "/", names_of_all_video_coding_docs)
+
+  text_names = c("video_name", "section", "visual_type",
+                 "phone_and_url_present", "type_of_text_on_screen",
+                 "story_chapter", "global_variables_have_been_entered",
+                 "notes")
+
+  numeric_names = c("time_point", "direct_eye_contact_with_camera_for_any_animals_or_people",
+                    "visual_type",
+                    "qr_code_present", "logo_present",
+                    "lower_third_present", "credit_card_symbols_present",
+                    "trust_indicator_present", "donor_directed_language")
+
+  multiple_choice_variables <- c("visual_type", "phone_and_url_present", "type_of_text_on_screen",
+                                 "story_chapter", "global_variables_have_been_entered")
+
+  multiple_choice_vars <- multiple_choice_variables
+
+  category_variables <- c("direct_eye_contact_with_camera_for_any_animals_or_people",
+                          "qr_code_present", "logo_present", "lower_third_present",
+                          "credit_card_symbols_present", "trust_indicator_present",
+                          "donor_directed_language")
+
+  sheet_coding_data <- bkissell::process_video_data(
+    video_coding_docs_file_paths, text_names, numeric_names, multiple_choice_variables, category_variables)
+
+
+  data_for_calcs_wide <- bkissell::prepare_data_for_calcs(
+    sheet_coding_data,
+    multiple_choice_vars
+  )
+
+  # Remove the Section 00 videos as it means that it was not coded
+  data_for_calcs_wide <- data_for_calcs_wide %>%
+    dplyr::filter(section_label != "Section 00")
+
+  wide_column_names <- data_for_calcs_wide %>% names()
+
+  filter_out <- !(wide_column_names %in% c("time_point", "section_label", "video_name", "section", "coded_by", "notes", "duration_of_video", "global_variables_have_been_entered__yes", multiple_choice_vars))
+
+  all_vars_to_count_duration <- wide_column_names[filter_out]
+
+  # Calculate the first occurence data
+  prepared_first_occurence_data <- bkissell::prepare_first_occurrence_data(data_for_calcs_wide, all_vars_to_count_duration)
+
+  # Calculate the video duration data
+  prepared_video_duration_data <- bkissell::prepare_video_duration_data(data_for_calcs_wide, all_vars_to_count_duration)
+
+  # Combine the the two video data types
+  prepared_video_data <- prepared_video_duration_data  %>%
+    dplyr::left_join(prepared_first_occurence_data, by = "video_name")
+
+  # Round out the seconds
+  prepared_video_data$total_seconds_duration <- prepared_video_data$total_seconds_duration %>% round(0)
+
+  return(prepared_video_data)
+}
+
 
