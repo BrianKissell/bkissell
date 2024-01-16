@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{obtain_column_name_paths_for_all_survey_versions}
 \alias{obtain_column_name_paths_for_all_survey_versions}
-\title{obtain_column_name_paths_for_all_survey_versions}
+\title{Obtain column name paths for all survey versions}
 \usage{
 obtain_column_name_paths_for_all_survey_versions(version_directories)
 }
@@ -13,5 +13,5 @@ obtain_column_name_paths_for_all_survey_versions(version_directories)
 version_column_names_paths
 }
 \description{
-obtain_column_name_paths_for_all_survey_versions
+Obtain column name paths for all survey versions
 }

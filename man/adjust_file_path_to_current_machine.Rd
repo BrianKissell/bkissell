@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{adjust_file_path_to_current_machine}
 \alias{adjust_file_path_to_current_machine}
-\title{adjust_file_path_to_current_machine
+\title{Adjust file path to current machine
 This code converts any path so that it works on the current computerfor the user.}
 \usage{
 adjust_file_path_to_current_machine(file_path)
@@ -14,6 +14,6 @@ adjust_file_path_to_current_machine(file_path)
 goal_file_path
 }
 \description{
-adjust_file_path_to_current_machine
+Adjust file path to current machine
 This code converts any path so that it works on the current computerfor the user.
 }

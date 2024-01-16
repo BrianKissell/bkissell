@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{obtain_newest_file_per_directory}
 \alias{obtain_newest_file_per_directory}
-\title{obtain_newest_file_per_directory}
+\title{For every directory, obtain the newest file}
 \usage{
 obtain_newest_file_per_directory(
   version_directories,
@@ -12,10 +12,14 @@ obtain_newest_file_per_directory(
 }
 \arguments{
 \item{version_directories}{version_directories}
+
+\item{file_ext}{file_ext}
+
+\item{format_pattern}{format_pattern}
 }
 \value{
 newest_files_for_project
 }
 \description{
-obtain_newest_file_per_directory
+For every directory, obtain the newest file
 }

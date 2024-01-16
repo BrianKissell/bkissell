@@ -1,37 +1,37 @@
-#' convert_specific_column_names_to_data_type
+#' Create a vector of data types based on column names
 #'
-#' @param column_name_vector column_name_vector
-#' @param text_names text_names
-#' @param numeric_names numeric_names
+#' @param column_name_vector Column names vector for the dataframe
+#' @param text_names Which column names should be labeled as text?
+#' @param numeric_names Which column names should be labeled as numeric?
 #'
 #' @return data_types
 #' @export
 #'
 convert_specific_column_names_to_data_type <- function(column_name_vector, text_names, numeric_names) {
   data_types <- dplyr::case_when(
-    column_name_vector %in%  text_names ~ "text",
-    column_name_vector %in%  numeric_names ~ "numeric"
+    column_name_vector %in% text_names ~ "text",
+    column_name_vector %in% numeric_names ~ "numeric"
   )
   return(data_types)
 }
 
-
-create_multiple_choice_variables_for_coding_data <- function() {
-  c("visual_type", "phone_and_url_present", "type_of_text_on_screen",
-    "story_chapter", "global_variables_have_been_entered")
-}
-
-create_category_variables_for_coding_data <- function() {
-  c("direct_eye_contact_with_camera_for_any_animals_or_people",
-    "qr_code_present", "logo_present", "lower_third_present",
-    "credit_card_symbols_present", "trust_indicator_present",
-    "donor_directed_language")
-}
-
-
+#
+# create_multiple_choice_variables_for_coding_data <- function() {
+#   c("visual_type", "phone_and_url_present", "type_of_text_on_screen",
+#     "story_chapter", "global_variables_have_been_entered")
+# }
+#
+# create_category_variables_for_coding_data <- function() {
+#   c("direct_eye_contact_with_camera_for_any_animals_or_people",
+#     "qr_code_present", "logo_present", "lower_third_present",
+#     "credit_card_symbols_present", "trust_indicator_present",
+#     "donor_directed_language")
+# }
 
 
-#' adjust_file_path_to_current_machine
+
+
+#' Adjust file path to current machine
 #' This code converts any path so that it works on the current computerfor the user.
 #'
 #' @param file_path file_path
@@ -73,7 +73,7 @@ adjust_file_path_to_current_machine <- function(file_path){
 }
 
 
-#' prepare_version_directory_paths
+#' Prepare survey version directory paths
 #'
 #' @param survey_directory_path path to the surveymonkeydata folder
 #'
@@ -109,7 +109,7 @@ prepare_version_directory_paths <- function(survey_directory_path){
   return(version_directories)
 }
 
-#' FILES_find_newest_file
+#' Find the newest file from a directory
 #' Function to take a path to a directory, and then it provides the most recent version of the file
 #'
 #' @param directory directory
@@ -180,11 +180,11 @@ FILES_find_newest_file <- function(directory, file_type = ".csv", format_pattern
   return(newest_file)
 }
 
-
-
-#' obtain_newest_file_per_directory
+#' For every directory, obtain the newest file
 #'
 #' @param version_directories version_directories
+#' @param file_ext file_ext
+#' @param format_pattern format_pattern
 #'
 #' @return newest_files_for_project
 #' @export
@@ -208,7 +208,7 @@ obtain_newest_file_per_directory <- function(version_directories, file_ext = ".z
   return(newest_files_for_project)
 }
 
-#' obtain_column_name_paths_for_all_survey_versions
+#' Obtain column name paths for all survey versions
 #'
 #' @param version_directories version_directories
 #'
@@ -234,11 +234,11 @@ obtain_column_name_paths_for_all_survey_versions <- function(version_directories
 #' @export
 #'
 obtain_initial_column_names_for_version <- function(version_column_names_paths, the_column_names_file_exists) {
-
+  # Initiate a list for column names
   list_of_column_name_parameters <- list()
 
+  # Loop through all paths, read in data, and grab the names
   for(i in seq_along(version_column_names_paths)) {
-
     if(the_column_names_file_exists[[i]]){
       #  Create a vector with the column names
       column_names <- version_column_names_paths[[i]] %>%
@@ -251,13 +251,15 @@ obtain_initial_column_names_for_version <- function(version_column_names_paths, 
       column_names <- TRUE
     }
 
+    # Add the new list to the initiated list
     list_of_column_name_parameters <- append(list_of_column_name_parameters, column_names)
   }
 
+  # Return the object
   return(list_of_column_name_parameters)
 }
 
-#' obtain_connection_to_zip_files_for_versions
+#' Obtain connection to zip files for versions
 #'
 #' @param newest_files_for_project newest_files_for_project
 #'
@@ -553,8 +555,6 @@ get_file_paths_and_column_data_from_excel_workbooks_list <- function(
   file_paths_df_all_paths$column_types_list <- purrr::map(all_column_names_list, ~{
     convert_specific_column_names_to_data_type(.x, text_names, numeric_names)
 
-
-
   }, text_names, numeric_names)
 
   # Return the variable
@@ -760,6 +760,7 @@ prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count
 #' @param all_vars_to_count_duration all_vars_to_count_duration
 #'
 #' @return prepared_video_duration_data
+#' @export
 #'
 prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_duration) {
 

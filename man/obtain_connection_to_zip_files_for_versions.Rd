@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{obtain_connection_to_zip_files_for_versions}
 \alias{obtain_connection_to_zip_files_for_versions}
-\title{obtain_connection_to_zip_files_for_versions}
+\title{Obtain connection to zip files for versions}
 \usage{
 obtain_connection_to_zip_files_for_versions(newest_files_for_project)
 }
@@ -13,5 +13,5 @@ obtain_connection_to_zip_files_for_versions(newest_files_for_project)
 connection_to_zip_files
 }
 \description{
-obtain_connection_to_zip_files_for_versions
+Obtain connection to zip files for versions
 }

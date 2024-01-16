@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{prepare_version_directory_paths}
 \alias{prepare_version_directory_paths}
-\title{prepare_version_directory_paths}
+\title{Prepare survey version directory paths}
 \usage{
 prepare_version_directory_paths(survey_directory_path)
 }
@@ -13,5 +13,5 @@ prepare_version_directory_paths(survey_directory_path)
 version_directories
 }
 \description{
-prepare_version_directory_paths
+Prepare survey version directory paths
 }

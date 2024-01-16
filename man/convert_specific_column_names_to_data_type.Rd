@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{convert_specific_column_names_to_data_type}
 \alias{convert_specific_column_names_to_data_type}
-\title{convert_specific_column_names_to_data_type}
+\title{Create a vector of data types based on column names}
 \usage{
 convert_specific_column_names_to_data_type(
   column_name_vector,
@@ -11,15 +11,15 @@ convert_specific_column_names_to_data_type(
 )
 }
 \arguments{
-\item{column_name_vector}{column_name_vector}
+\item{column_name_vector}{Column names vector for the dataframe}
 
-\item{text_names}{text_names}
+\item{text_names}{Which column names should be labeled as text?}
 
-\item{numeric_names}{numeric_names}
+\item{numeric_names}{Which column names should be labeled as numeric?}
 }
 \value{
 data_types
 }
 \description{
-convert_specific_column_names_to_data_type
+Create a vector of data types based on column names
 }

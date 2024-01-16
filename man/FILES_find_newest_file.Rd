@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{FILES_find_newest_file}
 \alias{FILES_find_newest_file}
-\title{FILES_find_newest_file
+\title{Find the newest file from a directory
 Function to take a path to a directory, and then it provides the most recent version of the file}
 \usage{
 FILES_find_newest_file(
@@ -25,6 +25,6 @@ FILES_find_newest_file(
 newest_file
 }
 \description{
-FILES_find_newest_file
+Find the newest file from a directory
 Function to take a path to a directory, and then it provides the most recent version of the file
 }
