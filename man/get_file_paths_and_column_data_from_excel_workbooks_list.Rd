@@ -12,6 +12,10 @@ get_file_paths_and_column_data_from_excel_workbooks_list(
 }
 \arguments{
 \item{video_coding_docs_file_paths}{video_coding_docs_file_paths}
+
+\item{text_names}{text_names}
+
+\item{numeric_names}{numeric_names}
 }
 \value{
 file_paths_df_all_paths

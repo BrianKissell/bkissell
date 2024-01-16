@@ -364,7 +364,7 @@ if_no_csv_for_colnames_make_one <- function(
 
 #' read_survey_data
 #'
-#' @param survey_monkey_raw_data_path
+#' @param survey_monkey_raw_data_path survey_monkey_raw_data_path
 #'
 #' @return survey_data_list
 #' @export
@@ -535,6 +535,8 @@ get_initial_read_data_from_excel_workbooks_with_converted_columns <- function(
 #' get_file_paths_and_column_data_from_excel_workbooks_list
 #'
 #' @param video_coding_docs_file_paths video_coding_docs_file_paths
+#' @param text_names text_names
+#' @param numeric_names numeric_names
 #'
 #' @return file_paths_df_all_paths
 #' @export
@@ -564,6 +566,10 @@ get_file_paths_and_column_data_from_excel_workbooks_list <- function(
 #' process_video_data
 #'
 #' @param video_coding_docs_file_paths video_coding_docs_file_paths
+#' @param text_names text_names
+#' @param numeric_names numeric_names
+#' @param multiple_choice_variables multiple_choice_variables
+#' @param category_variables category_variables
 #'
 #' @return sheet_coding_data_df
 #' @export
@@ -645,8 +651,10 @@ process_video_data <- function(
 #' prepare_data_for_calcs
 #'
 #' @param sheet_coding_data sheet_coding_data created with `process_video_data`
+#' @param multiple_choice_vars multiple_choice_vars
 #'
 #' @return wide_data_for_calcs
+#' @import dplyr
 #' @export
 #'
 prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
@@ -674,7 +682,7 @@ prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
         names_glue = paste0({{mc_var_name}}, "__{.name}"),
         values_from = .data[["element_present"]]
       ) %>%
-      dplyr::mutate(across(starts_with(paste0({{mc_var_name}}, "__")), ~tidyr::replace_na(.x, 0)))
+      dplyr::mutate(dplyr::across(tidyselect::starts_with(paste0({{mc_var_name}}, "__")), ~tidyr::replace_na(.x, 0)))
 
     # Return the table
     return(mc_data_for_calcs)
@@ -747,7 +755,7 @@ prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count
     video_names_df %>%
       dplyr::left_join(new_var_for_df, by = "video_name") %>%
       dplyr::select(-"video_name")
-  }, wide_data_for_calcs, video_names_df)
+  }, data_for_calcs_wide, video_names_df)
 
   prepared_first_occurence_data <- cbind(video_names_df, df_for_new_vars)
 
@@ -760,6 +768,7 @@ prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count
 #' @param all_vars_to_count_duration all_vars_to_count_duration
 #'
 #' @return prepared_video_duration_data
+#' @import dplyr
 #' @export
 #'
 prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_duration) {
@@ -772,12 +781,12 @@ prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_d
       across(all_of(all_vars_to_count_duration), ~sum(.x) * 3, .names = "duration_of_{.col}"), .groups = "drop")
 
   prepared_video_duration_data <- section_duration_df %>%
-    dplyr::group_by(video_name) %>%
+    dplyr::group_by(.data[["video_name"]]) %>%
     dplyr::summarize(
       n_sections = n(),
-      mean_section_seconds_duration = mean(ms_duration, na.rm = TRUE) / 90 %>% round(2),
-      sd_section_seconds_duration = sd(ms_duration, na.rm = TRUE) / 90 %>% round(2),
-      total_seconds_duration = sum(ms_duration, na.rm = TRUE) / 90  %>% round(2),
+      mean_section_seconds_duration = base::mean(.data[["ms_duration"]], na.rm = TRUE) / 90 %>% round(2),
+      sd_section_seconds_duration = stats::sd(.data[["ms_duration"]], na.rm = TRUE) / 90 %>% round(2),
+      total_seconds_duration = sum(.data[["ms_duration"]], na.rm = TRUE) / 90  %>% round(2),
       across(starts_with("duration_of_"), ~ sum(.x, na.rm = TRUE) / 90 %>% round(2), .names = "sum_of_seconds_{.col}")
     )
 
@@ -832,7 +841,7 @@ FULL_coding_data <- function() {
 
   # Remove the Section 00 videos as it means that it was not coded
   data_for_calcs_wide <- data_for_calcs_wide %>%
-    dplyr::filter(section_label != "Section 00")
+    dplyr::filter(.data[["section_label"]] != "Section 00")
 
   wide_column_names <- data_for_calcs_wide %>% names()
 
@@ -840,7 +849,6 @@ FULL_coding_data <- function() {
 
   all_vars_to_count_duration <- wide_column_names[filter_out]
 
-  # Calculate the first occurence data
   prepared_first_occurence_data <- bkissell::prepare_first_occurrence_data(data_for_calcs_wide, all_vars_to_count_duration)
 
   # Calculate the video duration data

@@ -14,6 +14,14 @@ process_video_data(
 }
 \arguments{
 \item{video_coding_docs_file_paths}{video_coding_docs_file_paths}
+
+\item{text_names}{text_names}
+
+\item{numeric_names}{numeric_names}
+
+\item{multiple_choice_variables}{multiple_choice_variables}
+
+\item{category_variables}{category_variables}
 }
 \value{
 sheet_coding_data_df

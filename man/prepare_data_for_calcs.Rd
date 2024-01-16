@@ -8,6 +8,8 @@ prepare_data_for_calcs(sheet_coding_data, multiple_choice_vars)
 }
 \arguments{
 \item{sheet_coding_data}{sheet_coding_data created with `process_video_data`}
+
+\item{multiple_choice_vars}{multiple_choice_vars}
 }
 \value{
 wide_data_for_calcs

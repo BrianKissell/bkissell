@@ -7,7 +7,7 @@
 read_survey_data(survey_monkey_raw_data_path)
 }
 \arguments{
-\item{survey_monkey_raw_data_path}{}
+\item{survey_monkey_raw_data_path}{survey_monkey_raw_data_path}
 }
 \value{
 survey_data_list
