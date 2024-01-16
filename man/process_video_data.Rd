@@ -4,7 +4,7 @@
 \alias{process_video_data}
 \title{process_video_data}
 \usage{
-process_video_data(video_coding_docs_file_paths)
+process_video_data(video_coding_docs_file_paths, text_names, numeric_names)
 }
 \arguments{
 \item{video_coding_docs_file_paths}{video_coding_docs_file_paths}

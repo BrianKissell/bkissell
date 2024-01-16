@@ -2,6 +2,7 @@
 
 export(FILES_find_newest_file)
 export(adjust_file_path_to_current_machine)
+export(convert_specific_column_names_to_data_type)
 export(get_file_paths_and_column_data_from_excel_workbooks_list)
 export(get_file_paths_from_excel_workbooks_df)
 export(get_file_paths_from_excel_workbooks_df_all_paths)

@@ -5,7 +5,9 @@
 \title{get_file_paths_and_column_data_from_excel_workbooks_list}
 \usage{
 get_file_paths_and_column_data_from_excel_workbooks_list(
-  video_coding_docs_file_paths
+  video_coding_docs_file_paths,
+  text_names,
+  numeric_names
 )
 }
 \arguments{

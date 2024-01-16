@@ -1,3 +1,22 @@
+#' convert_specific_column_names_to_data_type
+#'
+#' @param column_name_vector column_name_vector
+#' @param text_names text_names
+#' @param numeric_names numeric_names
+#'
+#' @return data_types
+#' @export
+#'
+convert_specific_column_names_to_data_type <- function(column_name_vector, text_names, numeric_names) {
+  data_types <- dplyr::case_when(
+    column_name_vector %in%  text_names ~ "text",
+    column_name_vector %in%  numeric_names ~ "numeric"
+  )
+  return(data_types)
+}
+
+
+
 #' adjust_file_path_to_current_machine
 #' This code converts any path so that it works on the current computerfor the user.
 #'
@@ -505,7 +524,7 @@ get_initial_read_data_from_excel_workbooks_with_converted_columns <- function(
 #' @export
 #'
 get_file_paths_and_column_data_from_excel_workbooks_list <- function(
-    video_coding_docs_file_paths
+    video_coding_docs_file_paths, text_names, numeric_names
 ){
 
   file_paths_df_all_paths <- bkissell::get_file_paths_from_excel_workbooks_df_all_paths(video_coding_docs_file_paths)
@@ -518,7 +537,10 @@ get_file_paths_and_column_data_from_excel_workbooks_list <- function(
   file_paths_df_all_paths$column_names_list <- all_column_names_list
 
   file_paths_df_all_paths$column_types_list <- purrr::map(all_column_names_list, ~{
-    convert_specific_column_names_to_data_type(.x)
+    convert_specific_column_names_to_data_type(.x, text_names, numeric_names)
+
+
+
   })
 
   # Return the variable
@@ -533,13 +555,14 @@ get_file_paths_and_column_data_from_excel_workbooks_list <- function(
 #' @export
 #'
 process_video_data <- function(
-    video_coding_docs_file_paths
+    video_coding_docs_file_paths, text_names, numeric_names
 ){
 
   file_paths_df_all_paths <- bkissell::get_file_paths_and_column_data_from_excel_workbooks_list(
-    video_coding_docs_file_paths
+    video_coding_docs_file_paths, text_names, numeric_names
   )
 
+  convert_specific_column_names_to_data_type(.x, text_names, numeric_names)
   # Read in the data
   sheet_coding_data_df_list <- purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
     sheet_coding_data <- readxl::read_excel(
