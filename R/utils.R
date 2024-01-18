@@ -81,11 +81,11 @@ adjust_file_path_to_current_machine <- function(file_path){
 #' @export
 #'
 prepare_version_directory_paths <- function(survey_directory_path){
-  # Adjust path to be correct no matter what computer is being used
-  survey_data_raw_directory <- bkissell::adjust_file_path_to_current_machine(survey_directory_path)
+  # # Adjust path to be correct no matter what computer is being used
+  # survey_data_raw_directory <- bkissell::adjust_file_path_to_current_machine(survey_directory_path)
 
   # Get the file names that are provided in this directory
-  survey_data_raw_directory_filenames <- survey_data_raw_directory %>%
+  survey_data_raw_directory_filenames <- survey_directory_path %>%
     list.files()
 
   # Test whether each file is a directory or not (This folder should only have
@@ -102,7 +102,7 @@ prepare_version_directory_paths <- function(survey_directory_path){
   version_names <- version_names[version_names != "processed_data"]
 
   # Create paths for each version directory
-  version_directories <- survey_data_raw_directory %>%
+  version_directories <- survey_directory_path %>%
     paste0("/", version_names)
 
   # Return version directories
@@ -362,16 +362,29 @@ if_no_csv_for_colnames_make_one <- function(
 }
 
 
-#' read_survey_data
+#' read_survey_monkey_data
 #'
-#' @param survey_monkey_raw_data_path survey_monkey_raw_data_path
+#' @param man_wd man_wd
+#' @param file_part__sm_raw_folder file_part__sm_raw_folder
 #'
 #' @return survey_data_list
 #' @export
 #'
-read_survey_data <- function(survey_monkey_raw_data_path){
+read_survey_monkey_data <- function(
+    man_wd = NULL,
+    file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data"
+    ){
+
+  # If a manual working directory is provided,
+  if(!is.null(man_wd)) {
+    # Save current working directory
+    current_wd <- getwd()
+    # Change the working directory
+    setwd(man_wd)
+  }
+
   # Create Version Directories
-  version_directories <- bkissell::prepare_version_directory_paths(survey_monkey_raw_data_path)
+  version_directories <- bkissell::prepare_version_directory_paths({{file_part__sm_raw_folder}})
 
   # Obtain the newest version from each directory
   newest_files_for_project <- bkissell::obtain_newest_file_per_directory(version_directories)
@@ -388,9 +401,12 @@ read_survey_data <- function(survey_monkey_raw_data_path){
     the_column_names_file_exists
   )
 
+  # Prepare to read in the zip files
   directory_path_for_versions <- dirname(newest_files_for_project)
   file_name <- basename(newest_files_for_project)
-  current_wd <- getwd()
+  return_wd <- getwd()
+
+  # Temporarily adjust the working directory
   setwd(directory_path_for_versions)
 
   # Create Connection to zip files
@@ -399,7 +415,8 @@ read_survey_data <- function(survey_monkey_raw_data_path){
   # Read in data stored in the the csv
   survey_data_list <- bkissell::read_csv_in_zip(connection_to_zip_files, initial_column_names_for_version)
 
-  setwd(current_wd)
+  # Change the working directory back
+  setwd(return_wd)
 
   # Stop the program if column files do not exist.
   bkissell::if_no_csv_for_colnames_make_one(
@@ -408,34 +425,23 @@ read_survey_data <- function(survey_monkey_raw_data_path){
     version_column_names_paths
   )
 
+  # What are the version names
   version_name <- basename(version_directories)
 
+  # Add the version names to the data frames
   survey_data_list <- purrr::map2(survey_data_list, version_name, ~{
     data_frame <- .x
     data_frame$version_name <- .y
     data_frame
   })
 
-  # survey_data_list <- purrr::map(survey_data_list, ~{
-  #   df <- .x
-  #
-  #   df$RID
-  #   #
-  #   # df$RID <- df$respondent_id
-  #   #
-  #   # return(df)
-  # })
-
+  # Name the dfs with the version names
   survey_data_list <- survey_data_list %>% purrr::set_names(version_name)
-  # # If you indicate that the columns of the versions must match, then it throws an error if they do not, otherwise it combines the data.
-  # # If you indicate that the columns do not need to match, it just combines them and labels the missing columns as NA.
-  # survey_data <- process_version_columns_must_match(version_columns_must_match = version_columns_must_match, df_list = survey_data_list)
-  #
-  # survey_data$version_names <- version_names
-  #
-  # if(is.null(survey_data$RID)) {
-  #   survey_data$RID <- survey_data$respondent_id
-  # }
+
+  # If a manual working directory is provided, reset to original
+  if(!is.null(man_wd)) {
+    setwd(current_wd)
+  }
 
   # Return the df
   return(survey_data_list)
@@ -869,6 +875,7 @@ FULL_qualitative_coding_data <- function(
   text_names = {text_names}
   numeric_names = {numeric_names}
   multiple_choice_variables <- {multiple_choice_variables}
+  multiple_choice_vars <- multiple_choice_variables
   category_variables <- {category_variables}
 
   # Process the video coding data
