@@ -1,7 +1,9 @@
 # currentwd <- getwd()
 # setwd("C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/Research and Development/00 Jobs/2024/003_RD_CodingVideoContent")
 #
-# prepared_video_data <- FULL_coding_data()
+# prepared_video_data <- FULL_qualitative_coding_data(
+# man_wd = "C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/Research and Development/00 Jobs/2024/003_RD_CodingVideoContent"
+# )
 #
 #
 #
