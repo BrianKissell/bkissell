@@ -3,6 +3,7 @@
 export(FILES_find_newest_file)
 export(FULL_coding_data)
 export(adjust_file_path_to_current_machine)
+export(combine_file_string_with_time)
 export(convert_specific_column_names_to_data_type)
 export(get_file_paths_and_column_data_from_excel_workbooks_list)
 export(get_file_paths_from_excel_workbooks_df)

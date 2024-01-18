@@ -865,3 +865,39 @@ FULL_coding_data <- function() {
 }
 
 
+#' combine_file_string_with_time
+#' Function to take in a string, and then add the data and time to it
+#'
+#' @param file_string file_string
+#'
+#' @return combined_string
+#' @export
+#'
+combine_file_string_with_time <- function(file_string){
+
+  # Assume there is no extention
+  ext <- NULL
+
+  # Check for extention
+  if(stringr::str_detect(file_string, "\\.")) {
+
+    # Isolate it from the string
+    ext <- stringr::str_extract(file_string, "\\..+$")
+    file_string <- stringr::str_replace(file_string, ext, "")
+  }
+
+  # Create the date time string
+  date_time_as_string <- Sys.time() %>%
+    stringr::str_replace_all("-| |:", "_")
+
+  # Combine date time string with the file string
+  combined_string <- paste0(file_string, "_", date_time_as_string)
+
+  # If there is an extention, add it back to the string
+  if(!is.null(ext)){
+    combined_string <- paste0(combined_string, ext)
+  }
+
+  # Return the new string
+  return(combined_string)
+}
