@@ -883,7 +883,7 @@ FULL_qualitative_coding_data <- function(
   # Convert the data to the wide format
   data_for_calcs_wide <- bkissell::prepare_data_for_calcs(
     sheet_coding_data,
-    multiple_choice_vars
+    multiple_choice_variables
   )
 
   if(remove_empty_sheets == TRUE) {
