@@ -1000,10 +1000,13 @@ combine_file_string_with_time <- function(file_string){
 FULL_global_coding <- function(
     man_wd = NULL,
     file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data",
-    teams_wd = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Documents/Content Evaluation - Global Coding -",
-    Global_Coding_REFERENCE_file_path = "Global_Coding_REFERENCE.xlsx",
-    Global_Coding_CHANGE_LOG_file_path = "Global_Coding_CHANGE_LOG.xlsx"
+    Global_Coding_REFERENCE_file_path = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_REFERENCE.xlsx",
+    Global_Coding_CHANGE_LOG_file_path = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_CHANGE_LOG.xlsx"
 ) {
+
+  Global_Coding_REFERENCE_file_path %>% file.remove()
+
+  Sys.sleep(5)
 
   # Read in the data from survey monkey
   survey_monkey_data <- bkissell::read_survey_monkey_data(
@@ -1034,16 +1037,16 @@ FULL_global_coding <- function(
 
   #### Update Global Variables with Editable - Survey Monkey
 
-
+  # If a manual working directory is provided,
+  if(!is.null(man_wd)) {
     # Save current working directory
     current_wd <- getwd()
     # Change the working directory
-    setwd(teams_wd)
+    setwd(man_wd)
+  }
 
   # Read in the editable file
   Global_Coding_REFERENCE <- survey_monkey_data
-    # readxl::read_excel(Global_Coding_REFERENCE_file_path) %>%
-    # dplyr::filter(!is.na(.data[["respondent_id"]]))
 
   Global_Coding_CHANGE_LOG <- readxl::read_excel(Global_Coding_CHANGE_LOG_file_path, "Change Log")  %>%
     dplyr::filter(!is.na(.data[["respondent_id"]]))
@@ -1067,7 +1070,9 @@ FULL_global_coding <- function(
   writexl::write_xlsx(Global_Coding_REFERENCE, Global_Coding_REFERENCE_file_path)
 
   # If a manual working directory is provided, reset to original
+  if(!is.null(man_wd)) {
     setwd(current_wd)
+  }
 
   # Return the object
   return(Global_Coding_REFERENCE)
