@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{FULL_global_coding}
 \alias{FULL_global_coding}
-\title{FULL_global_coding}
+\title{Fully read and process the global coding data.}
 \usage{
 FULL_global_coding(
   man_wd = NULL,
@@ -38,5 +38,5 @@ FULL_global_coding(
 global_coding_to_save
 }
 \description{
-FULL_global_coding
+Fully read and process the global coding data.
 }

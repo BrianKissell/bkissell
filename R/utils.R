@@ -978,7 +978,7 @@ combine_file_string_with_time <- function(file_string){
 
 
 
-#' FULL_global_coding
+#' Fully read and process the global coding data.
 #'
 #' @param man_wd man_wd
 #' @param file_part__sm_raw_folder file_part__sm_raw_folder
