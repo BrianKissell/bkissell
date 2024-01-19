@@ -20,6 +20,26 @@ FULL_qualitative_coding_data(
 }
 \arguments{
 \item{man_wd}{use to add a custom working directory}
+
+\item{folder_location__qualitative_coding}{folder_location__qualitative_coding}
+
+\item{file_part__initial_name_qual_coding}{file_part__initial_name_qual_coding}
+
+\item{coder_names}{coder_names}
+
+\item{ext__initial_name_qual_coding}{ext__initial_name_qual_coding}
+
+\item{text_names}{text_names}
+
+\item{numeric_names}{numeric_names}
+
+\item{multiple_choice_variables}{multiple_choice_variables}
+
+\item{category_variables}{category_variables}
+
+\item{remove_empty_sheets}{remove_empty_sheets}
+
+\item{other_vars_that_should_not_be_counted}{other_vars_that_should_not_be_counted}
 }
 \value{
 prepared_video_data

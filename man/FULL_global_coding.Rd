@@ -7,16 +7,10 @@
 FULL_global_coding(
   man_wd = NULL,
   file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data",
-  global_coding_file_path =
-    "Qualitative Coding/Version 2/global_variables/Global_Coding_USE_TO_EDIT_RESPONSES.xlsx",
-  backup_for_combined_data_folder_path =
-    "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_combined_data",
-  backup_for_editable_data_folder_path =
-    "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_editable_data",
-  backup_for_raw_data_folder_path =
-    "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_raw_data",
-  backup_for_data_to_add_folder_path =
-    "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_data_to_add"
+  Global_Coding_REFERENCE_file_path =
+    "Qualitative Coding/Version 2/global_variables/Global_Coding_REFERENCE.xlsx",
+  Global_Coding_CHANGE_LOG_file_path =
+    "Qualitative Coding/Version 2/global_variables/Global_Coding_CHANGE_LOG.xlsx"
 )
 }
 \arguments{
@@ -24,15 +18,9 @@ FULL_global_coding(
 
 \item{file_part__sm_raw_folder}{file_part__sm_raw_folder}
 
-\item{global_coding_file_path}{global_coding_file_path}
+\item{Global_Coding_REFERENCE_file_path}{Global_Coding_REFERENCE_file_path}
 
-\item{backup_for_combined_data_folder_path}{backup_for_combined_data_folder_path}
-
-\item{backup_for_editable_data_folder_path}{backup_for_editable_data_folder_path}
-
-\item{backup_for_raw_data_folder_path}{backup_for_raw_data_folder_path}
-
-\item{backup_for_data_to_add_folder_path}{backup_for_data_to_add_folder_path}
+\item{Global_Coding_CHANGE_LOG_file_path}{Global_Coding_CHANGE_LOG_file_path}
 }
 \value{
 global_coding_to_save

@@ -828,6 +828,16 @@ prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_d
 #' FULL_qualitative_coding_data
 #'
 #' @param man_wd use to add a custom working directory
+#' @param folder_location__qualitative_coding folder_location__qualitative_coding
+#' @param file_part__initial_name_qual_coding file_part__initial_name_qual_coding
+#' @param coder_names coder_names
+#' @param ext__initial_name_qual_coding ext__initial_name_qual_coding
+#' @param text_names text_names
+#' @param numeric_names numeric_names
+#' @param multiple_choice_variables multiple_choice_variables
+#' @param category_variables category_variables
+#' @param remove_empty_sheets remove_empty_sheets
+#' @param other_vars_that_should_not_be_counted other_vars_that_should_not_be_counted
 #'
 #' @return prepared_video_data
 #' @export
@@ -981,12 +991,9 @@ combine_file_string_with_time <- function(file_string){
 #' Fully read and process the global coding data.
 #'
 #' @param man_wd man_wd
+#' @param Global_Coding_REFERENCE_file_path Global_Coding_REFERENCE_file_path
+#' @param Global_Coding_CHANGE_LOG_file_path Global_Coding_CHANGE_LOG_file_path
 #' @param file_part__sm_raw_folder file_part__sm_raw_folder
-#' @param global_coding_file_path global_coding_file_path
-#' @param backup_for_combined_data_folder_path backup_for_combined_data_folder_path
-#' @param backup_for_editable_data_folder_path backup_for_editable_data_folder_path
-#' @param backup_for_raw_data_folder_path backup_for_raw_data_folder_path
-#' @param backup_for_data_to_add_folder_path backup_for_data_to_add_folder_path
 #'
 #' @return global_coding_to_save
 #' @export
@@ -994,11 +1001,8 @@ combine_file_string_with_time <- function(file_string){
 FULL_global_coding <- function(
     man_wd = NULL,
     file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data",
-    global_coding_file_path = "Qualitative Coding/Version 2/global_variables/Global_Coding_USE_TO_EDIT_RESPONSES.xlsx",
-    backup_for_combined_data_folder_path = "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_combined_data",
-    backup_for_editable_data_folder_path = "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_editable_data",
-    backup_for_raw_data_folder_path = "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_raw_data",
-    backup_for_data_to_add_folder_path = "Qualitative Coding/Version 2/global_variables/backup_files/backup_for_data_to_add"
+    Global_Coding_REFERENCE_file_path = "Qualitative Coding/Version 2/global_variables/Global_Coding_REFERENCE.xlsx",
+    Global_Coding_CHANGE_LOG_file_path = "Qualitative Coding/Version 2/global_variables/Global_Coding_CHANGE_LOG.xlsx"
 ) {
 
   # Read in the data from survey monkey
@@ -1030,49 +1034,45 @@ FULL_global_coding <- function(
 
   #### Update Global Variables with Editable - Survey Monkey
 
-  global_coding_file_path <- {{global_coding_file_path}}
-
-  # Read in the editable file
-  global_coding_for_editing <- readxl::read_excel(global_coding_file_path)
-
-  # Remove NAs from the respondent id column
-  global_coding_for_editing <- global_coding_for_editing %>% dplyr::filter(!is.na(respondent_id))
-
-  # For the add file, remove the columns from the survey monkey data that already exist in the editable file
-  global_coding_to_add <- survey_monkey_data %>%
-    dplyr::filter(!(.data[["respondent_id"]] %in% global_coding_for_editing$respondent_id))
-
-  # Decide which files to use in differing circumstances
-  if(nrow(global_coding_to_add) == 0 & nrow(global_coding_for_editing) == 0) {
-    # If nothing exists, default to the editable file
-    global_coding_to_save <- global_coding_for_editing
-  } else if(nrow(global_coding_for_editing) == 0 & nrow(global_coding_to_add) > 0) {
-    # If only data exists in the data to add, use that
-    global_coding_to_save <- global_coding_to_add
-  } else if (nrow(global_coding_for_editing) > 0 & nrow(global_coding_to_add) == 0) {
-    # If data only exists in the editable data, use that
-    global_coding_to_save <- global_coding_for_editing
-  } else if (nrow(global_coding_for_editing) > 0 & nrow(global_coding_to_add) > 0) {
-    # Otherwise, add the two data sets together
-    global_coding_to_save <- global_coding_for_editing %>%
-      rbind(global_coding_to_add)
+  # If a manual working directory is provided,
+  if(!is.null(man_wd)) {
+    # Save current working directory
+    current_wd <- getwd()
+    # Change the working directory
+    setwd(man_wd)
   }
 
+
+  # Read in the editable file
+  Global_Coding_REFERENCE <- readxl::read_excel(Global_Coding_REFERENCE_file_path) %>%
+    dplyr::filter(!is.na(respondent_id))
+
+  Global_Coding_CHANGE_LOG <- readxl::read_excel(Global_Coding_CHANGE_LOG_file_path, "Change Log")  %>%
+    dplyr::filter(!is.na(respondent_id))
+
+  purrr::walk(seq_along(Global_Coding_CHANGE_LOG[[1]]), ~{
+    CHANGE_LOG_respondent_id <- Global_Coding_CHANGE_LOG[.x,][["respondent_id"]]
+    CHANGE_LOG_video_name <- Global_Coding_CHANGE_LOG[.x,][["video_name"]]
+    CHANGE_LOG_Column_to_edit <- Global_Coding_CHANGE_LOG[.x,][["column_being_edited"]]
+    CHANGE_LOG_correct_value <- Global_Coding_CHANGE_LOG[.x,][["correct_value"]]
+
+    row_to_change <- Global_Coding_REFERENCE[["respondent_id"]] == {{CHANGE_LOG_respondent_id}}
+    column_to_change <- names(Global_Coding_REFERENCE) == {{CHANGE_LOG_Column_to_edit}}
+
+    Global_Coding_REFERENCE[row_to_change, column_to_change] <- {{CHANGE_LOG_correct_value}}
+  })
+
   # Organize the data by end date
-  global_coding_to_save <- global_coding_to_save %>% arrange(end_date)
+  Global_Coding_REFERENCE <- Global_Coding_REFERENCE %>% arrange(end_date)
 
   # Write all of the files
-  backup_for_combined_data_file_path <- paste0(backup_for_combined_data_folder_path, "/combined.csv") %>% bkissell::combine_file_string_with_time()
-  backup_for_editable_data_file_path <- paste0(backup_for_editable_data_folder_path, "/editable.csv") %>% bkissell::combine_file_string_with_time()
-  backup_for_raw_data_file_path <- paste0(backup_for_raw_data_folder_path, "/raw.csv") %>% bkissell::combine_file_string_with_time()
-  backup_for_data_to_add_file_path <- paste0(backup_for_data_to_add_folder_path, "/to_add.csv") %>% bkissell::combine_file_string_with_time()
-  readr::write_csv(global_coding_for_editing, backup_for_editable_data_file_path)
-  readr::write_csv(survey_monkey_data, backup_for_raw_data_file_path)
-  readr::write_csv(global_coding_to_add, backup_for_data_to_add_file_path)
-  readr::write_csv(global_coding_to_save, backup_for_combined_data_file_path)
-  readr::write_csv(global_coding_to_save, global_coding_file_path)
-  writexl::write_xlsx(global_coding_to_save, global_coding_file_path)
+  writexl::write_xlsx(Global_Coding_REFERENCE, Global_Coding_REFERENCE_file_path)
+
+  # If a manual working directory is provided, reset to original
+  if(!is.null(man_wd)) {
+    setwd(current_wd)
+  }
 
   # Return the object
-  return(global_coding_to_save)
+  return(Global_Coding_REFERENCE)
 }
