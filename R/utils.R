@@ -992,6 +992,7 @@ combine_file_string_with_time <- function(file_string){
 #' @param Global_Coding_REFERENCE_file_path Global_Coding_REFERENCE_file_path
 #' @param Global_Coding_CHANGE_LOG_file_path Global_Coding_CHANGE_LOG_file_path
 #' @param file_part__sm_raw_folder file_part__sm_raw_folder
+#' @param teams_wd teams_wd
 #'
 #' @return Global_Coding_REFERENCE
 #' @export

@@ -18,6 +18,8 @@ FULL_global_coding(
 
 \item{file_part__sm_raw_folder}{file_part__sm_raw_folder}
 
+\item{teams_wd}{teams_wd}
+
 \item{Global_Coding_REFERENCE_file_path}{Global_Coding_REFERENCE_file_path}
 
 \item{Global_Coding_CHANGE_LOG_file_path}{Global_Coding_CHANGE_LOG_file_path}
