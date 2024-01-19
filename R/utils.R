@@ -986,8 +986,6 @@ combine_file_string_with_time <- function(file_string){
 
 
 
-
-
 #' Fully read and process the global coding data.
 #'
 #' @param man_wd man_wd
@@ -1059,7 +1057,7 @@ FULL_global_coding <- function(
     row_to_change <- Global_Coding_REFERENCE[["respondent_id"]] == {{CHANGE_LOG_respondent_id}}
     column_to_change <- names(Global_Coding_REFERENCE) == {{CHANGE_LOG_Column_to_edit}}
 
-    Global_Coding_REFERENCE[row_to_change, column_to_change] <- {{CHANGE_LOG_correct_value}}
+    Global_Coding_REFERENCE[row_to_change, column_to_change] <<- {{CHANGE_LOG_correct_value}}
   })
 
   # Organize the data by end date
