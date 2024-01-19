@@ -23,7 +23,7 @@ FULL_global_coding(
 \item{Global_Coding_CHANGE_LOG_file_path}{Global_Coding_CHANGE_LOG_file_path}
 }
 \value{
-global_coding_to_save
+Global_Coding_REFERENCE
 }
 \description{
 Fully read and process the global coding data.

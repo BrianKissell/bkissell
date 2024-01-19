@@ -995,7 +995,7 @@ combine_file_string_with_time <- function(file_string){
 #' @param Global_Coding_CHANGE_LOG_file_path Global_Coding_CHANGE_LOG_file_path
 #' @param file_part__sm_raw_folder file_part__sm_raw_folder
 #'
-#' @return global_coding_to_save
+#' @return Global_Coding_REFERENCE
 #' @export
 #'
 FULL_global_coding <- function(
@@ -1045,10 +1045,10 @@ FULL_global_coding <- function(
 
   # Read in the editable file
   Global_Coding_REFERENCE <- readxl::read_excel(Global_Coding_REFERENCE_file_path) %>%
-    dplyr::filter(!is.na(respondent_id))
+    dplyr::filter(!is.na(.data[["respondent_id"]]))
 
   Global_Coding_CHANGE_LOG <- readxl::read_excel(Global_Coding_CHANGE_LOG_file_path, "Change Log")  %>%
-    dplyr::filter(!is.na(respondent_id))
+    dplyr::filter(!is.na(.data[["respondent_id"]]))
 
   purrr::walk(seq_along(Global_Coding_CHANGE_LOG[[1]]), ~{
     CHANGE_LOG_respondent_id <- Global_Coding_CHANGE_LOG[.x,][["respondent_id"]]
@@ -1063,7 +1063,7 @@ FULL_global_coding <- function(
   })
 
   # Organize the data by end date
-  Global_Coding_REFERENCE <- Global_Coding_REFERENCE %>% arrange(end_date)
+  Global_Coding_REFERENCE <- Global_Coding_REFERENCE %>% arrange(.data[["end_date"]])
 
   # Write all of the files
   writexl::write_xlsx(Global_Coding_REFERENCE, Global_Coding_REFERENCE_file_path)
