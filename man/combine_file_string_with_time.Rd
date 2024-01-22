@@ -2,18 +2,20 @@
 % Please edit documentation in R/utils.R
 \name{combine_file_string_with_time}
 \alias{combine_file_string_with_time}
-\title{combine_file_string_with_time
+\title{Combine the string with the time from the system
 Function to take in a string, and then add the data and time to it}
 \usage{
-combine_file_string_with_time(file_string)
+combine_file_string_with_time(file_string, specifier = "\%m\%d\%Y_\%H\%M\%S")
 }
 \arguments{
 \item{file_string}{file_string}
+
+\item{specifier}{String that specifies the format of the date. https://www.geeksforgeeks.org/how-to-use-date-formats-in-r/}
 }
 \value{
 combined_string
 }
 \description{
-combine_file_string_with_time
+Combine the string with the time from the system
 Function to take in a string, and then add the data and time to it
 }

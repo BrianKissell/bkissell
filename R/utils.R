@@ -1,13 +1,70 @@
-#' Adjust file path to current machine
-#' This code converts any path so that it works on the current computerfor the user.
+
+# abort_bad_argument ------------------------------------------------------
+
+#' Easily create error messages for when arguments do not meet expectations
 #'
-#' @param file_path file_path
+#' @param arg Argument, which will be a character string containing the name of the parameter.
+#' @param must Character string which tells the requirement, such as 'be numeric'
+#' @param not Argument variable, which will be used to tell if the parameter matches the requirement.
+#'
+#' @export
+
+abort_bad_argument <- function(arg, must, not = NULL) {
+
+  # Check to ensure that the arg is a character
+  if(!is.character(arg)) {
+    bkissell::abort_bad_argument(arg = "arg", must = "be character", not = arg)
+  }
+
+  # Check to ensure that the must is a character
+  if(!is.character(must)) {
+    bkissell::abort_bad_argument(arg = "must", must = "be character", not = must)
+  }
+
+  # Create the error message
+  msg <- glue::glue("`{arg}` must {must}")
+
+  # If you use the not variable
+  if (!is.null(not)) {
+
+    # Check the data type of the not
+    not <- typeof(not)
+
+    # Create the portion of the error message related to the not.
+    msg <- glue::glue("{msg}; not {not}.")
+
+  }
+
+  # Throw the error that contains the updated error message
+  rlang::abort(
+    "error_bad_argument",
+    message = msg,
+    arg = arg,
+    must = must,
+    not = not
+  )
+}
+
+
+
+# adjust_file_path_to_current_machine -------------------------------------
+
+#' Adjust file path to current machine
+#' This code converts any path so that it works appropriately for the user. I have previously avoided using projects for file management, for various reasons, but I am moving in that direction, and thus this function may become defunct.
+#'
+#' @param file_path File path as a string. Usually this is the full path to the file or directory.
 #'
 #' @return goal_file_path
 #' @export
 #'
 adjust_file_path_to_current_machine <- function(file_path){
 
+  # Check to ensure that the arg is a character
+  if(!is.character(file_path)) {
+    bkissell::abort_bad_argument(arg = "file_path", must = "be character", not = file_path)
+  }
+
+  # file_path <- "C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/00 Jobs"
   # Obtain the working directory from the user's computer.
   local_working_directory <- getwd()
 
@@ -40,36 +97,43 @@ adjust_file_path_to_current_machine <- function(file_path){
 }
 
 
-#' combine_file_string_with_time
+# combine_file_string_with_time -------------------------------------------
+
+#' Combine the string with the time from the system
 #' Function to take in a string, and then add the data and time to it
 #'
 #' @param file_string file_string
+#' @param specifier String that specifies the format of the date. https://www.geeksforgeeks.org/how-to-use-date-formats-in-r/
 #'
 #' @return combined_string
 #' @export
 #'
-combine_file_string_with_time <- function(file_string){
+combine_file_string_with_time <- function(
+    file_string,
+    specifier = "%m%d%Y_%H%M%S"
+  ){
 
-  # Assume there is no extention
-  ext <- NULL
+  # Check for the Extension
+  ext <- tools::file_ext(file_string)
 
   # Check for extention
-  if(stringr::str_detect(file_string, "\\.")) {
+  if(ext != "") {
+
+    # Add a period to the extension
+    ext <- paste0(".", ext)
 
     # Isolate it from the string
-    ext <- stringr::str_extract(file_string, "\\..+$")
     file_string <- stringr::str_replace(file_string, ext, "")
   }
 
   # Create the date time string
-  date_time_as_string <- Sys.time() %>%
-    stringr::str_replace_all("-| |:", "_")
+  date_time_as_string <- format(Sys.time(), specifier)
 
   # Combine date time string with the file string
   combined_string <- paste0(file_string, "_", date_time_as_string)
 
   # If there is an extention, add it back to the string
-  if(!is.null(ext)){
+  if(ext != ""){
     combined_string <- paste0(combined_string, ext)
   }
 
@@ -78,21 +142,252 @@ combine_file_string_with_time <- function(file_string){
 }
 
 
-#' Create a vector of data types based on column names
+# convert_specific_column_names_to_data_type ------------------------------
+
+#' Create a vector of data types based on column names. Built so we can add in as many types as we want.
 #'
 #' @param column_name_vector Column names vector for the dataframe
 #' @param text_names Which column names should be labeled as text?
 #' @param numeric_names Which column names should be labeled as numeric?
+#' @param skip_names Which column names should be labeled as skip?
+#' @param guess_names Which column names should be labeled as guess?
+#' @param logical_names Which column names should be labeled as logical?
+#' @param date_names Which column names should be labeled as date?
+#' @param list_names Which column names should be labeled as list?
 #'
 #' @return data_types
 #' @export
 #'
-convert_specific_column_names_to_data_type <- function(column_name_vector, text_names, numeric_names) {
-  data_types <- dplyr::case_when(
-    column_name_vector %in% text_names ~ "text",
-    column_name_vector %in% numeric_names ~ "numeric"
-  )
-  return(data_types)
+convert_specific_column_names_to_data_type <- function(
+    column_name_vector,
+    text_names = NULL,
+    numeric_names = NULL,
+    skip_names = NULL,
+    guess_names = NULL,
+    logical_names = NULL,
+    date_names = NULL,
+    list_names = NULL
+    ) {
+
+  # Create named list of parameters
+  list_of_paramaters <- list(
+    "text_names" = text_names,
+    "numeric_names" = numeric_names,
+    "skip_names" = skip_names,
+    "guess_names" = guess_names,
+    "logical_names" = logical_names,
+    "date_names" = date_names,
+    "list_names" = list_names
+    )
+
+  # Obtain the possible types as strings
+  possible_types <- stringr::str_replace(names(list_of_paramaters), "_names$", "")
+
+  # Initiate vector to iterate on
+  column_name_vector_and_data_type <- column_name_vector
+
+  # For all of the type parameters, if a column name matches on in the
+  # list of parameters, add the data type to the vector.
+  purrr::walk2(list_of_paramaters, possible_types, ~ {
+    if(!is.null(.x)){
+      column_name_vector_and_data_type <<- ifelse(
+        column_name_vector_and_data_type %in% .x,
+        {{.y}},
+        column_name_vector_and_data_type
+      )
+    }
+  })
+
+  # Return the vector
+  return(column_name_vector_and_data_type)
+}
+
+
+### Special Note for Sarah. This has most of the checks done, so you should just need to go through make make sure it is thorough enough.
+### When you write the test, you can use the following as the parameter (although you will need to change it to match your file directory)
+### path_to_column_workbook <-  "C:/Users/Brian/Dropbox (TCM)/04 MDM Neuro-Fundraising Lab/Research Tools/datacollectiontools/dev/misc/Example_1 - Condition_1_column_names.xlsx"
+### I will add that we might want to provide additional instructions regarding how the excel file needs to be set up. We thus might want to meet to go over all of that, and then you can make the documentation for that.
+
+#' Create the table that contains the information related to the variable names and column details
+#'
+#' @param path_to_column_workbook Path to where the column details workbook is located. This needs to be a character string and it needs to point to an existing file.
+#' @param name_of_column_details Name of the column details sheet, which is defaulted to "column_details". This only needs to be changed if you do not want to use column details as the sheet name in the column details workbook.
+#'
+#' @return named_vectors_list
+#' @export
+#'
+
+create_column_details_and_named_vectors_list <- function(
+    path_to_column_workbook,
+    name_of_column_details = "column_details"
+){
+
+  # Check if path_to_column_workbook is a character string
+  if(!is.character(path_to_column_workbook)) {
+    abort_bad_argument("path_to_column_workbook", must = "be character", not = path_to_column_workbook)
+  }
+
+  # Check if path_to_column_workbook exists
+  if(!file.exists(path_to_column_workbook)) {
+    rlang::abort(glue::glue("`path_to_column_workbook` does not exist as a file on this system."))
+  }
+
+  # Read in the name of the sheets contained in the excel workbook
+  named_vectors_workbook_sheets <- readxl::excel_sheets(path_to_column_workbook)
+
+  # Check if there are sheets in the file
+  if(!length(named_vectors_workbook_sheets) > 0) {
+    rlang::abort(glue::glue("The file located at {path_to_column_workbook} is not formated correctly."))
+  }
+
+  # Check if all of the sheets are unique
+  if(!length(named_vectors_workbook_sheets) == length(unique(named_vectors_workbook_sheets))) {
+    rlang::abort(glue::glue("The file located at {path_to_column_workbook} has sheets that are not unique."))
+  }
+
+  # Loop through each sheet
+  named_vectors_list <- purrr::map(named_vectors_workbook_sheets, ~{
+
+    # Read in the data for it
+    df <- readxl::read_excel(path_to_column_workbook, sheet = .x)
+
+    # Create named vectors for all sheets except for the column_details sheet
+    if(.x != {{name_of_column_details}}) {
+      named_vector <- df$vector_of_factor_levels
+      names(named_vector) <- df$names_of_factor_levels
+    } else {
+      named_vector <- df
+    }
+
+    return(named_vector)
+
+    # Name all sheets so they can be easily accessed
+  }, path_to_column_workbook) %>% purrr::set_names(named_vectors_workbook_sheets)
+
+  # Return the list with all of this information
+  return(named_vectors_list)
+}
+
+
+#' create_path_to_lab_directory_in_dropbox
+#'
+#' @param drop_box_name Character string that contains the name of the dropbox directory you are using.
+#' @param dropbox_path_to_the_directory Character string that contains the rest of the file path - once you are in dropbox
+#'
+#' @return created_path
+#' @export
+#'
+create_path_to_lab_directory_in_dropbox <- function(drop_box_name = "TCM Dropbox", dropbox_path_to_the_directory = "04 MDM Neuro-Fundraising Lab" ) {
+
+  # Assign the users who are allowed to use the program
+  appropriate_user_names <- c("Brian", "benja")
+
+  # Assign the c drive
+  c_drive <- "C:/"
+
+  # Assign the name of the users folder
+  users <- "Users"
+
+  # Check to see if the c drive exists
+  if(file.exists(c_drive)) {
+
+    # Check to see if the user's name is pre-approved
+    if(users %in% list.files(c_drive)) {
+
+      # Extract the approved name
+      user_names <- purrr::map(appropriate_user_names, ~{
+        stringr::str_extract(.x, list.files(file.path(c_drive, users)))
+      }) %>% unlist()
+
+      # Remove the nas
+      user_name <- user_names[!is.na(user_names)]
+
+      # Check to see if the dropbox folder exists
+      if(file.exists(file.path(c_drive, users, user_name, drop_box_name))) {
+
+        # Obtain the dropbox usernames
+        dropbox_usernames <- list.files(file.path(c_drive, users, user_name, drop_box_name))
+
+        # Remove the additional file
+        dropbox_username <- dropbox_usernames[dropbox_usernames != "desktop.ini"]
+
+        # Create the path
+        created_path <- file.path(c_drive, users, user_name, drop_box_name, dropbox_username, dropbox_path_to_the_directory)
+
+        # Return this path
+        return(created_path)
+      } else { rlang::abort("Dropbox username is not found")}
+    } else { rlang::abort("User is not in pre-approved list")}
+  } else {rlang::abort("There is no c drive on this computer")}
+}
+
+
+
+
+#' create_time_chr_string_for_file_names
+#'
+#' @param format_string format_string
+#'
+#' @return time_stamp
+#' @export
+#'
+create_time_chr_string_for_file_names <- function(format_string = '%m%d%Y_%H%M') {
+
+  # Obtain the current time and put it into our preferred file format
+  time_stamp <- Sys.time() |>
+
+    # and put it into the proper format
+    format({{format_string}})
+
+  # Return the time_stamp
+  return(time_stamp)
+}
+
+### Special Note for Sarah. This has most of the checks done, so you should just need to go through make make sure it is thorough enough.
+
+#' Pull rows from the column details that are indicated as multiple choice.
+#'
+#' @param column_details_table column_details_table
+#' @param question_type_indicator Character string that tells the program what data type is being evaluated and processed.
+#'
+#' @return column_details_question_type_df
+#' @export
+#'
+
+extract_column_details_question_type_df <- function(column_details_table, question_type_indicator = "mc") {
+
+  # Check that column details is a data frame
+  if(!is.data.frame(column_details_table)) {
+    rlang::abort(glue::glue("The column_details_table object is not a data frame."))
+  }
+
+  # Check that the indicator is a character string
+  if(!is.character(question_type_indicator)) {
+    rlang::abort(glue::glue("The question_type_indicator object is not a character string."))
+  }
+
+  # Check that indicator is a valid option
+  appropriate_choice_indicators <- c("mc", "sa")
+  if(!(question_type_indicator %in% appropriate_choice_indicators)) {
+    rlang::abort(glue::glue("`question_type_indicator` is '{question_type_indicator}', which is not an appropriate type indicator. Please use one of the following: {paste0(appropriate_choice_indicators, collapse = ", ")}"))
+  }
+
+  if(question_type_indicator == "mc") {
+    # Filter for multiple choice questions
+    column_details_question_type_df <- column_details_table %>%
+      dplyr::filter(.data[["type"]] == {{question_type_indicator}})
+  }
+
+  if(question_type_indicator == "sa") {
+    column_details_question_type_df <- column_details_table %>%
+      dplyr::filter(
+        # Find all rows that start with sa
+        stringr::str_detect(column_details_table$type, "^sa")
+      )
+  }
+
+  # Return the df
+  return(column_details_question_type_df)
 }
 
 
@@ -174,7 +469,6 @@ FILES_find_newest_file <- function(directory, file_type = ".csv", format_pattern
 #' @param Global_Coding_REFERENCE_file_path Global_Coding_REFERENCE_file_path
 #' @param Global_Coding_CHANGE_LOG_file_path Global_Coding_CHANGE_LOG_file_path
 #' @param file_part__sm_raw_folder file_part__sm_raw_folder
-#' @param teams_wd teams_wd
 #'
 #' @return Global_Coding_REFERENCE
 #' @export
@@ -182,8 +476,8 @@ FILES_find_newest_file <- function(directory, file_type = ".csv", format_pattern
 FULL_global_coding <- function(
     man_wd = NULL,
     file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data",
-    Global_Coding_REFERENCE_file_path = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_REFERENCE.xlsx",
-    Global_Coding_CHANGE_LOG_file_path = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_CHANGE_LOG.xlsx"
+    Global_Coding_REFERENCE_file_path,
+    Global_Coding_CHANGE_LOG_file_path
 ) {
 
   Global_Coding_REFERENCE_file_path %>% file.remove()
@@ -535,6 +829,39 @@ if_no_csv_for_colnames_make_one <- function(
 }
 
 
+### Special Note for Sarah. This has most of the checks done, so you should just need to go through make make sure it is thorough enough.
+
+#' Extract the table that contains the column_details
+#'
+#' @param column_workbook_list List created by `create_column_details_and_named_vectors_list`, which has the column names along with all named vectors. This list should only contain the data for 1 column details file.
+#' @param name_of_column_details Name of the column details sheet, which is defaulted to "column_details". This only needs to be changed if you do not want to use column details as the sheet name in the column details workbook.
+#'
+#' @return column_details_table
+#' @export
+#'
+
+obtain_column_details_table <- function(column_workbook_list, name_of_column_details = "column_details") {
+
+  # Check the column_workbook_list to see if the column details are in it
+  if(!is.data.frame(column_workbook_list[[{{name_of_column_details}}]])) {
+    rlang::abort(glue::glue("The column details sheet is missing, or there is an issue with the formatting of the workbook."))
+  }
+
+  # Extract the column details
+  column_details_table <- column_workbook_list[[{{name_of_column_details}}]] %>%
+
+    # Filter out any columns with NA for the type
+    dplyr::filter(!is.na(.data[["type"]])) %>%
+
+    # Convert the strings in type to lower case
+    dplyr::mutate(type = stringr::str_to_lower(.data[["type"]]))
+
+  # Return the column details
+  return(column_details_table)
+}
+
+
+
 #' Obtain column name paths for all survey versions
 #'
 #' @param version_directories version_directories
@@ -857,7 +1184,7 @@ process_video_data <- function(
   # Read in the data
   sheet_coding_data_df_list <-
     purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
-      sheet_coding_data <- readxl::read_excel(
+      sheet_coding_data <- ?readxl::read_excel(
         file_paths_df_all_paths[.x, "file_path"],
         sheet = file_paths_df_all_paths[.x, "sheet_name"],
         col_names = unlist(file_paths_df_all_paths[.x, "column_names_list"]),

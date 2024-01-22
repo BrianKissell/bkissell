@@ -19,9 +19,11 @@ Imports:
     purrr,
     readr,
     readxl,
+    rlang,
     snakecase,
     stats,
     stringr,
     tidyr,
     tidyselect,
     writexl
+Depends: 

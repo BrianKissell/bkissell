@@ -7,10 +7,8 @@
 FULL_global_coding(
   man_wd = NULL,
   file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data",
-  Global_Coding_REFERENCE_file_path =
-    "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_REFERENCE.xlsx",
-  Global_Coding_CHANGE_LOG_file_path =
-    "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_CHANGE_LOG.xlsx"
+  Global_Coding_REFERENCE_file_path,
+  Global_Coding_CHANGE_LOG_file_path
 )
 }
 \arguments{
@@ -21,8 +19,6 @@ FULL_global_coding(
 \item{Global_Coding_REFERENCE_file_path}{Global_Coding_REFERENCE_file_path}
 
 \item{Global_Coding_CHANGE_LOG_file_path}{Global_Coding_CHANGE_LOG_file_path}
-
-\item{teams_wd}{teams_wd}
 }
 \value{
 Global_Coding_REFERENCE

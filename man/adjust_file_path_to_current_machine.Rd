@@ -3,17 +3,17 @@
 \name{adjust_file_path_to_current_machine}
 \alias{adjust_file_path_to_current_machine}
 \title{Adjust file path to current machine
-This code converts any path so that it works on the current computerfor the user.}
+This code converts any path so that it works appropriately for the user. I have previously avoided using projects for file management, for various reasons, but I am moving in that direction, and thus this function may become defunct.}
 \usage{
 adjust_file_path_to_current_machine(file_path)
 }
 \arguments{
-\item{file_path}{file_path}
+\item{file_path}{File path as a string. Usually this is the full path to the file or directory.}
 }
 \value{
 goal_file_path
 }
 \description{
 Adjust file path to current machine
-This code converts any path so that it works on the current computerfor the user.
+This code converts any path so that it works appropriately for the user. I have previously avoided using projects for file management, for various reasons, but I am moving in that direction, and thus this function may become defunct.
 }
