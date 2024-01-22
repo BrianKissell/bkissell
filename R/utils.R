@@ -1184,7 +1184,7 @@ process_video_data <- function(
   # Read in the data
   sheet_coding_data_df_list <-
     purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
-      sheet_coding_data <- ?readxl::read_excel(
+      sheet_coding_data <- readxl::read_excel(
         file_paths_df_all_paths[.x, "file_path"],
         sheet = file_paths_df_all_paths[.x, "sheet_name"],
         col_names = unlist(file_paths_df_all_paths[.x, "column_names_list"]),
