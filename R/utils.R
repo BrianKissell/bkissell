@@ -1166,7 +1166,7 @@ prepare_version_directory_paths <- function(survey_directory_path){
 
 
 
-#' Title
+#' process_video_data
 #'
 #' @param file_paths_df_all_paths file_paths_df_all_paths
 #' @param multiple_choice_variables multiple_choice_variables
