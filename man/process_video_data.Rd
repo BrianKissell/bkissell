@@ -2,24 +2,16 @@
 % Please edit documentation in R/utils.R
 \name{process_video_data}
 \alias{process_video_data}
-\title{Title}
+\title{process_video_data}
 \usage{
-process_video_data(
-  file_paths_df_all_paths,
-  multiple_choice_variables,
-  category_variables
-)
+process_video_data(file_paths_df_all_paths)
 }
 \arguments{
 \item{file_paths_df_all_paths}{file_paths_df_all_paths}
-
-\item{multiple_choice_variables}{multiple_choice_variables}
-
-\item{category_variables}{category_variables}
 }
 \value{
 sheet_coding_data_df
 }
 \description{
-Title
+process_video_data
 }

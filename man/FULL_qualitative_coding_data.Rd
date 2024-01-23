@@ -19,7 +19,7 @@ FULL_qualitative_coding_data(
 )
 }
 \arguments{
-\item{man_wd}{use to add a custom working directory}
+\item{man_wd}{man_wd}
 
 \item{folder_location__qualitative_coding}{folder_location__qualitative_coding}
 

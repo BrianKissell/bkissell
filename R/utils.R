@@ -555,134 +555,118 @@ FULL_global_coding <- function(
 }
 
 
-#' FULL_qualitative_coding_data
-#'
-#' @param man_wd use to add a custom working directory
-#' @param folder_location__qualitative_coding folder_location__qualitative_coding
-#' @param file_part__initial_name_qual_coding file_part__initial_name_qual_coding
-#' @param coder_names coder_names
-#' @param ext__initial_name_qual_coding ext__initial_name_qual_coding
-#' @param text_names text_names
-#' @param numeric_names numeric_names
-#' @param multiple_choice_variables multiple_choice_variables
-#' @param category_variables category_variables
-#' @param remove_empty_sheets remove_empty_sheets
-#' @param other_vars_that_should_not_be_counted other_vars_that_should_not_be_counted
-#'
-#' @return prepared_video_data
-#' @export
-#'
-FULL_qualitative_coding_data <- function(
-    man_wd = NULL,
-    folder_location__qualitative_coding,
-    file_part__initial_name_qual_coding,
-    coder_names,
-    ext__initial_name_qual_coding,
-    text_names,
-    numeric_names,
-    multiple_choice_variables,
-    category_variables,
-    remove_empty_sheets = TRUE,
-    other_vars_that_should_not_be_counted
-) {
 
-  # If a manual working directory is provided,
-  if(!is.null(man_wd)) {
-    # Save current working directory
-    current_wd <- getwd()
-    # Change the working directory
-    setwd(man_wd)
-  }
-
-  # Where are the coding data files?
-  qualitative_coding_path <- {folder_location__qualitative_coding}
-
-  # Provide all of the names to the coding worksheets
-  names_of_all_video_coding_docs <- paste0(
-    {file_part__initial_name_qual_coding},
-    {coder_names},
-    {ext__initial_name_qual_coding}
-  )
-
-  # Create the paths for the copding documents
-  video_coding_docs_file_paths <- file.path(
-    qualitative_coding_path,
-    names_of_all_video_coding_docs
-  )
-
-  # Set up parameters
-  text_names = {text_names}
-  numeric_names = {numeric_names}
-  multiple_choice_variables <- {multiple_choice_variables}
-  multiple_choice_vars <- multiple_choice_variables
-  category_variables <- {category_variables}
-
-  # Obtain the file paths and column information
-  file_paths_df_all_paths <-
-    bkissell::get_file_paths_and_column_data_from_excel_workbooks_list(
-      video_coding_docs_file_paths, text_names, numeric_names
-    )
-
-  # Temp so I can keep testing the program.
-  file_paths_df_all_paths[93,"column_types_list"][[1]] <- ifelse(
-    file_paths_df_all_paths[93,"column_types_list"][[1]] == "type_of_text_on_string",
-    "text",
-    file_paths_df_all_paths[93,"column_types_list"][[1]])
-
-  # Process the video coding data
-  sheet_coding_data <- bkissell::process_video_data(
-    file_paths_df_all_paths,
-    multiple_choice_variables,
-    category_variables
-  )
-
-  # Convert the data to the wide format
-  data_for_calcs_wide <- bkissell::prepare_data_for_calcs(
-    sheet_coding_data,
-    multiple_choice_variables
-  )
-
-  if(remove_empty_sheets == TRUE) {
-    # Remove the Section 00 videos as it means that it was not coded
-    data_for_calcs_wide <- data_for_calcs_wide %>%
-      dplyr::filter(.data[["section_label"]] != "Section 00")
-  }
-
-  # Obtain the names of the columns in the wide format
-  wide_column_names <- data_for_calcs_wide %>% names()
-
-  # Create a filter for which columns not to count
-  filter_out <- !(wide_column_names %in% {other_vars_that_should_not_be_counted})
-
-  # Filter out those variables
-  all_vars_to_count_duration <- wide_column_names[filter_out]
-
-  # Calculate the first occurrence data
-  prepared_first_occurence_data <- bkissell::prepare_first_occurrence_data(
-    data_for_calcs_wide, all_vars_to_count_duration
-  )
-
-  # Calculate the video duration data
-  prepared_video_duration_data <- bkissell::prepare_video_duration_data(
-    data_for_calcs_wide, all_vars_to_count_duration
-  )
-
-  # Combine the the two video data types
-  prepared_video_data <- prepared_video_duration_data  %>%
-    dplyr::left_join(prepared_first_occurence_data, by = "video_name")
-
-  # Round out the seconds
-  prepared_video_data$total_seconds_duration <-
-    prepared_video_data$total_seconds_duration %>%
-    round(0)
-
-  # If a manual working directory is provided, reset to original
-  if(!is.null(man_wd)) {
-    setwd(current_wd)
-  }
-
-  return(prepared_video_data)
-}
+# FULL_qualitative_coding_data <- function(
+#     man_wd = NULL,
+#     folder_location__qualitative_coding,
+#     file_part__initial_name_qual_coding,
+#     coder_names,
+#     ext__initial_name_qual_coding,
+#     text_names,
+#     numeric_names,
+#     multiple_choice_variables,
+#     category_variables,
+#     remove_empty_sheets = TRUE,
+#     other_vars_that_should_not_be_counted
+# ) {
+#
+#   # If a manual working directory is provided,
+#   if(!is.null(man_wd)) {
+#     # Save current working directory
+#     current_wd <- getwd()
+#     # Change the working directory
+#     setwd(man_wd)
+#   }
+#
+#   # Where are the coding data files?
+#   qualitative_coding_path <- {folder_location__qualitative_coding}
+#
+#   # Provide all of the names to the coding worksheets
+#   names_of_all_video_coding_docs <- paste0(
+#     {file_part__initial_name_qual_coding},
+#     {coder_names},
+#     {ext__initial_name_qual_coding}
+#   )
+#
+#   # Create the paths for the copding documents
+#   video_coding_docs_file_paths <- file.path(
+#     qualitative_coding_path,
+#     names_of_all_video_coding_docs
+#   )
+#
+#   # Set up parameters
+#   text_names = {text_names}
+#   numeric_names = {numeric_names}
+#   multiple_choice_variables <- {multiple_choice_variables}
+#   multiple_choice_vars <- multiple_choice_variables
+#   category_variables <- {category_variables}
+#
+#   # Obtain the file paths and column information
+#   file_paths_df_all_paths <-
+#     bkissell::get_file_paths_and_column_data_from_excel_workbooks_list(
+#       video_coding_docs_file_paths, text_names, numeric_names
+#     )
+#
+#   # Temp so I can keep testing the program.
+#   file_paths_df_all_paths[93,"column_types_list"][[1]] <- ifelse(
+#     file_paths_df_all_paths[93,"column_types_list"][[1]] == "type_of_text_on_string",
+#     "text",
+#     file_paths_df_all_paths[93,"column_types_list"][[1]])
+#
+#   # Process the video coding data
+#   sheet_coding_data <- bkissell::process_video_data(
+#     file_paths_df_all_paths,
+#     multiple_choice_variables,
+#     category_variables
+#   )
+#
+#   # Convert the data to the wide format
+#   data_for_calcs_wide <- bkissell::prepare_data_for_calcs(
+#     sheet_coding_data,
+#     multiple_choice_variables
+#   )
+#
+#   if(remove_empty_sheets == TRUE) {
+#     # Remove the Section 00 videos as it means that it was not coded
+#     data_for_calcs_wide <- data_for_calcs_wide %>%
+#       dplyr::filter(.data[["section_label"]] != "Section 00")
+#   }
+#
+#   # Obtain the names of the columns in the wide format
+#   wide_column_names <- data_for_calcs_wide %>% names()
+#
+#   # Create a filter for which columns not to count
+#   filter_out <- !(wide_column_names %in% {other_vars_that_should_not_be_counted})
+#
+#   # Filter out those variables
+#   all_vars_to_count_duration <- wide_column_names[filter_out]
+#
+#   # Calculate the first occurrence data
+#   prepared_first_occurence_data <- bkissell::prepare_first_occurrence_data(
+#     data_for_calcs_wide, all_vars_to_count_duration
+#   )
+#
+#   # Calculate the video duration data
+#   prepared_video_duration_data <- bkissell::prepare_video_duration_data(
+#     data_for_calcs_wide, all_vars_to_count_duration
+#   )
+#
+#   # Combine the the two video data types
+#   prepared_video_data <- prepared_video_duration_data  %>%
+#     dplyr::left_join(prepared_first_occurence_data, by = "video_name")
+#
+#   # Round out the seconds
+#   prepared_video_data$total_seconds_duration <-
+#     prepared_video_data$total_seconds_duration %>%
+#     round(0)
+#
+#   # If a manual working directory is provided, reset to original
+#   if(!is.null(man_wd)) {
+#     setwd(current_wd)
+#   }
+#
+#   return(prepared_video_data)
+# }
 
 
 #' get_file_paths_from_excel_workbooks_list
@@ -999,8 +983,14 @@ prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
   # Prep the data
   data_for_calcs <- sheet_coding_data
 
+  data_for_calcs$video_name <- paste0(data_for_calcs$video_name, "_", data_for_calcs$coded_by, "_", data_for_calcs$order_read_in)
+
+
+# data = data_for_calcs
+  # mc_var_name = "visual_type"
   # Create a helper function that creates the multiple choice tables
   pavd_create_mc_df_table <- function(data, mc_var_name, video_name_var = "video_name", time_point_var = "time_point") {
+
 
     # Remove missing data
     data <- data %>% dplyr::filter(!is.na(.data[[{{mc_var_name}}]]))
@@ -1012,7 +1002,7 @@ prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
     mc_data_for_calcs <- data %>%
       dplyr::select({{video_name_var}}, {{time_point_var}}, {{mc_var_name}}, "element_present") %>%
       tidyr::pivot_wider(
-        id_cols = c({{video_name_var}}, {{time_point_var}}),
+        id_cols = c(everything()),
         names_from = .data[[{{mc_var_name}}]],
         names_glue = paste0({{mc_var_name}}, "__{.name}"),
         values_from = .data[["element_present"]]
@@ -1034,7 +1024,7 @@ prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
       video_name_var = "video_name",
       time_point_var = "time_point"
     )
-  })
+  }, data_for_calcs)
 
   # Join all of the dfs together
   new_data_for_calcs <- list_of_data_for_calcs %>%
@@ -1166,41 +1156,32 @@ prepare_version_directory_paths <- function(survey_directory_path){
 
 
 
-#' process_video_data
-#'
-#' @param file_paths_df_all_paths file_paths_df_all_paths
-#' @param multiple_choice_variables multiple_choice_variables
-#' @param category_variables category_variables
-#'
-#' @return sheet_coding_data_df
-#' @export
-#'
-process_video_data <- function(
-    file_paths_df_all_paths,
-    multiple_choice_variables,
-    category_variables
-){
-  # Read in the data
-  sheet_coding_data_df_list <-
-    purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
-      sheet_coding_data <- bkissell::pvd__read_and_process_sheet_data(
-        individual_file_information_df = file_paths_df_all_paths[.x,])
-    }, file_paths_df_all_paths)
-
-  sheet_coding_data_df_list <- purrr::map(sheet_coding_data_df_list, ~{
-    bkissell::pvd__further_cleaning(
-      .x,
-      multiple_choice_variables,
-      category_variables
-    )
-  }, multiple_choice_variables, category_variables)
-
-  # Combine all of the data frames
-  sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
-
-  # Return the variable
-  return(sheet_coding_data_df)
-}
+# process_video_data <- function(
+#     file_paths_df_all_paths,
+#     multiple_choice_variables,
+#     category_variables
+# ){
+#   # Read in the data
+#   sheet_coding_data_df_list <-
+#     purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
+#       sheet_coding_data <- bkissell::pvd__read_and_process_sheet_data(
+#         individual_file_information_df = file_paths_df_all_paths[.x,])
+#     }, file_paths_df_all_paths)
+#
+#   sheet_coding_data_df_list <- purrr::map(sheet_coding_data_df_list, ~{
+#     bkissell::pvd__further_cleaning(
+#       .x,
+#       multiple_choice_variables,
+#       category_variables
+#     )
+#   }, multiple_choice_variables, category_variables)
+#
+#   # Combine all of the data frames
+#   sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
+#
+#   # Return the variable
+#   return(sheet_coding_data_df)
+# }
 
 
 #' pvd__further_cleaning
@@ -1263,10 +1244,8 @@ pvd__read_and_process_sheet_data <- function(individual_file_information_df) {
     individual_file_information_df[["file_path"]],
     sheet = individual_file_information_df[["sheet_name"]],
     col_names = unlist(individual_file_information_df[["column_names_list"]]),
-    col_types = unlist(individual_file_information_df[["column_types_list"]]))
-
-  # Remove the first Row
-  sheet_coding_data <- sheet_coding_data[-1, ]
+    col_types = unlist(individual_file_information_df[["column_types_list"]]),
+    skip = 1)
 
   # Add Video Name
   sheet_coding_data$video_name <- sheet_coding_data$video_name[[1]]
@@ -1448,6 +1427,275 @@ read_survey_monkey_data <- function(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+#
+#
+# man_wd = "C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/Research and Development/00 Jobs/2024/003_RD_CodingVideoContent"
+# folder_location__qualitative_coding = "Qualitative Coding/Version 2"
+# file_part__initial_name_qual_coding = "Video_Coding_V2__"
+# coder_names = c("Ben","Brian", "Jill", "Sarah", "Talia")
+# ext__initial_name_qual_coding = ".xlsx"
+# text_names = c(
+#   "video_name", "section", "visual_type", "phone_and_url_present",
+#   "type_of_text_on_screen", "story_chapter",
+#   "global_variables_have_been_entered", "notes")
+# numeric_names = c(
+#   "time_point", "direct_eye_contact_with_camera_for_any_animals_or_people",
+#   "visual_type", "qr_code_present", "logo_present", "lower_third_present",
+#   "credit_card_symbols_present", "trust_indicator_present",
+#   "donor_directed_language")
+# multiple_choice_variables = c(
+#   "visual_type", "phone_and_url_present", "type_of_text_on_screen",
+#   "story_chapter", "global_variables_have_been_entered")
+# category_variables = c(
+#   "direct_eye_contact_with_camera_for_any_animals_or_people",
+#   "qr_code_present", "logo_present", "lower_third_present",
+#   "credit_card_symbols_present", "trust_indicator_present",
+#   "donor_directed_language")
+# remove_empty_sheets = TRUE
+# other_vars_that_should_not_be_counted = c(
+#   "time_point", "section_label", "video_name", "section", "coded_by",
+#   "notes", "duration_of_video", "global_variables_have_been_entered__yes",
+#   "visual_type", "phone_and_url_present", "type_of_text_on_screen",
+#   "story_chapter", "global_variables_have_been_entered")
+#
+
+
+
+
+
+
+
+
+#' FULL_qualitative_coding_data
+#'
+#' @param man_wd man_wd
+#' @param folder_location__qualitative_coding folder_location__qualitative_coding
+#' @param file_part__initial_name_qual_coding file_part__initial_name_qual_coding
+#' @param coder_names coder_names
+#' @param ext__initial_name_qual_coding ext__initial_name_qual_coding
+#' @param text_names text_names
+#' @param numeric_names numeric_names
+#' @param multiple_choice_variables multiple_choice_variables
+#' @param category_variables category_variables
+#' @param remove_empty_sheets remove_empty_sheets
+#' @param other_vars_that_should_not_be_counted other_vars_that_should_not_be_counted
+#'
+#' @return prepared_video_data
+#' @export
+#'
+FULL_qualitative_coding_data <- function(
+    man_wd = NULL,
+    folder_location__qualitative_coding,
+    file_part__initial_name_qual_coding,
+    coder_names,
+    ext__initial_name_qual_coding,
+    text_names,
+    numeric_names,
+    multiple_choice_variables,
+    category_variables,
+    remove_empty_sheets = TRUE,
+    other_vars_that_should_not_be_counted
+) {
+
+  # If a manual working directory is provided,
+  if(!is.null(man_wd)) {
+    # Save current working directory
+    current_wd <- getwd()
+    # Change the working directory
+    setwd(man_wd)
+  }
+
+  # Where are the coding data files?
+  qualitative_coding_path <- {folder_location__qualitative_coding}
+
+  # Provide all of the names to the coding worksheets
+  names_of_all_video_coding_docs <- paste0(
+    {file_part__initial_name_qual_coding},
+    {coder_names},
+    {ext__initial_name_qual_coding}
+  )
+
+  # Create the paths for the copding documents
+  video_coding_docs_file_paths <- file.path(
+    qualitative_coding_path,
+    names_of_all_video_coding_docs
+  )
+
+  # Set up parameters
+  text_names = {text_names}
+  numeric_names = {numeric_names}
+  multiple_choice_variables <- {multiple_choice_variables}
+  multiple_choice_vars <- multiple_choice_variables
+  category_variables <- {category_variables}
+
+  file_paths_df_all_paths <- bkissell::get_file_paths_from_excel_workbooks_df_all_paths(video_coding_docs_file_paths)
+
+  initial_read_data <- readxl::read_excel(
+    file_paths_df_all_paths[1, "file_path"],
+    file_paths_df_all_paths[1, "sheet_name"],
+    n_max = 5)
+
+  # Change the variable names to snakecase
+  names(initial_read_data) <- snakecase::to_snake_case(names(initial_read_data))
+
+  column_types <- bkissell::convert_specific_column_names_to_data_type(
+    names(initial_read_data), text_names, numeric_names)
+
+  file_paths_df_all_paths$column_names_list <- rep(list(names(initial_read_data)), nrow(file_paths_df_all_paths))
+  file_paths_df_all_paths$column_types_list <- rep(list(column_types), nrow(file_paths_df_all_paths))
+  file_paths_df_all_paths$multiple_choice_variables_list <- rep(list(multiple_choice_variables), nrow(file_paths_df_all_paths))
+  file_paths_df_all_paths$category_variables_list <- rep(list(category_variables), nrow(file_paths_df_all_paths))
+  file_paths_df_all_paths$text_names_list <- rep(list(text_names), nrow(file_paths_df_all_paths))
+  file_paths_df_all_paths$numeric_names_list <- rep(list(numeric_names), nrow(file_paths_df_all_paths))
+
+  # Process the video coding data
+  sheet_coding_data <- bkissell::process_video_data(
+    file_paths_df_all_paths
+  )
+
+  # Convert the data to the wide format
+  data_for_calcs_wide <-prepare_data_for_calcs(
+    sheet_coding_data,
+    multiple_choice_variables
+  )
+
+  if(remove_empty_sheets == TRUE) {
+    # Remove the Section 00 videos as it means that it was not coded
+    data_for_calcs_wide <- data_for_calcs_wide %>%
+      dplyr::filter(.data[["section_label"]] != "Section 00")
+  }
+
+  # Obtain the names of the columns in the wide format
+  wide_column_names <- data_for_calcs_wide %>% names()
+
+  # Create a filter for which columns not to count
+  filter_out <- !(wide_column_names %in% {other_vars_that_should_not_be_counted})
+
+  # Filter out those variables
+  all_vars_to_count_duration <- wide_column_names[filter_out]
+
+  # Calculate the first occurrence data
+  prepared_first_occurence_data <- bkissell::prepare_first_occurrence_data(
+    data_for_calcs_wide, all_vars_to_count_duration
+  )
+
+  # Calculate the video duration data
+  prepared_video_duration_data <- bkissell::prepare_video_duration_data(
+    data_for_calcs_wide, all_vars_to_count_duration
+  )
+
+  # Combine the the two video data types
+  prepared_video_data <- prepared_video_duration_data  %>%
+    dplyr::left_join(prepared_first_occurence_data, by = "video_name")
+
+  # Round out the seconds
+  prepared_video_data$total_seconds_duration <-
+    prepared_video_data$total_seconds_duration %>%
+    round(0)
+
+  # If a manual working directory is provided, reset to original
+  if(!is.null(man_wd)) {
+    setwd(current_wd)
+  }
+
+  return(prepared_video_data)
+}
+
+
+
+#' process_video_data
+#'
+#' @param file_paths_df_all_paths file_paths_df_all_paths
+#'
+#' @return sheet_coding_data_df
+#' @export
+#'
+process_video_data <- function(
+    file_paths_df_all_paths
+){
+  # Setup progress meter
+  pb <- progress::progress_bar$new(
+    format = "Reading and Processing Individual Sheet Data [:bar] :percent in :elapsed",
+    total = length(file_paths_df_all_paths[[1]]),
+    clear = FALSE)
+
+  # Read in the data
+  sheet_coding_data_df_list <-
+    purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
+      sheet_coding_data <- bkissell::pvd__read_and_process_sheet_data(
+        individual_file_information_df = file_paths_df_all_paths[.x,])
+
+      sheet_coding_data <-  bkissell::pvd__further_cleaning(
+        sheet_coding_data,
+        multiple_choice_variables = unlist(file_paths_df_all_paths[.x,]$multiple_choice_variables_list),
+        category_variables = unlist(file_paths_df_all_paths[.x,]$category_variables_list)
+      )
+
+      sheet_coding_data$order_read_in <- .x
+      # Add one to the progress meter
+      pb$tick()
+      return(sheet_coding_data)
+    }, file_paths_df_all_paths)
+
+  # Combine all of the data frames
+  sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
+
+  # Return the variable
+  return(sheet_coding_data_df)
+}
 
 
 
