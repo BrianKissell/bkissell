@@ -1044,33 +1044,6 @@ prepare_version_directory_paths <- function(survey_directory_path){
 
 
 
-# process_video_data <- function(
-#     file_paths_df_all_paths,
-#     multiple_choice_variables,
-#     category_variables
-# ){
-#   # Read in the data
-#   sheet_coding_data_df_list <-
-#     purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
-#       sheet_coding_data <- bkissell::pvd__read_and_process_sheet_data(
-#         individual_file_information_df = file_paths_df_all_paths[.x,])
-#     }, file_paths_df_all_paths)
-#
-#   sheet_coding_data_df_list <- purrr::map(sheet_coding_data_df_list, ~{
-#     bkissell::pvd__further_cleaning(
-#       .x,
-#       multiple_choice_variables,
-#       category_variables
-#     )
-#   }, multiple_choice_variables, category_variables)
-#
-#   # Combine all of the data frames
-#   sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
-#
-#   # Return the variable
-#   return(sheet_coding_data_df)
-# }
-
 
 #' pvd__further_cleaning
 #'
@@ -1128,12 +1101,23 @@ pvd__further_cleaning <- function(
 #'
 pvd__read_and_process_sheet_data <- function(individual_file_information_df) {
   # Read Excel Sheet
-  sheet_coding_data <- readxl::read_excel(
+
+  readxl::read_excel(
     individual_file_information_df[["file_path"]],
-    sheet = individual_file_information_df[["sheet_name"]],
-    col_names = unlist(individual_file_information_df[["column_names_list"]]),
-    col_types = unlist(individual_file_information_df[["column_types_list"]]),
-    skip = 1)
+    sheet = individual_file_information_df[["sheet_name"]])
+
+  path_to_excel_sheet <- individual_file_information_df[["file_path"]]
+  sheet_name_to_read <- individual_file_information_df[["sheet_name"]]
+  the_col_names <- unlist(individual_file_information_df[["column_names_list"]])
+  the_col_types <- unlist(individual_file_information_df[["column_types_list"]])
+
+  sheet_coding_data <- readxl::read_excel(
+    path_to_excel_sheet,
+    sheet = sheet_name_to_read,
+    # col_names = the_col_names,
+    col_types = the_col_types)
+
+  colnames(sheet_coding_data) <- the_col_names
 
   # Add Video Name
   sheet_coding_data$video_name <- sheet_coding_data$video_name[[1]]
@@ -1446,6 +1430,8 @@ FULL_qualitative_coding_data <- function(
     setwd(man_wd)
   }
 
+
+
   # Where are the coding data files?
   qualitative_coding_path <- {folder_location__qualitative_coding}
 
@@ -1488,6 +1474,13 @@ FULL_qualitative_coding_data <- function(
   file_paths_df_all_paths$category_variables_list <- rep(list(category_variables), nrow(file_paths_df_all_paths))
   file_paths_df_all_paths$text_names_list <- rep(list(text_names), nrow(file_paths_df_all_paths))
   file_paths_df_all_paths$numeric_names_list <- rep(list(numeric_names), nrow(file_paths_df_all_paths))
+
+  # Setup progress meter
+  pb <<- progress::progress_bar$new(
+    format = "Reading and Processing Individual Sheet Data [:bar] :percent in :elapsed",
+    total = length(file_paths_df_all_paths[[1]]),
+    clear = FALSE)
+
 
   # Process the video coding data
   sheet_coding_data <- bkissell::process_video_data(
@@ -1554,11 +1547,6 @@ FULL_qualitative_coding_data <- function(
 process_video_data <- function(
     file_paths_df_all_paths
 ){
-  # Setup progress meter
-  pb <- progress::progress_bar$new(
-    format = "Reading and Processing Individual Sheet Data [:bar] :percent in :elapsed",
-    total = length(file_paths_df_all_paths[[1]]),
-    clear = FALSE)
 
   # Read in the data
   sheet_coding_data_df_list <-
@@ -1596,11 +1584,37 @@ process_video_data <- function(
 
 
 
-
-
-
-
-
+#
+# FULL_qualitative_coding_data(
+#   man_wd = NULL,
+#   folder_location__qualitative_coding = "Qualitative Coding/Version 2",
+#   file_part__initial_name_qual_coding = "Video_Coding_V2__",
+#   coder_names = c("Ben","Brian", "Jill", "Sarah", "Talia"),
+#   ext__initial_name_qual_coding = ".xlsx",
+#   text_names = c(
+#     "video_name", "section", "visual_type", "phone_and_url_present",
+#     "type_of_text_on_screen", "story_chapter",
+#     "global_variables_have_been_entered", "notes"),
+#   numeric_names = c(
+#     "time_point", "direct_eye_contact_with_camera_for_any_animals_or_people",
+#     "visual_type", "qr_code_present", "logo_present", "lower_third_present",
+#     "credit_card_symbols_present", "trust_indicator_present",
+#     "donor_directed_language"),
+#   multiple_choice_variables = c(
+#     "visual_type", "phone_and_url_present", "type_of_text_on_screen",
+#     "story_chapter", "global_variables_have_been_entered"),
+#   category_variables = c(
+#     "direct_eye_contact_with_camera_for_any_animals_or_people",
+#     "qr_code_present", "logo_present", "lower_third_present",
+#     "credit_card_symbols_present", "trust_indicator_present",
+#     "donor_directed_language"),
+#   remove_empty_sheets = TRUE,
+#   other_vars_that_should_not_be_counted = c(
+#     "time_point", "section_label", "video_name", "section", "coded_by",
+#     "notes", "duration_of_video", "global_variables_have_been_entered__yes",
+#     "visual_type", "phone_and_url_present", "type_of_text_on_screen",
+#     "story_chapter", "global_variables_have_been_entered")
+# )
 
 
 
