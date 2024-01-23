@@ -556,118 +556,6 @@ FULL_global_coding <- function(
 
 
 
-# FULL_qualitative_coding_data <- function(
-#     man_wd = NULL,
-#     folder_location__qualitative_coding,
-#     file_part__initial_name_qual_coding,
-#     coder_names,
-#     ext__initial_name_qual_coding,
-#     text_names,
-#     numeric_names,
-#     multiple_choice_variables,
-#     category_variables,
-#     remove_empty_sheets = TRUE,
-#     other_vars_that_should_not_be_counted
-# ) {
-#
-#   # If a manual working directory is provided,
-#   if(!is.null(man_wd)) {
-#     # Save current working directory
-#     current_wd <- getwd()
-#     # Change the working directory
-#     setwd(man_wd)
-#   }
-#
-#   # Where are the coding data files?
-#   qualitative_coding_path <- {folder_location__qualitative_coding}
-#
-#   # Provide all of the names to the coding worksheets
-#   names_of_all_video_coding_docs <- paste0(
-#     {file_part__initial_name_qual_coding},
-#     {coder_names},
-#     {ext__initial_name_qual_coding}
-#   )
-#
-#   # Create the paths for the copding documents
-#   video_coding_docs_file_paths <- file.path(
-#     qualitative_coding_path,
-#     names_of_all_video_coding_docs
-#   )
-#
-#   # Set up parameters
-#   text_names = {text_names}
-#   numeric_names = {numeric_names}
-#   multiple_choice_variables <- {multiple_choice_variables}
-#   multiple_choice_vars <- multiple_choice_variables
-#   category_variables <- {category_variables}
-#
-#   # Obtain the file paths and column information
-#   file_paths_df_all_paths <-
-#     bkissell::get_file_paths_and_column_data_from_excel_workbooks_list(
-#       video_coding_docs_file_paths, text_names, numeric_names
-#     )
-#
-#   # Temp so I can keep testing the program.
-#   file_paths_df_all_paths[93,"column_types_list"][[1]] <- ifelse(
-#     file_paths_df_all_paths[93,"column_types_list"][[1]] == "type_of_text_on_string",
-#     "text",
-#     file_paths_df_all_paths[93,"column_types_list"][[1]])
-#
-#   # Process the video coding data
-#   sheet_coding_data <- bkissell::process_video_data(
-#     file_paths_df_all_paths,
-#     multiple_choice_variables,
-#     category_variables
-#   )
-#
-#   # Convert the data to the wide format
-#   data_for_calcs_wide <- bkissell::prepare_data_for_calcs(
-#     sheet_coding_data,
-#     multiple_choice_variables
-#   )
-#
-#   if(remove_empty_sheets == TRUE) {
-#     # Remove the Section 00 videos as it means that it was not coded
-#     data_for_calcs_wide <- data_for_calcs_wide %>%
-#       dplyr::filter(.data[["section_label"]] != "Section 00")
-#   }
-#
-#   # Obtain the names of the columns in the wide format
-#   wide_column_names <- data_for_calcs_wide %>% names()
-#
-#   # Create a filter for which columns not to count
-#   filter_out <- !(wide_column_names %in% {other_vars_that_should_not_be_counted})
-#
-#   # Filter out those variables
-#   all_vars_to_count_duration <- wide_column_names[filter_out]
-#
-#   # Calculate the first occurrence data
-#   prepared_first_occurence_data <- bkissell::prepare_first_occurrence_data(
-#     data_for_calcs_wide, all_vars_to_count_duration
-#   )
-#
-#   # Calculate the video duration data
-#   prepared_video_duration_data <- bkissell::prepare_video_duration_data(
-#     data_for_calcs_wide, all_vars_to_count_duration
-#   )
-#
-#   # Combine the the two video data types
-#   prepared_video_data <- prepared_video_duration_data  %>%
-#     dplyr::left_join(prepared_first_occurence_data, by = "video_name")
-#
-#   # Round out the seconds
-#   prepared_video_data$total_seconds_duration <-
-#     prepared_video_data$total_seconds_duration %>%
-#     round(0)
-#
-#   # If a manual working directory is provided, reset to original
-#   if(!is.null(man_wd)) {
-#     setwd(current_wd)
-#   }
-#
-#   return(prepared_video_data)
-# }
-
 
 #' get_file_paths_from_excel_workbooks_list
 #'
@@ -1510,7 +1398,7 @@ read_survey_monkey_data <- function(
 #   "notes", "duration_of_video", "global_variables_have_been_entered__yes",
 #   "visual_type", "phone_and_url_present", "type_of_text_on_screen",
 #   "story_chapter", "global_variables_have_been_entered")
-#
+
 
 
 
