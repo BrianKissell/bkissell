@@ -524,6 +524,9 @@ FULL_global_coding <- function(
   # Read in the editable file
   Global_Coding_REFERENCE <- survey_monkey_data
 
+  Global_Coding_REFERENCE <- Global_Coding_REFERENCE %>%
+    mutate(across(everything(), as.character))
+
   Global_Coding_CHANGE_LOG <- readxl::read_excel(Global_Coding_CHANGE_LOG_file_path, "Change Log")  %>%
     dplyr::filter(!is.na(.data[["respondent_id"]]))
 
@@ -533,10 +536,14 @@ FULL_global_coding <- function(
     CHANGE_LOG_Column_to_edit <- Global_Coding_CHANGE_LOG[.x,][["column_being_edited"]]
     CHANGE_LOG_correct_value <- Global_Coding_CHANGE_LOG[.x,][["correct_value"]]
 
-    row_to_change <- Global_Coding_REFERENCE[["respondent_id"]] == {{CHANGE_LOG_respondent_id}}
-    column_to_change <- names(Global_Coding_REFERENCE) == {{CHANGE_LOG_Column_to_edit}}
-
-    Global_Coding_REFERENCE[row_to_change, column_to_change] <<- {{CHANGE_LOG_correct_value}}
+    row_to_change <- which(Global_Coding_REFERENCE[["respondent_id"]] == {{CHANGE_LOG_respondent_id}})
+    column_to_change <- which(names(Global_Coding_REFERENCE) == {{CHANGE_LOG_Column_to_edit}})
+    # print({{CHANGE_LOG_correct_value}})
+    # print(Global_Coding_CHANGE_LOG[.x,][["respondent_id"]])
+    # print({{row_to_change}})
+    # print({{column_to_change}})
+    # print(Global_Coding_REFERENCE[row_to_change, column_to_change][[1]])
+    Global_Coding_REFERENCE[row_to_change, column_to_change][[1]] <<- as.character({{CHANGE_LOG_correct_value}})
   })
 
   # Organize the data by end date
@@ -1616,5 +1623,14 @@ process_video_data <- function(
 #     "story_chapter", "global_variables_have_been_entered")
 # )
 
-
+#
+# man_wd = "C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/Research and Development/00 Jobs/2024/003_RD_CodingVideoContent"
+#
+#
+# global_coding_to_save <- bkissell::FULL_global_coding(
+#   man_wd = NULL,
+#   file_part__sm_raw_folder = "Qualitative Coding/Version 2/global_variables/raw_data",
+#   Global_Coding_REFERENCE_file_path = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_REFERENCE.xlsx",
+#   Global_Coding_CHANGE_LOG_file_path = "C:/Users/Brian/Moore DM Group/MNF Lab R&D Projects - Content Evaluation - Global Coding -/Global_Coding_CHANGE_LOG.xlsx"
+# )
 
