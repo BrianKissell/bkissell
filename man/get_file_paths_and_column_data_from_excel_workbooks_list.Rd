@@ -7,7 +7,8 @@
 get_file_paths_and_column_data_from_excel_workbooks_list(
   video_coding_docs_file_paths,
   text_names,
-  numeric_names
+  numeric_names,
+  sheets_to_exclude
 )
 }
 \arguments{
@@ -16,6 +17,8 @@ get_file_paths_and_column_data_from_excel_workbooks_list(
 \item{text_names}{text_names}
 
 \item{numeric_names}{numeric_names}
+
+\item{sheets_to_exclude}{sheets_to_exclude}
 }
 \value{
 file_paths_df_all_paths

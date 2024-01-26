@@ -4,10 +4,15 @@
 \alias{get_file_paths_from_excel_workbooks_df_all_paths}
 \title{get_file_paths_from_excel_workbooks_df_all_paths}
 \usage{
-get_file_paths_from_excel_workbooks_df_all_paths(video_coding_docs_file_paths)
+get_file_paths_from_excel_workbooks_df_all_paths(
+  video_coding_docs_file_paths,
+  sheets_to_exclude
+)
 }
 \arguments{
 \item{video_coding_docs_file_paths}{video_coding_docs_file_paths}
+
+\item{sheets_to_exclude}{sheets_to_exclude}
 }
 \value{
 file_paths_df_all_paths

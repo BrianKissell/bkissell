@@ -4,10 +4,15 @@
 \alias{get_file_paths_from_excel_workbooks_df}
 \title{get_file_paths_from_excel_workbooks_list}
 \usage{
-get_file_paths_from_excel_workbooks_df(path_to_excel_file)
+get_file_paths_from_excel_workbooks_df(
+  path_to_excel_file,
+  sheets_to_exclude = NULL
+)
 }
 \arguments{
 \item{path_to_excel_file}{path_to_excel_file}
+
+\item{sheets_to_exclude}{sheets_to_exclude}
 }
 \value{
 file_paths_df
