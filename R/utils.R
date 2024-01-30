@@ -69,13 +69,13 @@ adjust_file_path_to_current_machine <- function(file_path){
   local_working_directory <- getwd()
 
   # Split the working directory into multiple parts to make it easier to work with.
-  parts_of_wd <- local_working_directory %>%
-    strsplit(.Platform$file.sep) %>%
+  parts_of_wd <- local_working_directory |>
+    strsplit(.Platform$file.sep) |>
     unlist()
 
   # Split the file_path into multiple parts to make it easier to work with.
-  parts_of_file_path <- {{file_path}} %>%
-    strsplit(.Platform$file.sep) %>%
+  parts_of_file_path <- {{file_path}} |>
+    strsplit(.Platform$file.sep) |>
     unlist()
 
   # Check if the first element of the working directory is a drive
@@ -323,7 +323,7 @@ create_column_details_and_named_vectors_list <- function(
     return(named_vector)
 
     # Name all sheets so they can be easily accessed
-  }, path_to_column_workbook) %>% purrr::set_names(named_vectors_workbook_sheets)
+  }, path_to_column_workbook) |> purrr::set_names(named_vectors_workbook_sheets)
 
   # Return the list with all of this information
   return(named_vectors_list)
@@ -358,7 +358,7 @@ create_path_to_lab_directory_in_dropbox <- function(drop_box_name = "TCM Dropbox
       # Extract the approved name
       user_names <- purrr::map(appropriate_user_names, ~{
         stringr::str_extract(.x, list.files(file.path(c_drive, users)))
-      }) %>% unlist()
+      }) |> unlist()
 
       # Remove the nas
       user_name <- user_names[!is.na(user_names)]
@@ -435,12 +435,12 @@ extract_column_details_question_type_df <- function(column_details_table, questi
 
   if(question_type_indicator == "mc") {
     # Filter for multiple choice questions
-    column_details_question_type_df <- column_details_table %>%
+    column_details_question_type_df <- column_details_table |>
       dplyr::filter(.data[["type"]] == {{question_type_indicator}})
   }
 
   if(question_type_indicator == "sa") {
-    column_details_question_type_df <- column_details_table %>%
+    column_details_question_type_df <- column_details_table |>
       dplyr::filter(
         # Find all rows that start with sa
         stringr::str_detect(column_details_table$type, "^sa")
@@ -486,7 +486,7 @@ FILES_find_newest_file <- function(directory, file_type = ".csv", format_pattern
     file_paths <- paste0(directory, "/", file_names)
 
     # Check that the number format matches the number
-    fits_pattern <- file_names %>%
+    fits_pattern <- file_names |>
       stringr::str_detect(format_pattern)
 
     # If there is an error, stop the program
@@ -494,19 +494,19 @@ FILES_find_newest_file <- function(directory, file_type = ".csv", format_pattern
       stop("Please ensure the date is in the following format - mmddyyyy_hhmm")
     }
 
-    file_dates <- file_names %>%
+    file_dates <- file_names |>
       stringr::str_extract(format_pattern)
 
     # Extract all numbers and then convert them to numeric
-    file_dates_number <- file_dates %>%
-      stringr::str_replace_all("[^0-9]", "") %>%
+    file_dates_number <- file_dates |>
+      stringr::str_replace_all("[^0-9]", "") |>
       as.numeric()
 
     # Extract the additional numbers that show it is a duplicate version and then convert them to numeric
-    file_dates_number_to_add <- file_names %>%
-      stringr::str_replace(format_pattern, "") %>%
-      stringr::str_replace_all("[^0-9]", "") %>%
-      as.numeric() %>%
+    file_dates_number_to_add <- file_names |>
+      stringr::str_replace(format_pattern, "") |>
+      stringr::str_replace_all("[^0-9]", "") |>
+      as.numeric() |>
       tidyr::replace_na(0)
 
     # Add the above numbers to prioritize the files
@@ -541,7 +541,7 @@ FULL_global_coding <- function(
     Global_Coding_CHANGE_LOG_file_path
 ) {
 
-  Global_Coding_REFERENCE_file_path %>% file.remove()
+  Global_Coding_REFERENCE_file_path |> file.remove()
 
   Sys.sleep(5)
 
@@ -552,21 +552,21 @@ FULL_global_coding <- function(
   )[[1]]
 
   # Convert particular NAs to 0s, and other responses to 1s
-  survey_monkey_data <- survey_monkey_data %>%
-    mutate(
-      across(
-        c(starts_with("animals__"),
-          starts_with("mc_"),
-          starts_with("sc_"),
-          starts_with("bc_"),
-          starts_with("cel_"),
-          starts_with("premium__")
+  survey_monkey_data <- survey_monkey_data |>
+    dplyr::mutate(
+      dplyr::across(
+        c(tidyselect::starts_with("animals__"),
+          tidyselect::starts_with("mc_"),
+          tidyselect::starts_with("sc_"),
+          tidyselect::starts_with("bc_"),
+          tidyselect::starts_with("cel_"),
+          tidyselect::starts_with("premium__")
         ),
         ~{ifelse(is.na(.x), 0, 1)})
     )
 
   # Adjust organization of the data
-  survey_monkey_data <- survey_monkey_data %>%
+  survey_monkey_data <- survey_monkey_data |>
     dplyr::select(-c("collector_id", "email_address", "first_name", "last_name", "custom_data_1"))
 
   # Create id so it with a letter so it is read correctly in excel
@@ -585,10 +585,10 @@ FULL_global_coding <- function(
   # Read in the editable file
   Global_Coding_REFERENCE <- survey_monkey_data
 
-  Global_Coding_REFERENCE <- Global_Coding_REFERENCE %>%
-    mutate(across(everything(), as.character))
+  Global_Coding_REFERENCE <- Global_Coding_REFERENCE |>
+    dplyr::mutate(dplyr::across(tidyselect::everything(), as.character))
 
-  Global_Coding_CHANGE_LOG <- readxl::read_excel(Global_Coding_CHANGE_LOG_file_path, "Change Log")  %>%
+  Global_Coding_CHANGE_LOG <- readxl::read_excel(Global_Coding_CHANGE_LOG_file_path, "Change Log")  |>
     dplyr::filter(!is.na(.data[["respondent_id"]]))
 
   purrr::walk(seq_along(Global_Coding_CHANGE_LOG[[1]]), ~{
@@ -608,7 +608,7 @@ FULL_global_coding <- function(
   })
 
   # Organize the data by end date
-  Global_Coding_REFERENCE <- Global_Coding_REFERENCE %>% arrange(.data[["end_date"]])
+  Global_Coding_REFERENCE <- Global_Coding_REFERENCE |> dplyr::arrange(.data[["end_date"]])
 
   # Write all of the files
   writexl::write_xlsx(Global_Coding_REFERENCE, Global_Coding_REFERENCE_file_path)
@@ -718,7 +718,7 @@ get_initial_read_data_from_excel_workbooks <- function(
     path_to_excel_file, sheet_name
 ){
 
-  initial_read_data <- readxl::read_excel(path_to_excel_file, sheet_name) %>%
+  initial_read_data <- readxl::read_excel(path_to_excel_file, sheet_name) |>
     suppressWarnings()
 
   # Return the variable
@@ -804,10 +804,10 @@ obtain_column_details_table <- function(column_workbook_list, name_of_column_det
   }
 
   # Extract the column details
-  column_details_table <- column_workbook_list[[{{name_of_column_details}}]] %>%
+  column_details_table <- column_workbook_list[[{{name_of_column_details}}]] |>
 
     # Filter out any columns with NA for the type
-    dplyr::filter(!is.na(.data[["type"]])) %>%
+    dplyr::filter(!is.na(.data[["type"]])) |>
 
     # Convert the strings in type to lower case
     dplyr::mutate(type = stringr::str_to_lower(.data[["type"]]))
@@ -827,7 +827,7 @@ obtain_column_details_table <- function(column_workbook_list, name_of_column_det
 #'
 obtain_column_name_paths_for_all_survey_versions <- function(version_directories) {
   # Create path for the column names workbook
-  version_column_names_paths <- version_directories %>%
+  version_column_names_paths <- version_directories |>
     paste0("/", basename(version_directories), "_column_names.xlsx")
 
   return(version_column_names_paths)
@@ -846,7 +846,7 @@ obtain_connection_to_zip_files_for_versions <- function(newest_files_for_project
   path_inside_zip <- purrr::map_chr(newest_files_for_project, ~{
     file_location <- .x
 
-    file_names <- unzip(zipfile = file_location, list = TRUE) %>% dplyr::pull(Name)
+    file_names <- unzip(zipfile = file_location, list = TRUE) |> dplyr::pull(Name)
 
     do_not_keep <- stringr::str_detect(file_names, "PageOrder")
 
@@ -882,9 +882,9 @@ obtain_initial_column_names_for_version <- function(version_column_names_paths, 
   for(i in seq_along(version_column_names_paths)) {
     if(the_column_names_file_exists[[i]]){
       #  Create a vector with the column names
-      column_names <- version_column_names_paths[[i]] %>%
-        readxl::read_excel() %>%
-        dplyr::pull(column_names) %>%
+      column_names <- version_column_names_paths[[i]] |>
+        readxl::read_excel() |>
+        dplyr::pull(column_names) |>
         list()
 
     } else {
@@ -944,14 +944,14 @@ prepare_version_directory_paths <- function(survey_directory_path){
   # survey_data_raw_directory <- bkissell::adjust_file_path_to_current_machine(survey_directory_path)
 
   # Get the file names that are provided in this directory
-  survey_data_raw_directory_filenames <- survey_directory_path %>%
+  survey_data_raw_directory_filenames <- survey_directory_path |>
     list.files()
 
   # Test whether each file is a directory or not (This folder should only have
   # directories that represent the different versions of the surveys)
   # One exception is the processed_data folder
-  is_project_names <- survey_data_raw_directory_filenames %>%
-    tools::file_ext() %>%
+  is_project_names <- survey_data_raw_directory_filenames |>
+    tools::file_ext() |>
     stringr::str_detect("^$")
 
   # Create a vector with only the directory names
@@ -961,7 +961,7 @@ prepare_version_directory_paths <- function(survey_directory_path){
   version_names <- version_names[version_names != "processed_data"]
 
   # Create paths for each version directory
-  version_directories <- survey_directory_path %>%
+  version_directories <- survey_directory_path |>
     paste0("/", version_names)
 
   # Return version directories
@@ -986,7 +986,7 @@ prepare_version_directory_paths <- function(survey_directory_path){
 read_csv_in_zip <- function(connection_to_zip_files, initial_column_names_for_version) {
 
   list_of_file_information <- list(connection_to_zip_files, initial_column_names_for_version)
-  # %>%
+  # |>
   #   purrr::flatten()
 
   # Read in the data
@@ -1086,7 +1086,7 @@ read_survey_monkey_data <- function(
   })
 
   # Name the dfs with the version names
-  survey_data_list <- survey_data_list %>% purrr::set_names(version_name)
+  survey_data_list <- survey_data_list |> purrr::set_names(version_name)
 
   # If a manual working directory is provided, reset to original
   if(!is.null(man_wd)) {
@@ -1204,11 +1204,11 @@ read_survey_monkey_data <- function(
 #   "time_point", "section_label", "video_name", "section", "coded_by",
 #   "notes", "duration_of_video", "global_variables_have_been_entered__yes",
 #   "visual_type", "phone_and_url_present", "type_of_text_on_screen",
-#   "story_chapter", "global_variables_have_been_entered")
+#   "story_chapter", "global_variables_have_been_entered", "original_video_name", "global_variables_entered")
 # sheets_to_exclude = c("Template","Data Validation")
 #
 # column_names_details_name = "Version 2_column_names.xlsx"
-
+#
 
 
 

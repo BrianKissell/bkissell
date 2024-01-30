@@ -9,7 +9,7 @@ prepare_first_occurrence_data(data_for_calcs_wide, all_vars_to_count_duration)
 \arguments{
 \item{data_for_calcs_wide}{data_for_calcs_wide}
 
-\item{all_vars_to_count_duration}{ll_vars_to_count_duration}
+\item{all_vars_to_count_duration}{all_vars_to_count_duration}
 }
 \value{
 prepared_first_occurence_data
