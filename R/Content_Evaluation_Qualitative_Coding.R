@@ -13,6 +13,7 @@
 #' @param file_name_part file_name_part
 #' @param sheets_to_exclude sheets_to_exclude
 #' @param column_names_details_name column_names_details_name
+#' @param create_log_doc create_log_doc
 #'
 #' @return prepared_video_data
 #' @export
@@ -30,8 +31,12 @@ FULL_qualitative_coding_data <- function(
     remove_empty_sheets = TRUE,
     other_vars_that_should_not_be_counted,
     sheets_to_exclude = c("Template","Data Validation"),
-    column_names_details_name = "Version 2_column_names.xlsx"
+    column_names_details_name = "Version 2_column_names.xlsx",
+    create_log_doc = TRUE
 ) {
+
+  # Initiate a progress log
+  progress_log <- list()
 
   # If a manual working directory is provided,
   if(!is.null(man_wd)) {
@@ -40,6 +45,8 @@ FULL_qualitative_coding_data <- function(
     # Change the working directory
     setwd(man_wd)
   }
+
+  progress_log$wd_being_used <- glue::glue("Working Directory Being Used: {getwd()}")
 
   # Create path for the column name details
   column_names_details_path <- file.path(
@@ -59,29 +66,225 @@ FULL_qualitative_coding_data <- function(
     sheets_to_exclude
   )
 
+  progress_log$file_paths_and_sheet_names <- file_paths_df_all_paths
+
+
   # Setup progress meter
   pb <- progress::progress_bar$new(
     format = "Reading and Processing Individual Sheet Data [:bar] :current/:total(:percent) in :elapsed",
     total = length(file_paths_df_all_paths[[1]]),
     clear = FALSE)
 
-  # Process the video coding data
-  sheet_coding_data <- bkissell::process_video_data(
-    file_paths_df_all_paths,
-    column_workbook_list
-  )
+  progress_log$reading_errors <- list()
 
-  # Convert the data to the wide format
-  data_for_calcs_wide <- prepare_data_for_calcs(
-    sheet_coding_data,
-    multiple_choice_variables
-  )
+  # Read in the data
+  sheet_coding_data_df_list <-
+    purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
+      # Obtain the file and sheet that will be processed
+      individual_file_information_df <- file_paths_df_all_paths[.x,]
+
+      # Extract the column details from the workbook
+      column_details_table <- bkissell::obtain_column_details_table(column_workbook_list)
+
+      # Prepare to read data
+      the_col_names_original <- column_details_table$original_name
+      the_col_names_correct <- column_details_table$column_names
+      the_col_types <- column_details_table$data_type
+      path_to_excel_sheet <- individual_file_information_df[["file_path"]]
+      sheet_name_to_read <- individual_file_information_df[["sheet_name"]]
+
+      # Read in data
+      sheet_coding_data <- readxl::read_excel(
+        path_to_excel_sheet,
+        sheet = sheet_name_to_read,
+        col_types = the_col_types
+      )
+
+      # If there is an issue with the names, throw an error.
+      if(!all(colnames(sheet_coding_data) == the_col_names_original)) {
+        progress_log$reading_errors <- append(
+          progress_log$reading_errors,
+          glue::glue("Column names from {path_to_excel_sheet} - {sheet_name_to_read} do not match {paste0(the_col_names_original, collapse = ', ')}")
+          )
+        # rlang::abort(glue::glue("Column names from {path_to_excel_sheet} - {sheet_name_to_read} do not match {paste0(the_col_names_original, collapse = ', ')}"))
+      } else {
+
+        # Correct the names
+        colnames(sheet_coding_data) <- the_col_names_correct
+
+        # Get all of the single text variables
+        single_text_variables <- column_details_table %>%
+          dplyr::filter(.data[["type"]] == "single_text") %>%
+          dplyr::pull(.data[["column_names"]])
+
+        # Add that data to the entire dataset
+        if(length(single_text_variables) > 0) {
+          sheet_coding_data <- sheet_coding_data %>%
+            mutate(across(all_of(single_text_variables), ~{.x[[1]]}))
+        }
+
+        # Convert starts into 1 and 0s
+        section_number <-
+          ifelse(sheet_coding_data$section == "Start of Section", 1, 0) |>
+          tidyr::replace_na(0) |>
+          cumsum() |>
+          stringr::str_pad(width = 3, side = "left", pad = "0")
+
+        # Create the section label
+        sheet_coding_data$section_label <- paste0("Section ", section_number)
+
+        # Get the name of the coder
+        coded_by <- stringr::str_extract(
+          individual_file_information_df["file_path"],
+          "__.+xlsx$"
+        ) |>
+          stringr::str_replace("__", "") |>
+          stringr::str_replace(".xlsx$", "") |>
+          snakecase::to_snake_case()
+
+        # Add coded data to df
+        sheet_coding_data$coded_by <- coded_by
+
+        # Get the multiple choice variables
+        multiple_choice_variables <- column_details_table %>%
+          dplyr::filter(.data[["type"]] == "multiple_choice") %>%
+          dplyr::pull(.data[["column_names"]])
+
+        # Convert data to characters and snakecase
+        if(length(multiple_choice_variables > 0)) {
+          sheet_coding_data_df <- sheet_coding_data |>
+            dplyr::mutate(
+              dplyr::across(
+                starts_with(multiple_choice_variables),
+                snakecase::to_snake_case
+              )
+            )
+        }
+
+        # Get the logical variables
+        logical_variables <- column_details_table %>%
+          dplyr::filter(.data[["type"]] == "logical") %>%
+          dplyr::pull(.data[["column_names"]])
+
+        # Convert NAs to 0
+        if(length(logical_variables > 0)) {
+          sheet_coding_data_df <- sheet_coding_data_df |>
+            dplyr::mutate(
+              dplyr::across(
+                all_of(logical_variables),
+                ~{tidyr::replace_na(.x, 0)}
+              )
+            )
+        }
+
+        # Re-order the data
+        sheet_coding_data_df <- sheet_coding_data_df |>
+          select("section_label", everything())
+
+        # Get the duration of the video
+        sheet_coding_data_df <- sheet_coding_data_df |>
+          dplyr::group_by(.data[["video_name"]]) |>
+          dplyr::mutate(
+            duration_of_video = .data[["time_point"]] |> max() |> round()
+          )
+
+        sheet_coding_data <- sheet_coding_data_df
+
+        sheet_coding_data$order_read_in <- .x
+
+      }
+
+      # Add one to the progress meter
+      pb$tick()
+      return(sheet_coding_data)
+    }, file_paths_df_all_paths, column_workbook_list)
+
+  # Combine all of the data frames
+  sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
+
+  # Pivot the data
+  # Prep the data
+  data_for_calcs <- sheet_coding_data_df
+
+  data_for_calcs$original_video_name <- data_for_calcs$video_name
+
+  data_for_calcs$video_name <- paste0(data_for_calcs$video_name, "_", data_for_calcs$coded_by, "_", data_for_calcs$order_read_in)
+
+  # Create a helper function that creates the multiple choice tables
+  pavd_create_mc_df_table <- function(data, mc_var_name, video_name_var = "video_name", time_point_var = "time_point") {
+
+    # Remove missing data
+    data <- data %>% dplyr::filter(!is.na(.data[[{{mc_var_name}}]]))
+
+    # Create data to help with the pivot
+    data$element_present <- 1
+
+    # Pivot the table
+    mc_data_for_calcs <- data %>%
+      dplyr::select({{video_name_var}}, {{time_point_var}}, {{mc_var_name}}, "element_present") %>%
+      tidyr::pivot_wider(
+        id_cols = c(everything()),
+        names_from = .data[[{{mc_var_name}}]],
+        names_glue = paste0({{mc_var_name}}, "__{.name}"),
+        values_from = .data[["element_present"]]
+      ) %>%
+      dplyr::mutate(dplyr::across(tidyselect::starts_with(paste0({{mc_var_name}}, "__")), ~tidyr::replace_na(.x, 0)))
+
+    pb$tick()
+
+    # Return the table
+    return(mc_data_for_calcs)
+  }
+
+  # add to the multiple choice vector
+  the_multiple_choice_vars <- c(multiple_choice_variables, "coded_by", "duration_of_video")
+
+  # Setup progress meter
+  pb <- progress::progress_bar$new(
+    format = "Converting Multiple Choice Variables to Wide Format [:bar] :current/:total(:percent) in :elapsed",
+    total = length(the_multiple_choice_vars),
+    clear = FALSE)
+
+  # Create the tables for the multiple choice variable
+  list_of_data_for_calcs <- purrr::map(the_multiple_choice_vars, ~{
+    pavd_create_mc_df_table(
+      data = data_for_calcs,
+      mc_var_name = {{.x}},
+      video_name_var = "video_name",
+      time_point_var = "time_point"
+    )
+  }, data_for_calcs)
+
+  # Join all of the dfs together
+  new_data_for_calcs <- list_of_data_for_calcs %>%
+    purrr::reduce(dplyr::left_join, by = c("video_name", "time_point"))
+
+  # Replace the na
+  wide_multiple_choice_df <- new_data_for_calcs %>%
+    dplyr::mutate(across(everything(), ~tidyr::replace_na(.x, 0)))
+
+  # Join the mc data
+  wide_data_for_calcs <- data_for_calcs %>%
+    dplyr::left_join(wide_multiple_choice_df, by = c("video_name", "time_point"))
+
+  data_for_calcs_wide <-  wide_data_for_calcs
+
+  unique_files_df_with_section_0 <- data_for_calcs_wide %>%
+    dplyr::filter(.data[["section_label"]] == "Section 000") %>%
+    distinct(video_name, original_video_name, coded_by, order_read_in)
+
+
+  progress_log$unique_files_df_with_section_0 <- unique_files_df_with_section_0
 
   # Remove the Section 00 videos as it means that it was not coded
   if(remove_empty_sheets == TRUE) {
     data_for_calcs_wide <- data_for_calcs_wide %>%
-      dplyr::filter(.data[["section_label"]] != "Section 00")
+      dplyr::filter(.data[["section_label"]] != "Section 000")
   }
+
+  unique_files_df <- distinct(data_for_calcs_wide, video_name, original_video_name, coded_by, order_read_in)
+
+  progress_log$unique_files_df <- unique_files_df
 
   # Obtain the names of the columns in the wide format
   wide_column_names <- data_for_calcs_wide %>% names()
@@ -111,240 +314,29 @@ FULL_qualitative_coding_data <- function(
     prepared_video_data$total_seconds_duration %>%
     round(0)
 
+  if(create_log_doc == TRUE) {
+    log_path <- paste0(dirname(file_paths_df_all_paths$file_path[[1]]), "/qualitative_processing_log.xlsx")
+
+    library(openxlsx)
+
+    wb <- createWorkbook()
+
+    for(i in names(progress_log)){
+      openxlsx::addWorksheet(wb, i)
+
+      openxlsx::writeData(wb, sheet = i, as.data.frame(progress_log[i]))
+    }
+
+    saveWorkbook(wb, file = log_path)
+
+  }
+
   # If a manual working directory is provided, reset to original
   if(!is.null(man_wd)) {
     setwd(current_wd)
   }
 
   return(prepared_video_data)
-}
-
-#' process_video_data
-#'
-#' @param file_paths_df_all_paths file_paths_df_all_paths
-#' @param column_workbook_list column_workbook_list
-#'
-#' @return sheet_coding_data_df
-#' @export
-#'
-process_video_data <- function(
-    file_paths_df_all_paths,
-    column_workbook_list
-){
-  # Read in the data
-  sheet_coding_data_df_list <-
-    purrr::map(seq_along(file_paths_df_all_paths[[1]]), ~{
-      sheet_coding_data <- bkissell::pvd__read_and_process_sheet_data(
-        individual_file_information_df = file_paths_df_all_paths[.x,],
-        column_workbook_list)
-
-      sheet_coding_data$order_read_in <- .x
-      # Add one to the progress meter
-      pb$tick()
-      return(sheet_coding_data)
-    }, file_paths_df_all_paths, column_workbook_list)
-
-  # Combine all of the data frames
-  sheet_coding_data_df <- bind_rows(sheet_coding_data_df_list)
-
-  # Return the variable
-  return(sheet_coding_data_df)
-}
-
-#' pvd__read_and_process_sheet_data
-#'
-#' @param individual_file_information_df individual_file_information_df
-#' @param column_workbook_list column_workbook_list
-#'
-#' @return sheet_coding_data
-#' @export
-#'
-pvd__read_and_process_sheet_data <- function(
-    individual_file_information_df,
-    column_workbook_list
-    ) {
-
-  # Extract the column details from the workbook
-  column_details_table <- bkissell::obtain_column_details_table(column_workbook_list)
-
-  # Prepare to read data
-  the_col_names_original <- column_details_table$original_name
-  the_col_names_correct <- column_details_table$column_names
-  the_col_types <- column_details_table$data_type
-  path_to_excel_sheet <- individual_file_information_df[["file_path"]]
-  sheet_name_to_read <- individual_file_information_df[["sheet_name"]]
-
-  # Read in data
-  sheet_coding_data <- readxl::read_excel(
-    path_to_excel_sheet,
-    sheet = sheet_name_to_read,
-    col_types = the_col_types
-    )
-
-  # If there is an issue with the names, throw an error.
-  if(!all(colnames(sheet_coding_data) == the_col_names_original)) {
-    rlang::abort(glue::glue("Column names from {path_to_excel_sheet} - {sheet_name_to_read} do not match {paste0(the_col_names_original, collapse = ', ')}"))
-  }
-
-  # Correct the names
-  colnames(sheet_coding_data) <- the_col_names_correct
-
-  # Get all of the single text variables
-  single_text_variables <- column_details_table %>%
-    dplyr::filter(.data[["type"]] == "single_text") %>%
-    dplyr::pull(.data[["column_names"]])
-
-  # Add that data to the entire dataset
-  if(length(single_text_variables) > 0) {
-    sheet_coding_data <- sheet_coding_data %>%
-      mutate(across(all_of(single_text_variables), ~{.x[[1]]}))
-  }
-
-  # Convert starts into 1 and 0s
-  section_number <-
-    ifelse(sheet_coding_data$section == "Start of Section", 1, 0) |>
-    tidyr::replace_na(0) |>
-    cumsum() |>
-    stringr::str_pad(width = 3, side = "left", pad = "0")
-
-  # Create the section label
-  sheet_coding_data$section_label <- paste0("Section ", section_number)
-
-  # Get the name of the coder
-  coded_by <- stringr::str_extract(
-    individual_file_information_df["file_path"],
-    "__.+xlsx$"
-  ) |>
-    stringr::str_replace("__", "") |>
-    stringr::str_replace(".xlsx$", "") |>
-    snakecase::to_snake_case()
-
-  # Add coded data to df
-  sheet_coding_data$coded_by <- coded_by
-
-  # Get the multiple choice variables
-  multiple_choice_variables <- column_details_table %>%
-    dplyr::filter(.data[["type"]] == "multiple_choice") %>%
-    dplyr::pull(.data[["column_names"]])
-
-  # Convert data to characters and snakecase
-  if(length(multiple_choice_variables > 0)) {
-    sheet_coding_data_df <- sheet_coding_data |>
-      dplyr::mutate(
-        dplyr::across(
-          starts_with(multiple_choice_variables),
-          snakecase::to_snake_case
-        )
-      )
-  }
-
-  # Get the logical variables
-  logical_variables <- column_details_table %>%
-    dplyr::filter(.data[["type"]] == "logical") %>%
-    dplyr::pull(.data[["column_names"]])
-
-  # Convert NAs to 0
-  if(length(logical_variables > 0)) {
-    sheet_coding_data_df <- sheet_coding_data_df |>
-      dplyr::mutate(
-        dplyr::across(
-          logical_variables,
-          ~{tidyr::replace_na(.x, 0)}
-        )
-      )
-  }
-
-  # Re-order the data
-  sheet_coding_data_df <- sheet_coding_data_df |>
-    select("section_label", everything())
-
-  # Get the duration of the video
-  sheet_coding_data_df <- sheet_coding_data_df |>
-    dplyr::group_by(.data[["video_name"]]) |>
-    dplyr::mutate(
-      duration_of_video = .data[["time_point"]] |> max() |> round()
-    )
-
-  # Return the object
-  return(sheet_coding_data_df)
-}
-
-
-
-
-#' prepare_data_for_calcs
-#'
-#' @param sheet_coding_data sheet_coding_data created with `process_video_data`
-#' @param multiple_choice_vars multiple_choice_vars
-#'
-#' @return wide_data_for_calcs
-#' @import dplyr
-#' @export
-#'
-prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
-
-  # multiple_choice_vars <- create_multiple_choice_variables_for_coding_data()
-
-  # Prep the data
-  data_for_calcs <- sheet_coding_data
-
-  data_for_calcs$video_name <- paste0(data_for_calcs$video_name, "_", data_for_calcs$coded_by, "_", data_for_calcs$order_read_in)
-
-
-  # data = data_for_calcs
-  # mc_var_name = "visual_type"
-  # Create a helper function that creates the multiple choice tables
-  pavd_create_mc_df_table <- function(data, mc_var_name, video_name_var = "video_name", time_point_var = "time_point") {
-
-
-    # Remove missing data
-    data <- data %>% dplyr::filter(!is.na(.data[[{{mc_var_name}}]]))
-
-    # Create data to help with the pivot
-    data$element_present <- 1
-
-    # Pivot the table
-    mc_data_for_calcs <- data %>%
-      dplyr::select({{video_name_var}}, {{time_point_var}}, {{mc_var_name}}, "element_present") %>%
-      tidyr::pivot_wider(
-        id_cols = c(everything()),
-        names_from = .data[[{{mc_var_name}}]],
-        names_glue = paste0({{mc_var_name}}, "__{.name}"),
-        values_from = .data[["element_present"]]
-      ) %>%
-      dplyr::mutate(dplyr::across(tidyselect::starts_with(paste0({{mc_var_name}}, "__")), ~tidyr::replace_na(.x, 0)))
-
-    # Return the table
-    return(mc_data_for_calcs)
-  }
-
-  # add to the multiple choice vector
-  the_multiple_choice_vars <- c(multiple_choice_vars, "coded_by", "duration_of_video")
-
-  # Create the tables for the multiple choice variable
-  list_of_data_for_calcs <- purrr::map(the_multiple_choice_vars, ~{
-    pavd_create_mc_df_table(
-      data = data_for_calcs,
-      mc_var_name = {{.x}},
-      video_name_var = "video_name",
-      time_point_var = "time_point"
-    )
-  }, data_for_calcs)
-
-  # Join all of the dfs together
-  new_data_for_calcs <- list_of_data_for_calcs %>%
-    purrr::reduce(dplyr::left_join, by = c("video_name", "time_point"))
-
-  # Replace the na
-  wide_multiple_choice_df <- new_data_for_calcs %>%
-    dplyr::mutate(across(everything(), ~tidyr::replace_na(.x, 0)))
-
-  # Join the mc data
-  wide_data_for_calcs <- data_for_calcs %>%
-    dplyr::left_join(wide_multiple_choice_df, by = c("video_name", "time_point"))
-
-  # Return the data
-  return(wide_data_for_calcs)
 }
 
 #' prepare_first_occurrence_data
@@ -356,6 +348,11 @@ prepare_data_for_calcs <- function(sheet_coding_data, multiple_choice_vars) {
 #' @export
 #'
 prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count_duration) {
+  # Setup progress meter
+  fo_pb <<- progress::progress_bar$new(
+    format = "Obtainging first Occurrence Calculations [:bar] :current/:total(:percent) in :elapsed",
+    total = length(all_vars_to_count_duration),
+    clear = FALSE)
 
   video_names_df <- data.frame(video_name = data_for_calcs_wide$video_name %>% unique())
 
@@ -380,6 +377,8 @@ prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count
         dplyr::summarize({{new_var_name}} := min(time_point, na.rm = TRUE))
     }
 
+    fo_pb$tick()
+
     video_names_df %>%
       dplyr::left_join(new_var_for_df, by = "video_name") %>%
       dplyr::select(-"video_name")
@@ -402,6 +401,11 @@ prepare_first_occurrence_data <- function(data_for_calcs_wide, all_vars_to_count
 #'
 prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_duration) {
 
+  vd_pb <<- progress::progress_bar$new(
+    format = "Obtainging Video Duration Calculations [:bar] :current/:total(:percent) in :elapsed",
+    total = length(all_vars_to_count_duration),
+    clear = FALSE)
+
   section_duration_df <- data_for_calcs_wide %>%
     dplyr::group_by(.data[["section_label"]], .data[["video_name"]], .data[["duration_of_video"]]) %>%
     dplyr::mutate(across(all_of(all_vars_to_count_duration), ~as.numeric(.x))) %>%
@@ -418,6 +422,8 @@ prepare_video_duration_data <- function(data_for_calcs_wide, all_vars_to_count_d
       total_seconds_duration = sum(.data[["ms_duration"]], na.rm = TRUE) / 90  %>% round(2),
       across(starts_with("duration_of_"), ~ sum(.x, na.rm = TRUE) / 90 %>% round(2), .names = "sum_of_seconds_{.col}")
     )
+
+  vd_pb$tick()
 
   return(prepared_video_duration_data)
 }

@@ -1177,9 +1177,9 @@ read_survey_monkey_data <- function(
 #
 #
 #
-man_wd = "C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/Research and Development/00 Jobs/2024/003_RD_CodingVideoContent"
-data_folder_location = "Qualitative Coding/Version 2"
-file_name_part = "Video_Coding_V2__"
+# man_wd = "C:/Users/Brian/TCM Dropbox/Brian Kissell/04 MDM Neuro-Fundraising Lab/Research and Development/00 Jobs/2024/003_RD_CodingVideoContent"
+# data_folder_location = "Qualitative Coding/Version 2"
+# file_name_part = "Video_Coding_V2__"
 # coder_names = c("Ben","Brian", "Jill", "Sarah", "Talia")
 # ext__initial_name_qual_coding = ".xlsx"
 # text_names = c(
@@ -1207,7 +1207,7 @@ file_name_part = "Video_Coding_V2__"
 #   "story_chapter", "global_variables_have_been_entered")
 # sheets_to_exclude = c("Template","Data Validation")
 #
-
+# column_names_details_name = "Version 2_column_names.xlsx"
 
 
 

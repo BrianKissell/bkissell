@@ -17,7 +17,8 @@ FULL_qualitative_coding_data(
   remove_empty_sheets = TRUE,
   other_vars_that_should_not_be_counted,
   sheets_to_exclude = c("Template", "Data Validation"),
-  column_names_details_name = "Version 2_column_names.xlsx"
+  column_names_details_name = "Version 2_column_names.xlsx",
+  create_log_doc = TRUE
 )
 }
 \arguments{
@@ -46,6 +47,8 @@ FULL_qualitative_coding_data(
 \item{sheets_to_exclude}{sheets_to_exclude}
 
 \item{column_names_details_name}{column_names_details_name}
+
+\item{create_log_doc}{create_log_doc}
 }
 \value{
 prepared_video_data
