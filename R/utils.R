@@ -1,8 +1,5 @@
-
+library(datacollectiontools)
 # A -----------------------------------------------------------------------
-
-
-
 
 #' Easily create error messages for when arguments do not meet expectations
 #'
@@ -47,11 +44,6 @@ abort_bad_argument <- function(arg, must, not = NULL) {
     not = not
   )
 }
-
-
-
-
-
 
 
 #' Adjust file path to current machine
@@ -101,6 +93,53 @@ adjust_file_path_to_current_machine <- function(file_path){
   }
 }
 
+
+#' Adjust Order for Other Labels
+#'
+#' @param table table
+#' @param grouping_var_levels_included grouping_var_levels_included
+#' @param response_var_levels_included response_var_levels_included
+#'
+#' @return table
+#' @export
+#'
+adjust_order_for_other_labels <- function(table, grouping_var_levels_included = TRUE, response_var_levels_included = TRUE) {
+
+  # Run Checks
+  if(!is.data.frame(table)) abort_bad_argument("table", must = "be data.frame", not = table)
+  if(!is.logical(grouping_var_levels_included)) abort_bad_argument("grouping_var_levels_included", must = "be logical", not = grouping_var_levels_included)
+  if(!is.logical(response_var_levels_included)) abort_bad_argument("response_var_levels_included", must = "be logical", not = response_var_levels_included)
+
+  if(grouping_var_levels_included == TRUE) {
+    table$grouping_var_order <- table$grouping_var_order + (table$grouping_var_used_order * 100)
+
+    table$grouping_var_order <- ifelse(
+      table$grouping_var_levels == "Other",
+      max(table$grouping_var_order) + 1,
+      table$grouping_var_order
+    )
+
+    table <- table %>%
+      dplyr::group_by(grouping_var_levels) %>%
+      mutate(grouping_var_order = max(grouping_var_order))
+  }
+
+  if(response_var_levels_included == TRUE) {
+    table$response_var_order <- table$response_var_order + (table$response_var_used_order * 100)
+
+    table$response_var_order <- ifelse(
+      table$response_var_levels == "Other",
+      max(table$response_var_order) + 1,
+      table$response_var_order
+    )
+
+    table <- table %>%
+      dplyr::group_by(response_var_levels) %>%
+      mutate(response_var_order = max(response_var_order))
+  }
+
+  return(table)
+}
 
 # B -----------------------------------------------------------------------
 
@@ -166,6 +205,162 @@ check_if_all_are_missing_from_row <- function(df, list_of_variable_names) {
   })
 
   return(is_all_column_data_missing_for_row)
+}
+
+
+#  Deprecated as I re-wrote the code to do this. survey_data_for_power_bi_single
+#' Clean the survey data
+#'
+#' @param data data frame with the survey data
+#' @param path_to_column_workbook Path to where the column details workbook is located.
+#' @param likert_indicator character string that is used at the start of each likert variable name.
+#' @param name_of_column_details column details df
+#'
+#' @return data_used
+#' @export
+#'
+clean_and_process_with_column_workbook_list <- function(
+    data,
+    path_to_column_workbook,
+    likert_indicator = NULL,
+    name_of_column_details = "column_details") {
+
+  # Run Checks
+  if(!is.data.frame(data)) abort_bad_argument("data", must = "be data.frame", not = data)
+  if(!is.character(path_to_column_workbook)) abort_bad_argument("path_to_column_workbook", must = "be character", not = path_to_column_workbook)
+  if(!is.null(likert_indicator)){
+    if(!is.character(likert_indicator)) abort_bad_argument("likert_indicator", must = "be character", not = likert_indicator)
+  }
+  if(!is.character(name_of_column_details)) abort_bad_argument("name_of_column_details", must = "be character", not = name_of_column_details)
+
+  # Prep the data
+  data_used <- data
+
+  # Create the column details and named vectors list
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  # Create the df that just contains the column details
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  # function to process the net_promoter data
+  capwcw_process_net_promoter <- function(data_used, column_details) {
+
+    if(!is.data.frame(data_used)) abort_bad_argument("data_used", must = "be data.frame", not = data_used)
+    if(!is.data.frame(column_details)) abort_bad_argument("column_details", must = "be data.frame", not = column_details)
+
+    # See if net promoter should be included
+    net_promoter_included = "net_promoter" %in% column_details$column_names
+
+    if(net_promoter_included == TRUE) {
+      # Get the column details for net promoter
+      net_promoter_df <- column_details %>% dplyr::filter(column_names == "net_promoter")
+      net_promoter_name <- net_promoter_df$column_names
+
+      # Prep categorical net promoter
+      data_used$NUM_net_promoter <- as.numeric(data_used$net_promoter)
+      data_used$net_promoter <- dplyr::case_when(
+        data_used$NUM_net_promoter %in% 0:6 ~ "Detractors",
+        data_used$NUM_net_promoter %in% 7:8 ~ "Passives",
+        data_used$NUM_net_promoter %in% 9:10 ~ "Promoter"
+      )
+
+      # Prep numeric net_promoter_coded
+      data_used$net_promoter_coded <- dplyr::case_when(
+        data_used$net_promoter == "Detractors" ~ -1,
+        data_used$net_promoter == "Passives" ~ 0,
+        data_used$net_promoter == "Promoter" ~ 1
+      )
+
+      # Turn the net_promoter into a factor
+      data_used$net_promoter <- factor(data_used$net_promoter, c("Detractors", "Passives", "Promoter"), ordered = TRUE)
+    }
+
+    # Return the data used
+    return(data_used)
+  }
+
+  data_used <- capwcw_process_net_promoter(data_used, column_details)
+
+  capwcw_process_multiple_choice <- function(data_used, column_details) {
+    # Check that data_used is a data frame
+    if(!is.data.frame(data_used)) {
+      rlang::abort(glue::glue("The `data_used` object is not a data frame."))
+    }
+
+    # Check that column_details is a df
+    if(!is.data.frame(column_details)) {
+      rlang::abort(glue::glue("The `column_details` object is not a data frame."))
+    }
+
+    # Get the names of the mc variable
+    multiple_choice_included <- "mc" %in% column_details$type
+
+    # If mc is included
+    if(multiple_choice_included == TRUE) {
+      # Get the column details for multiple choice
+      multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
+      # Process multiple choice
+      data_used <- use_column_workbook_to_convert_vars_to_factors(df = data_used, column_details_question_type_df = multiple_choice_df, column_workbook_list = column_workbook_list, question_type_indicator = "mc")
+    }
+
+    return(data_used)
+  }
+
+  data_used <- capwcw_process_multiple_choice(data_used, column_details)
+
+  capwcw_process_select_all <- function(data_used, column_details) {
+    # Check that data_used is a data frame
+    if(!is.data.frame(data_used)) {
+      rlang::abort(glue::glue("The `data_used` object is not a data frame."))
+    }
+
+    # Check that column_details is a df
+    if(!is.data.frame(column_details)) {
+      rlang::abort(glue::glue("The `column_details` object is not a data frame."))
+    }
+
+    # See if sa is included in the study
+    select_all_included <- "sa" %in% column_details$type
+
+    if(select_all_included == TRUE) {
+      # Get the column details for select all questions
+      select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
+
+      # Process the select all questions
+      data_used <- process_select_all_vars(data_used, select_all_df, column_workbook_list)
+    }
+
+    return(data_used)
+  }
+
+  data_used <- capwcw_process_select_all(data_used, column_details)
+
+  capwcw_process_numeric <- function(data_used, column_details) {
+    # Check that data_used is a data frame
+    if(!is.data.frame(data_used)) {
+      rlang::abort(glue::glue("The `data_used` object is not a data frame."))
+    }
+
+    # Check that column_details is a df
+    if(!is.data.frame(column_details)) {
+      rlang::abort(glue::glue("The `column_details` object is not a data frame."))
+    }
+
+    # See if numeric type should be run
+    numeric_included <- "numeric" %in% column_details$type | "likert" %in% column_details$type
+
+    if(numeric_included == TRUE) {
+      # Process the numeric questions
+      data_used <- process_numeric_vars(data_used = data_used, column_details = column_details, likert_indicator = likert_indicator)
+    }
+
+    return(data_used)
+  }
+
+  data_used <- capwcw_process_numeric(data_used, column_details)
+
+  # Return the data frame
+  return(data_used)
 }
 
 
@@ -351,6 +546,11 @@ convert_vars_to_factors_with_workbook <- function(data, column_workbook_list, na
     return(df_to_use)
   }
 }
+
+
+
+
+
 
 
 #' Create the table that contains the information related to the variable names and column details
@@ -626,6 +826,138 @@ create_path_to_lab_directory_in_dropbox <- function(drop_box_name = "TCM Dropbox
   } else {rlang::abort("There is no c drive on this computer")}
 }
 
+#' Reshape the text data so that it works with power bi
+#'
+#' @param text_survey_data survey data with only text related columns
+#' @param variables_to_include Character vector with names of the variables to keep
+#'
+#' @return power_bi_text
+#' @export
+#'
+create_power_bi_text_data <- function(text_survey_data, variables_to_include) {
+  variables_to_include <- c(variables_to_include, "study_version")
+  # Run Checks
+  if(!is.data.frame(text_survey_data)) abort_bad_argument("text_survey_data", must = "be data.frame", not = text_survey_data)
+  if(!is.character(variables_to_include)) abort_bad_argument("variables_to_include", must = "be character", not = variables_to_include)
+
+  # Shape and filter the textual data
+  power_bi_text <- text_survey_data %>%
+    tidyr::pivot_longer(
+      cols = -c(tidyselect::all_of(variables_to_include)),
+      names_to = "response_var_used",
+      names_prefix = "text_",
+      values_to = "textual_responses"
+    ) %>%
+    dplyr::filter(!is.na(textual_responses))
+
+  # Remove the "'" as the symbol is entered incorrectly in excel
+  power_bi_text$textual_responses <- stringr::str_replace_all(power_bi_text$textual_responses, "'", "")
+
+  power_bi_text$wave <- "Wave 1"
+  power_bi_text <- power_bi_text <- power_bi_text %>% dplyr::select(wave, everything())
+  # Return this new table
+  return(power_bi_text)
+}
+
+
+#' create_power_bi_data_mc
+#'
+#' @param df df
+#' @param single_path_to_column_workbook single_path_to_column_workbook
+#' @param grouping_vars grouping_vars
+#'
+#' @return table
+#' @export
+#'
+create_power_bi_data_mc <- function(
+    df,
+    single_path_to_column_workbook,
+    grouping_vars
+) {
+
+  library(progress)
+
+  name_of_column_details = "column_details"
+
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    ifelse(
+      !(.x %in% column_details$column_names),
+      .x,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
+
+  response_var_names <- multiple_choice_df$column_names
+
+  response_var_used_vector_names <- multiple_choice_df$label_info
+
+  response_var_used_order <- factor(response_var_used_vector_names, unique(response_var_used_vector_names)) %>% as.numeric()
+
+  rv_names_and_order_df <- data.frame(
+    response_var_names = response_var_names,
+    response_var_used_order = response_var_used_order
+  )
+
+  gv_names_and_order_df <- data.frame(
+    grouping_vars = grouping_vars,
+    grouping_var_used_order = grouping_var_used_order
+  )
+
+  parameter_df <- expand.grid(response_var_names, grouping_vars)
+  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+  parameter_df <- parameter_df %>%
+    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+  n_iterations <- length(parameter_df$response_var_names)
+  pb <- progress::progress_bar$new(total = n_iterations)
+
+  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+    t <- create_table_single(
+      df = df,
+      response_var_name = parameter_df$response_var_names[[.x]],
+      grouping_var_name = parameter_df$grouping_vars[[.x]],
+      response_var_type = "mc")
+
+    pb$tick()
+
+    t$response_var_used <- parameter_df$response_var_names[[.x]]
+    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
+    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
+    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+    t
+  })
+
+  table <- table %>%
+    dplyr::filter(!is.na(response_var_levels)) %>%
+    dplyr::filter(!is.na(grouping_var_levels))
+
+  table <- fix_levels_and_order_in_table(table = table, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
+  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>% stringr::str_to_title()
+
+  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "_", " ") %>% stringr::str_to_title()
+
+  table$wave <- "Wave 1"
+
+  table <- table %>% dplyr::select(
+    "wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
+    "response_var_order", "counts", "group_n", "percentage",
+    "grouping_var_used", "grouping_var_used_order", "response_var_used", "response_var_used_order", "overall_sample_size_for_response_var")
+
+  return(table)
+}
+
+
 
 #' create_survey_related_dir_list
 #'
@@ -686,6 +1018,1458 @@ create_survey_related_dir_list <- function(
     return(invisible(list_of_paths))
   }
 }
+
+
+#' Create a single table
+#'
+#' @param df data frame with the survey data
+#' @param response_var_name character with the response var name
+#' @param grouping_var_name character with the grouping var name
+#' @param response_var_type character string with the type of variable that is being processed
+#'
+#' @return table
+#' @export
+#'
+create_table_single <- function(df, response_var_name, grouping_var_name, response_var_type){
+
+  # Run Checks
+  if(!is.data.frame(df)) abort_bad_argument("df", must = "be data.frame", not = df)
+  if(!is.character(response_var_name)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
+  if(!is.character(grouping_var_name)) abort_bad_argument("grouping_var_name", must = "be character", not = grouping_var_name)
+  if(!is.character(response_var_type)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
+
+  ## Create Helper Functions
+  cts_create_grouping_and_order_var <- function(df, grouping_var_name, order_grouping_var) {
+    df <- df %>%
+      dplyr::mutate(
+        grouping_var_levels = as.character(.data[[{{grouping_var_name}}]]),
+        grouping_var_order = .data[[order_grouping_var]]
+      )
+    return(df)
+  }
+
+  cts_create_response_and_order_var <- function(df, response_var_name, order_variable) {
+    df <- df %>%
+      dplyr::mutate(
+        response_var_levels = as.character(.data[[{{response_var_name}}]]),
+        response_var_order = .data[[{{order_variable}}]]
+      )
+    return(df)
+  }
+
+  cts_filter_out_NAs_from_df <- function(df, var_name) {
+    df <- df %>%
+      dplyr::filter(!is.na(.data[[{{var_name}}]]), .data[[{{var_name}}]] != "NA")
+    return(df)
+  }
+
+  cts_add_group_by <- function(df, var_name) {
+    df <- df %>% dplyr::group_by(pick(all_of(c({{var_name}}))), .add = TRUE)
+    return(df)
+  }
+
+  cts_calculate_counts <- function(df) {
+    table <- df %>%
+      # Get the counts for the grouping variable by the response variables
+      dplyr::summarize(counts = n(), .groups = "drop")
+    return(table)
+  }
+
+  cts_calculate_group_counts_and_percentages <- function(table) {
+    table <- table %>%
+      dplyr::mutate(
+        group_n = sum(counts),
+        percentage = (counts / group_n)
+      )
+    return(table)
+  }
+
+  cts_calculate_overall_sample_size <- function(df, response_var_name) {
+    df %>% dplyr::filter(!is.na(.data[[{{response_var_name}}]])) %>% nrow()
+  }
+
+  find_var_names_that_start_with <- function(df, starts_with) {
+    df %>% dplyr::select(
+      tidyselect::starts_with({{starts_with}})) %>%
+      colnames()
+  }
+
+  cts_pivot_longer_count_type <- function(df, response_var_name, count_type) {
+    table_counts <- df  %>%
+      tidyr::pivot_longer(
+        cols = all_of(list_of_variable_names),
+        names_to = "response_var_levels",
+        values_to = {{count_type}})
+    return(table_counts)
+  }
+
+  if(response_var_type == "mc") {
+    # Create Grouped Table
+    df <- df %>% ungroup()
+    df <- prepare_VAR_ORDER_variables_single(df, response_var_name, grouping_var_name)
+    df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
+    df <- cts_create_response_and_order_var(df, response_var_name, order_variable)
+    variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order")
+    for(i in variable_names_to_group) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+    for(j in variable_names_to_group) {df <- cts_add_group_by(df, var_name = j)}
+    table <- cts_calculate_counts(df)
+    table <- cts_add_group_by(table, var_name = "grouping_var_levels")
+    table <- cts_calculate_group_counts_and_percentages(table)
+    table$grouping_var_used <- {{grouping_var_name}}
+    table$response_var_used <- {{response_var_name}}
+    table <- table %>% dplyr::ungroup()
+
+    # Create Overall Table
+    df <- df %>% ungroup()
+    variable_names_to_group_for_all <- c("response_var_levels", "response_var_order")
+    for(i in variable_names_to_group_for_all) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+    for(j in variable_names_to_group_for_all) {df <- cts_add_group_by(df, var_name = j)}
+    table_all <- cts_calculate_counts(df)
+    table_all <- cts_calculate_group_counts_and_percentages(table_all)
+    table_all$grouping_var_used <- "All"
+    table_all$response_var_used <- {{response_var_name}}
+    table_all <- table_all %>% dplyr::ungroup()
+    table_all$grouping_var_levels <- "All"
+    table_all$grouping_var_order <- 0
+
+    # join Tables
+    table_var_order <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order", "counts", "group_n", "percentage", "grouping_var_used", "response_var_used")
+    table <- table %>% dplyr::select(dplyr::all_of(table_var_order))
+    table_all <- table_all %>% dplyr::select(dplyr::all_of(table_var_order))
+    table <- table %>% rbind(table_all)
+    df <- df %>% dplyr::ungroup()
+    table$overall_sample_size_for_response_var <- cts_calculate_overall_sample_size(df, response_var_name)
+  }
+
+  if(response_var_type == "sa"){
+
+
+    list_of_variable_names <- find_var_names_that_start_with(df, starts_with = response_var_name)
+    df <- prepare_VAR_ORDER_variables_single(df, response_var_name = NULL, grouping_var_name)
+    order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
+    df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
+    df <- df  %>% dplyr::select("grouping_var_levels", "grouping_var_order", all_of(list_of_variable_names))
+
+    table_counts <- cts_pivot_longer_count_type(df, response_var_name, count_type = "counts")
+    table_counts <- table_counts %>% dplyr::mutate(counts = as.numeric(counts))
+    table_counts <- table_counts %>% dplyr::filter(!is.na(counts))
+
+    variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order")
+    for(i in variable_names_to_group) {table_counts <- cts_filter_out_NAs_from_df(table_counts, var_name = i)}
+    for(j in variable_names_to_group) {table_counts <- cts_add_group_by(table_counts, var_name = j)}
+    table_counts <- table_counts %>% dplyr::summarize(counts = sum(counts), .groups = "drop")
+
+    table_n <- df %>%
+      dplyr::select(grouping_var_levels, grouping_var_order, all_of(list_of_variable_names)) %>%
+      tidyr::pivot_longer(
+        cols = -c("grouping_var_levels", "grouping_var_order"),
+        names_to = "response_var_levels",
+        values_to = "group_n"
+      ) %>%
+      dplyr::mutate(group_n = as.numeric(group_n)) %>%
+      dplyr::filter(!is.na(group_n)) %>%
+      dplyr::group_by(
+        .data[["grouping_var_levels"]],
+        .data[["grouping_var_order"]],
+        .data[["response_var_levels"]]
+      ) %>%
+      dplyr::summarize(group_n = n(), .groups = "drop")
+
+    table_percent <- table_counts %>%
+      dplyr::left_join(table_n, by = c("grouping_var_levels", "response_var_levels", "grouping_var_order")) %>%
+      dplyr::mutate(percentage = counts / group_n)
+
+    table_percent$percentage <- ifelse(table_percent$counts == 0 & table_percent$group_n == 0, 0, table_percent$percentage)
+
+    table_percent$grouping_var_used_order <- NA
+    table_percent$response_var_used_order <- NA
+    table_percent$grouping_var_used = {{grouping_var_name}}
+    table_percent$grouping_var_levels <- as.character(table_percent$grouping_var_levels)
+
+    table_percent$response_var_used = {{response_var_name}}
+    table_percent$response_var_order <- NA
+
+    table_percent <- table_percent %>%
+      dplyr::select(grouping_var_levels, response_var_levels, grouping_var_order,
+                    response_var_order, counts, group_n, percentage,
+                    grouping_var_used, grouping_var_used_order, response_var_used
+      )
+
+    all_table_count <- df %>%
+      dplyr::select(all_of(list_of_variable_names)) %>%
+      tidyr::pivot_longer(
+        cols = everything(),
+        names_to = "response_var_levels",
+        values_to = "counts")  %>%
+      dplyr::mutate(counts = as.numeric(counts)) %>%
+      dplyr::filter(!is.na(counts)) %>%
+      dplyr::group_by(
+        .data[["response_var_levels"]]) %>%
+      dplyr::summarize(counts = sum(counts))
+
+    all_table_n <- df %>%
+      dplyr::select(all_of(list_of_variable_names)) %>%
+      tidyr::pivot_longer(
+        cols = everything(),
+        names_to = "response_var_levels",
+        values_to = "group_n") %>%
+      dplyr::mutate(group_n = as.numeric(group_n)) %>%
+      dplyr::filter(!is.na(group_n)) %>%
+      dplyr::group_by(
+        .data[["response_var_levels"]]) %>%
+      dplyr::summarize(group_n = n())
+
+    all_table_percent <- all_table_count %>%
+      dplyr::left_join(all_table_n, by = c("response_var_levels")) %>%
+      dplyr::mutate(percentage = counts / group_n)
+
+    all_table_percent$percentage <- ifelse(all_table_percent$counts == 0 & all_table_percent$group_n == 0, 0, all_table_percent$percentage)
+
+    all_table_percent <- all_table_percent %>%
+      dplyr::mutate(grouping_var_levels = "All",
+                    grouping_var_order = 0,
+                    grouping_var_used = grouping_var_name,
+                    grouping_var_used_order = 0)
+
+    all_table_percent$response_var_used = {{response_var_name}}
+    all_table_percent$response_var_order <- NA
+
+    all_table_percent <- all_table_percent %>%
+      dplyr::select(grouping_var_levels, response_var_levels, grouping_var_order,
+                    response_var_order, counts, group_n, percentage,
+                    grouping_var_used, grouping_var_used_order, response_var_used
+      )
+
+    table <- table_percent %>% rbind(all_table_percent)
+
+    table$overall_sample_size_for_response_var <- all_table_n %>% dplyr::pull(group_n) %>% max()
+  }
+
+  if(response_var_type == "numeric") {
+
+    variable_used <- response_var_name
+
+    if(!(is.numeric(df[[variable_used]]))){
+      variable_used <- paste0("NUM__", variable_used)
+    }
+
+    # Rename the variable as all
+    df$all <- df[[{{variable_used}}]]
+
+    # Obtain the order for all
+    df <- df %>%
+      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.factor)) %>%
+      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.numeric, .names = "VAR_ORDER__{.col}"))
+
+    # Create the name of the grouping_variable's order var
+    order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
+
+    table <- df %>%
+      # Rename these variables so that we can combine everything into the same column
+      dplyr::mutate(
+        grouping_var_levels = as.character(.data[[{{grouping_var_name}}]]),
+        grouping_var_order = .data[[order_grouping_var]]) %>%
+      # Group by these variables
+      dplyr::group_by(
+        grouping_var_levels,
+        grouping_var_order) %>%
+
+      dplyr::filter(!is.na(.data[[{{variable_used}}]])) %>%
+      # Get the counts for the grouping variable by the response variables
+      dplyr::summarize(
+        mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
+        sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
+        n = n(),
+        se = sd/sqrt(n),
+        ci_limit = se * 1.96,
+        ci_upper = mean + ci_limit,
+        ci_lower = mean - ci_limit, .groups = "drop")
+
+    # Get the order for the grouping variables
+    table$grouping_var_used <- {{grouping_var_name}}
+
+    table$grouping_var_used_order <- NA
+
+    table <- table %>%
+      dplyr::select(
+        grouping_var_levels, grouping_var_order,
+        mean, sd, n, se, ci_limit, ci_upper, ci_lower,
+        grouping_var_used,
+        grouping_var_used_order
+      )
+
+    table_all <- df %>%
+      dplyr::mutate(
+        grouping_var_levels = "All",
+        grouping_var_order = 0) %>%
+      # Group by these variables
+      dplyr::group_by(
+        grouping_var_levels,
+        grouping_var_order) %>%
+      dplyr::filter(!is.na(.data[[{{variable_used}}]])) %>%
+      # Calculate the counts
+      dplyr::summarize(
+        mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
+        sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
+        n = n(),
+        se = sd/sqrt(n),
+        ci_limit = se * 1.96,
+        ci_upper = mean + ci_limit,
+        ci_lower = mean - ci_limit, .groups = "drop")
+
+    table_all$grouping_var_used <- "All"
+    table_all$grouping_var_levels <- "All"
+    table_all$grouping_var_order <- 0
+    table_all$grouping_var_used_order <- 0
+
+    # Order the variables
+    table_all <- table_all %>%
+      dplyr::select(
+        grouping_var_levels, grouping_var_order,
+        mean, sd, n, se, ci_limit, ci_upper, ci_lower,
+        grouping_var_used,
+        grouping_var_used_order
+      )
+
+    # Combine the two data frames
+    table <- table %>% rbind(table_all)
+
+    table$overall_sample_size_for_response_var <- table_all %>% dplyr::pull(n) %>% max()
+  }
+
+  if(response_var_type == "net_promoter") {
+
+    # Obtain the order for all
+    df$VAR_ORDER__all <- as.numeric(df[[{{"net_promoter"}}]])
+
+    df <- df %>%
+      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.factor)) %>%
+      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.numeric, .names = "VAR_ORDER__{.col}"))
+
+    # Create the name of the grouping_variable's order var
+    order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
+
+    table <- df %>%
+      # Rename these variables so that we can combine everything into the same column
+      dplyr::mutate(
+        grouping_var_levels = as.character(.data[[{{grouping_var_name}}]]),
+        grouping_var_order = .data[[order_grouping_var]]) %>%
+      # Group by these variables
+      dplyr::group_by(
+        grouping_var_levels,
+        grouping_var_order) %>%
+      dplyr::filter(!is.na(.data[[{{"net_promoter"}}]])) %>%
+      # Get the counts for the grouping variable by the response variables
+      dplyr::summarize(
+        sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
+        n = n(),
+        average = sum / n,
+        NPS = average * 100, .groups = "drop")
+
+    # Get the order for the grouping variables
+    table$grouping_var_used <- grouping_var_name
+
+    table$grouping_var_used_order <- NA
+
+    table <- table %>%
+      dplyr::select(
+        grouping_var_levels, grouping_var_order,
+        sum, n, average, NPS,
+        grouping_var_used,
+        grouping_var_used_order
+      )
+
+    table_all <- df %>%
+      dplyr::mutate(
+        grouping_var_levels = "All",
+        grouping_var_order = 0) %>%
+      # Group by these variables
+      dplyr::group_by(
+        grouping_var_levels,
+        grouping_var_order) %>%
+      dplyr::filter(!is.na(.data[[{{"net_promoter"}}]])) %>%
+      # Calculate the counts
+      dplyr::summarize(
+        sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
+        n = n(),
+        average = sum / n,
+        NPS = average * 100, .groups = "drop")
+
+    table_all$grouping_var_used <- "All"
+    table_all$grouping_var_levels <- "All"
+    table_all$grouping_var_order <- 0
+    table_all$grouping_var_used_order <- 0
+
+    # Order the variables
+    table_all <- table_all %>%
+      dplyr::select(
+        grouping_var_levels, grouping_var_order,
+        sum, n, average, NPS,
+        grouping_var_used,
+        grouping_var_used_order
+      )
+
+    # Combine the two data frames
+    table <- table %>% rbind(table_all)
+
+    table$overall_sample_size_for_response_var <- table_all %>% dplyr::pull(n) %>% max()
+  }
+
+  return(table)
+}
+
+
+#' Create a single table Multiple Choice
+#'
+#' @param df data frame with the survey data
+#' @param response_var_name character with the response var name
+#' @param grouping_var_name character with the grouping var name
+#' @param response_var_type character string with the type of variable that is being processed
+#'
+#' @return table
+#' @export
+#'
+create_table_single_mc <- function(df, response_var_name, grouping_var_name){
+
+  # Run Checks
+  if(!is.data.frame(df)) abort_bad_argument("df", must = "be data.frame", not = df)
+  if(!is.character(response_var_name)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
+  if(!is.character(grouping_var_name)) abort_bad_argument("grouping_var_name", must = "be character", not = grouping_var_name)
+
+  ## Create Helper Functions
+  cts_create_grouping_and_order_var <- function(df, grouping_var_name, order_grouping_var) {
+    df <- df %>%
+      dplyr::mutate(
+        grouping_var_levels = as.character(.data[[{{grouping_var_name}}]]),
+        grouping_var_order = .data[[order_grouping_var]]
+      )
+    return(df)
+  }
+
+  cts_create_response_and_order_var <- function(df, response_var_name, order_variable) {
+    df <- df %>%
+      dplyr::mutate(
+        response_var_levels = as.character(.data[[{{response_var_name}}]]),
+        response_var_order = .data[[{{order_variable}}]]
+      )
+    return(df)
+  }
+
+  cts_filter_out_NAs_from_df <- function(df, var_name) {
+    df <- df %>%
+      dplyr::filter(!is.na(.data[[{{var_name}}]]), .data[[{{var_name}}]] != "NA")
+    return(df)
+  }
+
+  cts_add_group_by <- function(df, var_name) {
+    df <- df %>% dplyr::group_by(pick(all_of(c({{var_name}}))), .add = TRUE)
+    return(df)
+  }
+
+  cts_calculate_counts <- function(df) {
+    table <- df %>%
+      # Get the counts for the grouping variable by the response variables
+      dplyr::summarize(counts = n(), .groups = "drop")
+    return(table)
+  }
+
+  cts_calculate_group_counts_and_percentages <- function(table) {
+    table <- table %>%
+      dplyr::mutate(
+        group_n = sum(counts),
+        percentage = (counts / group_n)
+      )
+    return(table)
+  }
+
+  cts_calculate_overall_sample_size <- function(df, response_var_name) {
+    df %>% dplyr::filter(!is.na(.data[[{{response_var_name}}]])) %>% nrow()
+  }
+
+  find_var_names_that_start_with <- function(df, starts_with) {
+    df %>% dplyr::select(
+      tidyselect::starts_with({{starts_with}})) %>%
+      colnames()
+  }
+
+  cts_pivot_longer_count_type <- function(df, response_var_name, count_type) {
+    table_counts <- df  %>%
+      tidyr::pivot_longer(
+        cols = all_of(list_of_variable_names),
+        names_to = "response_var_levels",
+        values_to = {{count_type}})
+    return(table_counts)
+  }
+
+
+    # Make sure the df is not grouped by anything
+    df <- df %>% ungroup()
+
+    # Add VAR_ORDER for both grouping and response vars to the df it is working on
+    df <- prepare_VAR_ORDER_variables_single(df, response_var_name, grouping_var_name)
+
+    df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
+    df <- cts_create_response_and_order_var(df, response_var_name, order_variable)
+
+    variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order")
+    for(i in variable_names_to_group) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+    for(j in variable_names_to_group) {df <- cts_add_group_by(df, var_name = j)}
+    table <- cts_calculate_counts(df)
+    table <- cts_add_group_by(table, var_name = "grouping_var_levels")
+    table <- cts_calculate_group_counts_and_percentages(table)
+    table$grouping_var_used <- {{grouping_var_name}}
+    table$response_var_used <- {{response_var_name}}
+    table <- table %>% dplyr::ungroup()
+
+    # Create Overall Table
+    df <- df %>% ungroup()
+    variable_names_to_group_for_all <- c("response_var_levels", "response_var_order")
+    for(i in variable_names_to_group_for_all) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+    for(j in variable_names_to_group_for_all) {df <- cts_add_group_by(df, var_name = j)}
+    table_all <- cts_calculate_counts(df)
+    table_all <- cts_calculate_group_counts_and_percentages(table_all)
+    table_all$grouping_var_used <- "All"
+    table_all$response_var_used <- {{response_var_name}}
+    table_all <- table_all %>% dplyr::ungroup()
+    table_all$grouping_var_levels <- "All"
+    table_all$grouping_var_order <- 0
+
+    # join Tables
+    table_var_order <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order", "counts", "group_n", "percentage", "grouping_var_used", "response_var_used")
+    table <- table %>% dplyr::select(dplyr::all_of(table_var_order))
+    table_all <- table_all %>% dplyr::select(dplyr::all_of(table_var_order))
+    table <- table %>% rbind(table_all)
+    df <- df %>% dplyr::ungroup()
+    table$overall_sample_size_for_response_var <- cts_calculate_overall_sample_size(df, response_var_name)
+
+  return(table)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#' create_power_bi_data
+#'
+#' @param df df
+#' @param single_path_to_column_workbook single_path_to_column_workbook
+#' @param grouping_vars grouping_vars
+#' @param response_var_type response_var_type
+#' @param qualitative_type qualitative_type
+#'
+#' @return combined_final_table
+#' @export
+#'
+create_power_bi_data <- function(
+    df,
+    single_path_to_column_workbook,
+    grouping_vars,
+    response_var_type,
+    qualitative_type = NULL
+) {
+
+  name_of_column_details = "column_details"
+
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    ifelse(
+      !(.x %in% column_details$column_names),
+      .x,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  if(response_var_type == "mc"){
+
+    multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
+
+    response_var_names <- multiple_choice_df$column_names
+
+    response_var_used_vector_names <- multiple_choice_df$label_info
+
+    response_var_used_order <- factor(response_var_used_vector_names, unique(response_var_used_vector_names)) %>% as.numeric()
+
+    power_bi_multiple_choice <- run_create_table_with_var_names_and_orders(
+      df = df, response_var_names = response_var_names,
+      response_var_used_order = response_var_used_order,
+      response_var_type = "mc", grouping_vars = grouping_vars,
+      grouping_var_used_order = grouping_var_used_order)
+
+    power_bi_multiple_choice <- power_bi_multiple_choice %>%
+      dplyr::filter(!is.na(response_var_levels)) %>%
+      dplyr::filter(!is.na(grouping_var_levels))
+
+    power_bi_multiple_choice <- fix_levels_and_order_in_table(table = power_bi_multiple_choice, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
+    power_bi_multiple_choice <- fix_levels_and_order_in_table(table = power_bi_multiple_choice, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+    power_bi_multiple_choice$grouping_var_used  <- stringr::str_replace_all(power_bi_multiple_choice$grouping_var_used, "_", " ") %>% stringr::str_to_title()
+
+    power_bi_multiple_choice$response_var_used  <- stringr::str_replace_all(power_bi_multiple_choice$response_var_used, "_", " ") %>% stringr::str_to_title()
+
+    combined_final_table <- power_bi_multiple_choice
+  }
+
+  if(response_var_type == "sa"){
+
+    select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
+
+    response_var_names <- select_all_df$column_names %>% stringr::str_extract( "^.+__") %>% unique()
+
+    response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
+
+    power_bi_select_all <- run_create_table_with_var_names_and_orders(
+      df = df, response_var_names = response_var_names,
+      response_var_used_order = response_var_used_order,
+      response_var_type = "sa", grouping_vars = grouping_vars,
+      grouping_var_used_order = grouping_var_used_order)
+
+    label_info_var <- stringr::str_replace({{response_var_names}}, "__$", "")
+
+    combined_named_vector_for_select_all <- purrr::map(label_info_var, ~{
+      column_workbook_list[[.x]]
+    }) %>% unlist()
+
+    power_bi_select_all$response_var_levels <- factor(power_bi_select_all$response_var_levels, levels = combined_named_vector_for_select_all, labels = names(combined_named_vector_for_select_all))
+
+    power_bi_select_all$response_var_order <- as.numeric(power_bi_select_all$response_var_levels)
+
+    power_bi_select_all <- power_bi_select_all %>%
+      dplyr::filter(!is.na(response_var_levels))%>%
+      dplyr::filter(!is.na(grouping_var_levels))
+
+    power_bi_select_all <- fix_levels_and_order_in_table(table = power_bi_select_all, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+    power_bi_select_all$grouping_var_used  <- stringr::str_replace_all(power_bi_select_all$grouping_var_used, "_", " ") %>%
+      stringr::str_to_title()
+
+    power_bi_select_all$response_var_used  <- stringr::str_replace_all(power_bi_select_all$response_var_used, "__$", "") %>%
+      stringr::str_to_lower()
+
+    unique_select_all_items <- power_bi_select_all$response_var_used %>% unique()
+
+    question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% distinct()
+
+    for(i in seq_along(question_text_df$label_info)) {
+      power_bi_select_all$response_var_used <- ifelse(
+        power_bi_select_all$response_var_used == question_text_df$label_info[[i]],
+        question_text_df$question[[i]],
+        power_bi_select_all$response_var_used
+      )
+    }
+
+    combined_final_table <- power_bi_select_all
+  }
+
+  if(response_var_type == "numeric"){
+
+    additional_text_vars <- column_details$column_names[column_details$type == "numeric"]
+
+    likert_variables <- df %>%
+      select( starts_with("NUM__ec_")) %>%
+      colnames()
+
+    response_var_names <- c(additional_text_vars, likert_variables)
+
+    response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
+
+    power_bi_descr_table_num <- run_create_table_with_var_names_and_orders(
+      df = df, response_var_names = response_var_names,
+      response_var_used_order = response_var_used_order,
+      response_var_type = "numeric", grouping_vars = grouping_vars,
+      grouping_var_used_order = grouping_var_used_order)
+
+    power_bi_descr_table_num <- power_bi_descr_table_num %>%
+      dplyr::filter(!is.na(grouping_var_levels))
+
+    power_bi_descr_table_num <- fix_levels_and_order_in_table(table = power_bi_descr_table_num, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+    power_bi_descr_table_num$grouping_var_used  <- stringr::str_replace_all(power_bi_descr_table_num$grouping_var_used, "_", " ") %>%
+      stringr::str_to_title()
+
+    power_bi_descr_table_num$response_var_used  <- stringr::str_replace_all(power_bi_descr_table_num$response_var_used, "NUM__ec__", "") %>%
+      stringr::str_replace_all("_", " ") %>%
+      stringr::str_to_title()
+
+    combined_final_table <- power_bi_descr_table_num %>%
+      dplyr::select(grouping_var_levels,	grouping_var_order,	mean,	sd,	n,	se,
+                    ci_limit,	ci_upper,	ci_lower,	grouping_var_used,
+                    grouping_var_used_order,	response_var_used,
+                    response_var_used_order, overall_sample_size_for_response_var)
+  }
+
+  if(response_var_type == "net_promoter"){
+
+    response_var_names <- "net_promoter"
+
+    response_var_used_order <- 1
+
+    power_bi_net_promoter <- run_create_table_with_var_names_and_orders(df, response_var_names, response_var_used_order, response_var_type = "net_promoter", grouping_vars, grouping_var_used_order)
+
+    power_bi_net_promoter <- fix_levels_and_order_in_table(table = power_bi_net_promoter, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+    power_bi_net_promoter$grouping_var_used  <- stringr::str_replace_all(power_bi_net_promoter$grouping_var_used, "_", " ") %>%
+      stringr::str_to_title()
+
+    combined_final_table <- power_bi_net_promoter %>%
+      dplyr::select(grouping_var_levels,	grouping_var_order,
+                    sum,	n,	average,	NPS,	grouping_var_used,
+                    grouping_var_used_order, overall_sample_size_for_response_var)
+
+  }
+
+  return(combined_final_table)
+}
+
+#' create_power_bi_data_sa
+#'
+#' @param df df
+#' @param single_path_to_column_workbook single_path_to_column_workbook
+#' @param grouping_vars grouping_vars
+#'
+#' @return table
+#' @export
+#'
+create_power_bi_data_sa <- function(
+    df,
+    single_path_to_column_workbook,
+    grouping_vars
+) {
+
+  library(progress)
+
+  name_of_column_details = "column_details"
+
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    ifelse(
+      !(.x %in% column_details$column_names),
+      .x,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
+
+  response_var_names <- select_all_df$column_names %>% stringr::str_extract( "^.+__") %>% unique()
+
+  response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
+
+  rv_names_and_order_df <- data.frame(
+    response_var_names = response_var_names,
+    response_var_used_order = response_var_used_order
+  )
+
+  gv_names_and_order_df <- data.frame(
+    grouping_vars = grouping_vars,
+    grouping_var_used_order = grouping_var_used_order
+  )
+
+  parameter_df <- expand.grid(response_var_names, grouping_vars)
+
+  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+  parameter_df <- parameter_df %>%
+    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+  n_iterations <- length(parameter_df$response_var_names)
+
+  pb <- progress::progress_bar$new(total = n_iterations)
+
+  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+    t <- create_table_single(
+      df = df,
+      response_var_name = parameter_df$response_var_names[[.x]],
+      grouping_var_name = parameter_df$grouping_vars[[.x]],
+      response_var_type = "sa")
+
+    pb$tick()
+
+    t$response_var_used <- parameter_df$response_var_names[[.x]]
+    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
+    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
+    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+    t
+  })
+
+  label_info_var <- stringr::str_replace({{response_var_names}}, "__$", "")
+
+  combined_named_vector_for_select_all <- purrr::map(label_info_var, ~{
+    column_workbook_list[[.x]]
+  }) %>% unlist()
+
+  table$response_var_levels <- factor(table$response_var_levels, levels = combined_named_vector_for_select_all, labels = names(combined_named_vector_for_select_all))
+
+  table$response_var_order <- as.numeric(table$response_var_levels)
+
+  table <- table %>%
+    dplyr::filter(!is.na(response_var_levels))%>%
+    dplyr::filter(!is.na(grouping_var_levels))
+
+  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>%
+    stringr::str_to_title()
+
+  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "__$", "") %>%
+    stringr::str_to_lower()
+
+  unique_select_all_items <- table$response_var_used %>% unique()
+
+  question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% distinct()
+
+  for(i in seq_along(question_text_df$label_info)) {
+    table$response_var_used <- ifelse(
+      table$response_var_used == question_text_df$label_info[[i]],
+      question_text_df$question[[i]],
+      table$response_var_used
+    )
+  }
+
+  table$wave <- "Wave 1"
+
+  table <- table %>% dplyr::select("wave", "grouping_var_levels",	"response_var_levels",
+                                   "grouping_var_order",	"response_var_order",	"counts",
+                                   "group_n",	"percentage",	"grouping_var_used",
+                                   "grouping_var_used_order",	"response_var_used",
+                                   "response_var_used_order", "overall_sample_size_for_response_var")
+
+  return(table)
+}
+
+
+#' create_power_bi_data_num
+#'
+#' @param df  df
+#' @param single_path_to_column_workbook single_path_to_column_workbook
+#' @param grouping_vars grouping_vars
+#'
+#' @return table
+#' @export
+#'
+create_power_bi_data_num <- function(
+    df,
+    single_path_to_column_workbook,
+    grouping_vars
+) {
+
+  library(progress)
+
+  name_of_column_details = "column_details"
+
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    ifelse(
+      !(.x %in% column_details$column_names),
+      .x,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  additional_num_vars <- column_details$column_names[column_details$type == "numeric"]
+
+  likert_variables <- df %>%
+    select( tidyselect::starts_with("NUM__")) %>%
+    colnames()
+
+  response_var_names <- c(additional_num_vars, likert_variables)
+
+  response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
+
+  rv_names_and_order_df <- data.frame(
+    response_var_names = response_var_names,
+    response_var_used_order = response_var_used_order
+  )
+
+  gv_names_and_order_df <- data.frame(
+    grouping_vars = grouping_vars,
+    grouping_var_used_order = grouping_var_used_order
+  )
+
+  parameter_df <- expand.grid(response_var_names, grouping_vars)
+
+  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+  parameter_df <- parameter_df %>%
+    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+  n_iterations <- length(parameter_df$response_var_names)
+
+  pb <- progress::progress_bar$new(total = n_iterations)
+
+  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+    t <- create_table_single(
+      df = df,
+      response_var_name = parameter_df$response_var_names[[.x]],
+      grouping_var_name = parameter_df$grouping_vars[[.x]],
+      response_var_type = "numeric")
+
+    pb$tick()
+
+    t$response_var_used <- parameter_df$response_var_names[[.x]]
+    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
+    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
+    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+
+    t
+  })
+
+  table <- table %>%
+    dplyr::filter(!is.na(grouping_var_levels))
+
+  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>%
+    stringr::str_to_title()
+
+  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "NUM__ec__", "") %>%
+    stringr::str_replace_all("_", " ") %>%
+    stringr::str_to_title()
+
+  table$wave <- "Wave 1"
+
+  table <- table %>%
+    dplyr::select("wave", "grouping_var_levels",	"grouping_var_order",	"mean",	"sd",	"n",	"se",
+                  "ci_limit",	"ci_upper",	"ci_lower",	"grouping_var_used",
+                  "grouping_var_used_order",	"response_var_used",
+                  "response_var_used_order", "overall_sample_size_for_response_var")
+
+  table <- table %>%
+    dplyr::filter(!is.na(grouping_var_levels))
+
+  table$ci_limit <- tidyr::replace_na(table$ci_limit, 0)
+  table$ci_upper <- tidyr::replace_na(table$ci_upper, 0)
+  table$ci_lower <- tidyr::replace_na(table$ci_lower, 0)
+
+  return(table)
+}
+
+
+#' create_power_bi_data_nps
+#'
+#' @param df df
+#' @param single_path_to_column_workbook single_path_to_column_workbook
+#' @param grouping_vars grouping_vars
+#'
+#' @return table
+#' @export
+#'
+create_power_bi_data_nps <- function(
+    df,
+    single_path_to_column_workbook,
+    grouping_vars
+) {
+
+  library(progress)
+
+  name_of_column_details = "column_details"
+
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    ifelse(
+      !(.x %in% column_details$column_names),
+      .x,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  response_var_names <- "net_promoter"
+
+  response_var_used_order <- 1
+
+  rv_names_and_order_df <- data.frame(
+    response_var_names = response_var_names,
+    response_var_used_order = response_var_used_order
+  )
+
+  gv_names_and_order_df <- data.frame(
+    grouping_vars = grouping_vars,
+    grouping_var_used_order = grouping_var_used_order
+  )
+
+  parameter_df <- expand.grid(response_var_names, grouping_vars)
+
+  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+  parameter_df <- parameter_df %>%
+    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+  n_iterations <- length(parameter_df$response_var_names)
+
+  pb <- progress::progress_bar$new(total = n_iterations)
+
+  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+    t <- create_table_single(
+      df = df,
+      response_var_name = parameter_df$response_var_names[[.x]],
+      grouping_var_name = parameter_df$grouping_vars[[.x]],
+      response_var_type = "net_promoter")
+
+    pb$tick()
+
+    t$response_var_used <- parameter_df$response_var_names[[.x]]
+    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
+    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
+    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+
+    t
+  })
+
+  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>%
+    stringr::str_to_title()
+
+  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "_", " ") %>%
+    stringr::str_to_title()
+
+  table$wave <- "Wave 1"
+
+
+  table <- table %>%
+    dplyr::select("wave", "grouping_var_levels",	"grouping_var_order",
+                  "sum",	"n",	"average",	"NPS",	"grouping_var_used",
+                  "grouping_var_used_order", "overall_sample_size_for_response_var")
+
+  table <- table %>%
+    dplyr::filter(!is.na(table$grouping_var_levels))
+
+  return(table)
+}
+
+
+#' create_power_bi_data_qualitative
+#'
+#' @param df df
+#' @param single_path_to_column_workbook single_path_to_column_workbook
+#' @param grouping_vars grouping_vars
+#' @param qualitative_type qualitative_type
+#' @param identifier identifier
+#'
+#' @return combined_final_table
+#' @export
+#'
+create_power_bi_data_qualitative <- function(
+    df,
+    single_path_to_column_workbook,
+    grouping_vars,
+    qualitative_type = NULL,
+    identifier = "respondent_id"
+) {
+
+  df_used <- df
+
+  library(progress)
+
+  name_of_column_details = "column_details"
+
+  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
+
+  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    ifelse(
+      !(.x %in% column_details$column_names),
+      .x,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  response_var_names <- column_details$column_names[column_details$type == "qualitative"]
+
+  path_to_qualitative_coding_data <- paste0(dirname(single_path_to_column_workbook), "/qualitative_coding_data.xlsx")
+
+  workbook_sheets_qualitative_names_all <- readxl::excel_sheets(path_to_qualitative_coding_data)
+
+  qualitative_coding_details <- readxl::read_excel(path_to_qualitative_coding_data, "qual_column_details")
+
+  workbook_sheets_qualitative_names <- workbook_sheets_qualitative_names_all[workbook_sheets_qualitative_names_all != "qual_column_details"]
+
+  # Loop through each sheet
+  workbook_sheets_qualitative <- purrr::map(workbook_sheets_qualitative_names, ~{
+
+    # Read in the data for it
+    coding_data <- readxl::read_excel(path_to_qualitative_coding_data, sheet = .x)
+
+    qual_coding_data <- df_used %>%
+      dplyr::left_join(coding_data, by = {{identifier}})
+
+    return(qual_coding_data)
+
+    # Name all sheets so they can be easily accessed
+  }) %>% purrr::set_names(workbook_sheets_qualitative_names)
+
+  qualitative_coding_details_df_list <- purrr::map(workbook_sheets_qualitative_names,  ~{
+    single_sheet_qualitative_coding_details <- qualitative_coding_details %>%
+      dplyr::filter(question == .x)
+
+    single_sheet_qualitative_coding_details
+  })
+
+  overall_qualitative_coding_details_df_list <- purrr::map(qualitative_coding_details_df_list, ~{
+    overall_qualitative_coding_details <- .x %>%
+      dplyr::filter(section_type == "overall_coding_labels")
+
+    overall_qualitative_coding_details
+  })
+
+  overall_code_labels_list <- purrr::map(overall_qualitative_coding_details_df_list, ~{
+    .x$column_labels
+  })
+
+  overall_code_indicator_list <- purrr::map(overall_qualitative_coding_details_df_list, ~{
+    response_var_names_overall <- .x$column_names %>% stringr::str_extract("^.+__") %>% unique()
+    response_var_names_overall
+  })
+
+  overall_code_indicator_order_list <- purrr::map(seq_along(overall_code_indicator_list), ~{
+    response_var_used_order_overall <- .x
+    response_var_used_order_overall
+  })
+
+  grouping_vars_selected_list <- purrr::map(workbook_sheets_qualitative, ~{
+    .x %>% dplyr::select(tidyselect::any_of(grouping_vars)) %>% colnames()
+  })
+
+  grouping_vars_selected_order_list <- purrr::map(grouping_vars_selected_list, ~{
+    .x %>% as.factor() %>% as.numeric()
+  })
+
+  obtain_the_parameters_for_overall <- function(overall_code_indicator, overall_code_indicator_order, grouping_vars_selected, grouping_vars_selected_order) {
+
+    rv_names_and_order_df <- data.frame(
+      response_var_names = overall_code_indicator,
+      response_var_used_order = overall_code_indicator_order
+    )
+
+    gv_names_and_order_df <- data.frame(
+      grouping_vars = grouping_vars_selected,
+      grouping_var_used_order = grouping_vars_selected_order
+    )
+
+    parameter_df <- expand.grid(rv_names_and_order_df$response_var_names, gv_names_and_order_df$grouping_vars)
+
+    colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+    parameter_df <- parameter_df %>%
+      dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+      dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+    parameter_df
+
+  }
+
+  overall_parameter_list <- list(overall_code_indicator_list, overall_code_indicator_order_list, grouping_vars_selected_list, grouping_vars_selected_order_list)
+
+  parameter_df_list <- purrr::pmap(overall_parameter_list, obtain_the_parameters_for_overall)
+
+  table_list <- purrr::map2(parameter_df_list, workbook_sheets_qualitative, ~{
+    overall_code_data <- .y
+
+    single_parameter_df <- .x
+
+    n_iterations <- length(single_parameter_df$response_var_names)
+
+    pb <- progress::progress_bar$new(total = n_iterations)
+
+    table <- purrr::map_df(seq_along(single_parameter_df$response_var_names), ~{
+      number_for_row <- .x
+      t <- create_table_single(
+        df = overall_code_data,
+        response_var_name = single_parameter_df$response_var_names[[number_for_row]],
+        grouping_var_name = single_parameter_df$grouping_vars[[number_for_row]],
+        response_var_type = "sa")
+
+      pb$tick()
+
+      t$response_var_used <- single_parameter_df$response_var_names[[number_for_row]]
+      t$response_var_used_order <- single_parameter_df$response_var_used_order[[number_for_row]]
+      t$grouping_var_used <- single_parameter_df$grouping_vars[[number_for_row]]
+      t$grouping_var_used_order <- single_parameter_df$grouping_var_used_order[[number_for_row]]
+
+      t
+    })
+
+    table
+  })
+
+  overall_table_list <- purrr::map2(table_list, overall_qualitative_coding_details_df_list, ~{
+    table <- .x
+    table$response_var_levels <- factor(table$response_var_levels, .y$column_names, .y$column_labels)
+    table$response_var_order <- as.numeric(table$response_var_levels)
+    table
+  })
+
+  overall_table_list <- purrr::map(overall_table_list, ~{
+    table <- .x
+    table$grouping_var_used <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>% stringr::str_to_title()
+    table
+  })
+
+  break_down_qualitative_coding_details <- purrr::map2(qualitative_coding_details_df_list, overall_code_labels_list, ~{
+    .x %>%
+      dplyr::filter(section_type %in% .y)
+  })
+
+  break_down_categories_list <- purrr::map(break_down_qualitative_coding_details, ~{
+    break_down_categories <- .x$section_type %>% unique()
+    break_down_categories
+  })
+
+  break_down_categories_details_list <- purrr::map2(break_down_qualitative_coding_details, break_down_categories_list, ~{
+    break_down_qualitative_coding_details_1 <- .x
+    break_down_categories <- .y
+    purrr::pmap(list(seq_along(break_down_categories)), ~{
+      break_down_qualitative_coding_details_1 %>% dplyr::filter(section_type == break_down_categories[[..1]])
+    })
+
+  })
+
+  break_down_code_labels_list <- purrr::map(break_down_categories_details_list, ~{
+    break_down_categories_details <- .x
+
+    purrr::pmap(list(seq_along(break_down_categories_details)), ~{
+      break_down_categories_details[[.x]]$column_labels %>% as.character()
+    })
+  })
+
+  break_down_code_indicator_list <- purrr::map(break_down_categories_details_list, ~{
+    break_down_categories_details <- .x
+
+    purrr::pmap(list(seq_along(break_down_categories_details)), ~{
+      break_down_categories_details[[.x]]$column_names %>% stringr::str_extract("^.+__.+__") %>% unique()
+    })
+  })
+
+  break_down_code_indicator_order_list <- purrr::map(break_down_categories_details_list, ~{
+    break_down_code_indicator_order <- .x
+
+    purrr::pmap(list(seq_along(break_down_code_indicator_order)), ~{
+      ..1
+    })
+  })
+
+  break_down_parameter_df_list <- purrr::map(seq_along(break_down_code_indicator_list), ~{
+    first_level <- .x
+
+    purrr::map(seq_along(break_down_code_indicator_list[[first_level]]), ~{
+      second_level <- .x
+
+      break_down_parameter_list <- list(
+        break_down_code_indicator_list[[first_level]][[second_level]],
+        break_down_code_indicator_order_list[[first_level]][[second_level]],
+        grouping_vars_selected_list[[first_level]],
+        grouping_vars_selected_order_list[[first_level]])
+
+      purrr::pmap_df(break_down_parameter_list, obtain_the_parameters_for_overall)
+
+    })})
+
+  break_down_table_list <- purrr::map2(break_down_parameter_df_list, workbook_sheets_qualitative, ~{
+    overall_code_data <- .y
+
+    single_parameter_df_list <- .x
+
+    purrr::map_df(single_parameter_df_list, ~{
+      single_parameter_df <- .x
+
+      table <- purrr::map_df(seq_along(single_parameter_df$response_var_names), ~{
+        number_for_row <- .x
+        t <- create_table_single(
+          df = overall_code_data,
+          response_var_name = single_parameter_df$response_var_names[[number_for_row]],
+          grouping_var_name = single_parameter_df$grouping_vars[[number_for_row]],
+          response_var_type = "sa")
+
+
+        t$response_var_used <- single_parameter_df$response_var_names[[number_for_row]]
+        t$response_var_used_order <- single_parameter_df$response_var_used_order[[number_for_row]]
+        t$grouping_var_used <- single_parameter_df$grouping_vars[[number_for_row]]
+        t$grouping_var_used_order <- single_parameter_df$grouping_var_used_order[[number_for_row]]
+
+        t
+      })
+
+      table
+    })
+  })
+
+  break_down_table_list <- purrr::map2(break_down_table_list, break_down_qualitative_coding_details, ~{
+    table <- .x
+    table$response_var_levels <- factor(table$response_var_levels, .y$column_names, .y$column_labels)
+    table$response_var_order <- as.numeric(table$response_var_levels)
+    table
+  })
+
+  break_down_table_list <- purrr::map(break_down_table_list, ~{
+    table <- .x
+    table$grouping_var_used <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>% stringr::str_to_title()
+    table
+  })
+
+  if(qualitative_type == "overall_coding") {
+    combined_final_table <- overall_table_list
+  } else if(qualitative_type == "break_down_coding"){
+    combined_final_table <- break_down_table_list
+  }
+
+  return(combined_final_table)
+}
+
+
+#' create_survey_folder_structure_paths_list_power_bi
+#'
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
+#' @param list_of_survey_version_names list_of_survey_version_names
+#' @param all_versions_in_same_analysis_folder all_versions_in_same_analysis_folder
+#' @param storage_directory storage_directory
+#' @param should_create_survey_folders_if_they_do_not_exist should_create_survey_folders_if_they_do_not_exist
+#'
+#' @return survey_data_list
+#' @export
+#'
+create_survey_folder_structure_paths_list_power_bi <- function(
+    project_year,
+    project_folder_name,
+    list_of_survey_version_names = list("All_Versions"),
+    all_versions_in_same_analysis_folder = FALSE,
+    storage_directory = "Dropbox (TCM)",
+    should_create_survey_folders_if_they_do_not_exist = TRUE
+) {
+  # Get the parts of your working directory
+  parts_of_wd <- unlist(strsplit(getwd(), .Platform$file.sep))
+
+  # Re-Combine the first 3 parts
+  path_part_to_adjust <- paste0(parts_of_wd[1:3], collapse = "/")
+
+  # Create the home directory for the current project
+  home_dir <- paste0(path_part_to_adjust, "/", storage_directory, "/04 MDM Neuro-Fundraising Lab/00 Jobs/", as.character(project_year), "/", as.character(project_folder_name))
+
+  # Analysis Folder
+  project_analysis_folder_location <- paste0(home_dir, "/Analysis")
+  project_analysis_respondent_investigation_folder_location <- paste0(home_dir, "/Analysis/Respondent Investigation")
+
+  # Archive Folder
+  project_archive_folder_location <- paste0(home_dir, "/Archive")
+
+  # Assets Folder
+  project_assets_folder_location <- paste0(home_dir, "/Assets")
+
+  # Data Collection
+  project_data_collection_folder_location <- paste0(home_dir, "/Data Collection")
+  project_data_collection_survey_monkey_data_folder_location <- paste0(home_dir, "/Data Collection/survey_monkey_data")
+  project_data_collection_survey_monkey_data_processed_data_folder_location <- paste0(home_dir, "/Data Collection/survey_monkey_data/processed_data")
+
+  snake_version_names <- snakecase::to_snake_case(list_of_survey_version_names %>% unlist())
+
+  version_folders_location_names <- paste0(
+    "project_data_collection_survey_monkey_data_version_folder_",
+    snake_version_names
+  )
+
+  project_data_collection_survey_monkey_data_version_folders_location <-
+    purrr::map(list_of_survey_version_names, ~{
+      paste0(home_dir, "/Data Collection/survey_monkey_data/", .x)
+    }) %>% purrr::set_names(version_folders_location_names)
+
+  # Instructions
+  project_instructions_folder_location <- paste0(home_dir, "/Instructions")
+
+  # Presentation
+  project_presentation_folder_location <- paste0(home_dir, "/Presentation")
+
+  # Presentation
+  project_proposal_folder_location <- paste0(home_dir, "/Proposal")
+
+  if(all_versions_in_same_analysis_folder == TRUE){
+    list_of_survey_version_names <- list("All_Versions")
+    snake_version_names <- snakecase::to_snake_case(list_of_survey_version_names %>% unlist())
+  }
+
+  survey_version_analysis_folder_names <- paste0("survey_version_analysis_folder_", snake_version_names)
+
+  project_power_bi_version_folders_location <-
+    purrr::map(list_of_survey_version_names, ~{
+      paste0(project_analysis_respondent_investigation_folder_location, "/", .x)
+    }) %>% purrr::set_names(survey_version_analysis_folder_names)
+
+  survey_version_analysis_deck_names <- paste0(survey_version_analysis_folder_names, "_Power_BI_Deck_folder")
+  survey_version_analysis_processed_data_names <- paste0(survey_version_analysis_folder_names, "_processed_data_folder")
+  survey_version_analysis_processed_text_names <- paste0(survey_version_analysis_folder_names, "_processed_text_folder")
+
+  survey_version_analysis_deck_folder_location <- purrr::map(project_power_bi_version_folders_location, ~{
+    paste0(.x, "/Power_BI_Deck")
+  }) %>% purrr::set_names(survey_version_analysis_deck_names)
+
+  survey_version_analysis_processed_data_folder_location <- purrr::map(project_power_bi_version_folders_location, ~{
+    paste0(.x, "/processed_data")
+  }) %>% purrr::set_names(survey_version_analysis_processed_data_names)
+
+  survey_version_analysis_processed_text_folder_location <- purrr::map(project_power_bi_version_folders_location, ~{
+    paste0(.x, "/processed_text")
+  }) %>% purrr::set_names(survey_version_analysis_processed_text_names)
+
+  # Maybe add TCM Folders Later
+
+  # Put these together as a list
+  list_of_folders_paths <- list(
+    "home_dir" = home_dir,
+    "project_analysis_folder_location" = project_analysis_folder_location,
+    "project_analysis_respondent_investigation_folder_location" = project_analysis_respondent_investigation_folder_location,
+    "project_archive_folder_location, project_assets_folder_location" = project_archive_folder_location,
+    "project_assets_folder_location" = project_assets_folder_location,
+    "project_data_collection_folder_location" = project_data_collection_folder_location,
+    "project_data_collection_survey_monkey_data_folder_location" = project_data_collection_survey_monkey_data_folder_location,
+    "project_data_collection_survey_monkey_data_processed_data_folder_location" = project_data_collection_survey_monkey_data_processed_data_folder_location,
+    "project_instructions_folder_location" = project_instructions_folder_location,
+    "project_presentation_folder_location" = project_presentation_folder_location,
+    "project_proposal_folder_location" = project_proposal_folder_location
+  ) %>% append(project_data_collection_survey_monkey_data_version_folders_location) %>%
+    append(project_power_bi_version_folders_location) %>%
+    append(survey_version_analysis_deck_folder_location) %>%
+    append(survey_version_analysis_processed_data_folder_location) %>%
+    append(survey_version_analysis_processed_text_folder_location)
+
+  if(should_create_survey_folders_if_they_do_not_exist == TRUE) {
+    # If theses do not exist, create them.
+    create_survey_folders_if_they_do_not_exist(list_of_folders_paths)
+  }
+
+  return(list_of_folders_paths)
+}
+
 
 #' Create time stamps to add to file names
 #' This function allows us to keep track of every version of a file, which can be important for record keeping and troubleshooting purposes.
@@ -764,6 +2548,30 @@ create_traditional_project_dir_list <- function(
 
 # E -----------------------------------------------------------------------
 
+#' encode_text_columns_correctly
+#'
+#' @param data df that has text columns
+#'
+#' @return data_used
+#' @export
+#'
+encode_text_columns_correctly <- function(data) {
+  # Prep data
+  data_used <- data
+
+  # Helper function to encode text
+  encode_text_correctly <- function(x){
+    Encoding(x) <- "UTF-8"
+    x
+  }
+
+  # Encode the text columns correctly
+  data_used <- data_used %>%
+    mutate(across(starts_with("text_"), encode_text_correctly))
+
+  # Return the df
+  return(data_used)
+}
 
 ### Special Note for Sarah. This has most of the checks done, so you should just need to go through make make sure it is thorough enough.
 
@@ -811,6 +2619,7 @@ extract_column_details_question_type_df <- function(column_details_table, questi
   # Return the df
   return(column_details_question_type_df)
 }
+
 
 
 # F -----------------------------------------------------------------------
@@ -887,6 +2696,75 @@ FILES_find_newest_file <- function(directory, file_type = ".csv", format_pattern
   return(newest_file)
 }
 
+
+# This seems to have some bugs.
+
+#' fix_levels_and_order_in_table
+#'
+#' @param table table
+#' @param var_type var_type
+#' @param column_details column_details
+#' @param column_workbook_list column_workbook_list
+#' @param title_form title_form
+#'
+#' @return table
+#' @export
+#'
+fix_levels_and_order_in_table <- function(table, var_type, column_details, column_workbook_list, title_form = FALSE) {
+
+  label_for_var_used <- paste0({{var_type}}, "_used")
+  label_for_var_levels <- paste0({{var_type}}, "_levels")
+  label_for_var_order <- paste0({{var_type}}, "_order")
+
+  var_names_that_need_levels <- table[[label_for_var_used]] %>% unique()
+
+  if(title_form == TRUE) {
+    var_names_that_need_levels <- stringr::str_replace_all(var_names_that_need_levels, " ", "_") %>% stringr::str_to_lower()
+  }
+
+  var_vector_names <- column_details %>%
+    dplyr::filter(column_names %in% var_names_that_need_levels) %>%
+    dplyr::pull(label_info)
+
+  var_names_that_need_levels_details_names <- column_details %>%
+    dplyr::filter(column_names %in% var_names_that_need_levels) %>%
+    dplyr::pull(column_names)
+
+  var_vector_names <- purrr::map_chr(var_names_that_need_levels, ~{
+    ifelse(
+      .x %in% var_names_that_need_levels_details_names,
+      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info),
+      .x
+    )
+  })
+
+  named_vectors_for_factor <- purrr::map(var_vector_names, ~{
+    column_workbook_list[[.x]]
+  }) %>% unlist()
+
+  All_label <- c("All")
+  names(All_label) <- All_label
+
+  named_vectors_for_factor <- c(All_label,  named_vectors_for_factor)
+
+  table[[label_for_var_levels]] <- factor(table[[label_for_var_levels]], levels = names(named_vectors_for_factor), labels = names(named_vectors_for_factor))
+
+  table[[label_for_var_order]] <- as.numeric(table[[label_for_var_levels]])
+
+  table[[label_for_var_order]] <- ifelse(
+    table[[label_for_var_levels]] == "Other",
+    9999,
+    table[[label_for_var_order]]
+  )
+
+  table[[label_for_var_order]] <- ifelse(
+    table[[label_for_var_levels]] == "None",
+    9998,
+    table[[label_for_var_order]]
+  )
+
+  return(table)
+}
 
 #' Fully read and process the global coding data.
 #'
@@ -1157,6 +3035,191 @@ get_initial_read_data_from_excel_workbooks_with_converted_columns <- function(
 }
 
 
+
+
+#' get_power_bi_parameters
+#'
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
+#' @param list_of_survey_version_names list_of_survey_version_names
+#' @param all_versions_in_same_analysis_folder all_versions_in_same_analysis_folder
+#' @param other_vars_to_include other_vars_to_include
+#' @param grouping_vars grouping_vars
+#' @param spellcheck_replace_columns spellcheck_replace_columns
+#'
+#' @export
+#'
+get_power_bi_parameters <- function(
+    project_year = 2023,
+    project_folder_name = "230389_SDZ_BC__Quarterly Survey_OID1771",
+    list_of_survey_version_names = list("Wave 1 - Member", "Wave 1 - Donor"),
+    all_versions_in_same_analysis_folder = FALSE,
+    other_vars_to_include,
+    grouping_vars,
+    spellcheck_replace_columns = TRUE,
+    version_name_style,
+    item_everyone_must_complete,
+    remove_rids = FALSE,
+    keep_rids = FALSE
+) {
+
+  # Create the paths for the folders that need to exist for the survey project
+  survey_folder_structure_paths_list <<- create_survey_folder_structure_paths_list_power_bi(
+    project_year = project_year,
+    project_folder_name = project_folder_name,
+    list_of_survey_version_names = list_of_survey_version_names,
+    all_versions_in_same_analysis_folder = all_versions_in_same_analysis_folder
+  )
+
+  # Point to where the survey data is located
+  survey_directory_path <<- survey_folder_structure_paths_list$project_data_collection_survey_monkey_data_folder_location
+
+  # Create path for home dir
+  home_dir <<- survey_folder_structure_paths_list$home_dir
+
+  # Read the survey data as a list
+  survey_data_list <<- read_survey_data_for_power_bi(survey_directory_path = survey_directory_path)
+
+  # Obtain the version names
+  version_names_from_list_data_collection <<- names(survey_data_list)
+
+  # Create Version Directories
+  version_directories_data_collection_path <<- prepare_version_directory_paths(survey_directory_path)
+
+  spellcheck_column_paths <<- paste0(version_directories_data_collection_path, "/spellchecked_text_columns.xlsx")
+
+  # Create the path where the column information workbook will be located
+  path_to_column_workbook <<- obtain_column_name_paths_for_all_survey_versions(version_directories_data_collection_path)
+
+  path_to_column_workbook_list <<- path_to_column_workbook
+
+  version_names_from_list_analysis <<- names(survey_data_list)
+
+  rids_to_remove_path <<- paste0(survey_directory_path, "/rids_to_remove.csv")
+
+  rids_to_keep_path <<- paste0(survey_directory_path, "/rids_to_keep.csv")
+
+  power_bi_clean_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/clean_data.csv")
+  }, home_dir)
+
+  processed_data_clean_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_data/PROCESSED_", snakecase::to_snake_case(.x), "_data_", create_time_chr_string_for_file_names(), ".csv")
+  }, home_dir)
+
+  # Combine other and group variable names
+  variables_to_include_in_all_tables <<- c(other_vars_to_include, grouping_vars)
+
+
+  survey_data_list <<- process_and_clean_power_bi_survey_data(
+    survey_directory_path,
+    spellcheck_replace_columns,
+    spellcheck_column_paths,
+    all_versions_in_same_analysis_folder,
+    path_to_column_workbook,
+    version_name_style,
+    likert_indicator = "ec__",
+    item_everyone_must_complete,
+    remove_rids,
+    keep_rids
+  )
+
+
+  # Filter list to match the variables contained in the df
+  variables_to_include_list <<- purrr::map(survey_data_list, ~{
+    data <- .x
+    #
+    #     if(!("age_group" %in% colnames(data))) {
+    #       data$age_group <- NA
+    #     }
+    #
+    #     if(!("study_version" %in% colnames(data))) {
+    #       data$study_version <- NA
+    #     }
+
+
+    data %>% dplyr::select(any_of(variables_to_include_in_all_tables)) %>% colnames()
+  })
+
+  # Filter to list only the grouping vars contained in each data frame
+  grouping_vars_list <<- purrr::map(survey_data_list, ~{
+    .x %>% dplyr::select(any_of(grouping_vars)) %>% colnames()
+  })
+
+  text_survey_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(.x), "_", create_time_chr_string_for_file_names(), ".csv")
+  }, home_dir)
+
+  # Save it to the powerbi folder
+  power_bi_text_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_text_survey_data.csv")
+  }, home_dir)
+
+
+  if(spellcheck_replace_columns == TRUE) {
+    text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
+      paste0(home_dir, "/Data Collection/survey_monkey_data/", .x, "/selected_example_text.xlsx")
+    }, home_dir)
+
+    text_selected_example_response_vars_list <<- purrr::map(text_selected_example_text_survey_data_path_list, ~{
+      readxl::excel_sheets(.x)
+    })
+
+    create_VAR_df_with_single_row <- purrr::as_mapper(
+      function(path, response_var_to_use) {
+        data.frame(Var1 = response_var_to_use, Var2 = path)
+      })
+
+    create_VAR_df_with_multiple_rows <- purrr::as_mapper(
+      function(path, response_vars_to_use) {
+        path <- path
+        response_vars_to_use <- response_vars_to_use
+        purrr::map_df(response_vars_to_use,  ~ {
+          create_VAR_df_with_single_row(path, .x)
+        }, path)
+      })
+
+    parameters_for_example_read_list <<- purrr::map2(text_selected_example_text_survey_data_path_list, text_selected_example_response_vars_list, ~ {
+      create_VAR_df_with_multiple_rows(.x, .y)
+    })
+
+    text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
+      paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+    }, home_dir)
+  }
+
+  power_bi_mc_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_multiple_choice.csv")
+  }, home_dir)
+
+  power_bi_sa_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_select_all.csv")
+  }, home_dir)
+
+  power_bi_descr_table_num_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_descr_table_num.csv")
+  }, home_dir)
+
+  power_bi_net_promoter_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_net_promoter.csv")
+  }, home_dir)
+
+  column_workbook_list <<- purrr::map(path_to_column_workbook_list, ~{
+    create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
+  })
+
+  column_details_list <<- purrr::map(column_workbook_list, ~{
+    obtain_column_details_table(column_workbook_list = .x, name_of_column_details = "column_details")
+  })
+
+  power_bi_overall_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+  }, home_dir)
+
+  power_bi_break_down_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  }, home_dir)
+}
 
 # H -----------------------------------------------------------------------
 
@@ -1490,6 +3553,38 @@ prepare_version_directory_paths <- function(survey_directory_path){
 }
 
 
+#' Prepare the grouping and response variables
+#'
+#' @param df data frame with the survey data
+#' @param response_var_name character with the response var name
+#' @param grouping_var_name character with the grouping var name
+#'
+#' @return df
+#' @export
+#'
+prepare_VAR_ORDER_variables_single <- function(df, response_var_name, grouping_var_name){
+
+  # Check if df is a data frame
+  if(!is.data.frame(df)) abort_bad_argument("df", must = "be data.frame", not = df)
+
+  # Allow response_var_name and grouping_var_name to be null, but if not
+  # Check to see if they are character strings, and then prepare the ordering variables
+  if(!is.null(response_var_name)) {
+    if(!is.character(response_var_name)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
+    df[[paste0("VAR_ORDER__", {{response_var_name}})]] <- df[[{{response_var_name}}]] %>% as.factor() %>% as.numeric()
+    order_variable <<- paste0("VAR_ORDER__", {{response_var_name}})
+  }
+
+  if(!is.null(grouping_var_name)) {
+    if(!is.character(grouping_var_name)) abort_bad_argument("grouping_var_name", must = "be character", not = grouping_var_name)
+    df[[paste0("VAR_ORDER__", {{grouping_var_name}})]] <- df[[{{grouping_var_name}}]] %>% as.factor() %>% as.numeric()
+    order_grouping_var <<- paste0("VAR_ORDER__", {{grouping_var_name}})
+  }
+
+  # Return the df
+  return(df)
+}
+
 #' process_a_select_all_response_as_ones_and_zeros
 #'
 #' @param is_all_column_data_missing_for_row is_all_column_data_missing_for_row
@@ -1509,6 +3604,237 @@ process_a_select_all_response_as_ones_and_zeros <- function(is_all_column_data_m
   return(processed_var)
 }
 
+
+#' process_and_clean_power_bi_survey_data
+#'
+#' @param survey_directory_path survey_directory_path
+#' @param spellcheck_replace_columns spellcheck_replace_columns
+#' @param spellcheck_column_paths spellcheck_column_paths
+#' @param all_versions_in_same_analysis_folder all_versions_in_same_analysis_folder
+#' @param path_to_column_workbook path_to_column_workbook
+#' @param version_name_style version_name_style
+#' @param likert_indicator likert_indicator
+#' @param item_everyone_must_complete item_everyone_must_complete
+#' @param remove_rids remove_rids
+#' @param keep_rids keep_rids
+#'
+#' @return survey_data_list
+#' @export
+#'
+process_and_clean_power_bi_survey_data <- function(
+    survey_directory_path,
+    spellcheck_replace_columns = TRUE,
+    spellcheck_column_paths = NULL,
+    all_versions_in_same_analysis_folder = TRUE,
+    path_to_column_workbook = NULL,
+    version_name_style = "wave - condition",
+    likert_indicator = "ec__",
+    item_everyone_must_complete = "annual_household_income",
+    remove_rids = FALSE,
+    keep_rids = FALSE
+) {
+
+  # Read the survey data as a list
+  survey_data_list <- read_survey_data_for_power_bi(survey_directory_path = survey_directory_path)
+
+  # If there are spellcheck columns to replace, this function will make those adjustments (if set up correctly)
+  rsdfpi_spellcheck_replace <- function(survey_data_list, spellcheck_replace_columns, spellcheck_column_paths) {
+    if(spellcheck_replace_columns == TRUE) {
+      if(is.null(spellcheck_column_paths)){ stop("Please add spellcheck_column_paths list.")}
+      survey_data_list <- purrr::map2(survey_data_list, spellcheck_column_paths, ~{
+        df <- .x
+        named_spellcheck_workbook_sheets <- readxl::excel_sheets(.y)
+        get_spellchecked_data <- function(df, path, sheet_name) {
+          sc_df <- readxl::read_excel(path, sheet = sheet_name)
+          df <- df %>% dplyr::select(!{{sheet_name}})
+          df$respondent_id <- as.numeric(df$respondent_id)
+          df <- df %>% dplyr::left_join(sc_df, by = "respondent_id")
+          return(df)
+        }
+        for(i in named_spellcheck_workbook_sheets) {
+          df <- get_spellchecked_data(df, .y, i)
+        }
+        return(df)
+      })
+    }
+  }
+
+  survey_data_list <- rsdfpi_spellcheck_replace(survey_data_list, spellcheck_replace_columns, spellcheck_column_paths)
+
+  rsdfpi_combine_survey_versions <- function(survey_data_list, path_to_column_workbook) {
+    if(all_versions_in_same_analysis_folder == TRUE) {
+      survey_data_list <- survey_data_list %>% purrr::map_df(~.x) %>% list()
+      survey_data_list <- survey_data_list %>% purrr::set_names("All_Versions")
+      path_to_column_workbook <<- path_to_column_workbook[[1]]
+    }
+    return(survey_data_list)
+  }
+
+  survey_data_list <- rsdfpi_combine_survey_versions(survey_data_list, path_to_column_workbook)
+
+  rsdfpi_extract_info_for_version_names <- function(version_name_style, survey_data_list) {
+    if(version_name_style == "wave - condition"){
+      survey_data_list <- purrr::map(survey_data_list, ~{
+        revised_data <- .x
+        revised_data$wave <- stringr::str_extract(revised_data$version_name, "^.+-") %>% stringr::str_replace(" -$", "")
+        revised_data$study_version <- stringr::str_extract(revised_data$version_name, "-.+$") %>% stringr::str_replace("^- ", "")
+        revised_data
+      })
+    } else if(version_name_style == "none") {
+      survey_data_list <- purrr::map(survey_data_list, ~{
+        revised_data <- .x
+        revised_data$wave <- "Wave 1"
+        revised_data$study_version <- revised_data$version_name
+        revised_data
+      })
+    }
+    return(survey_data_list)
+  }
+
+  survey_data_list <- rsdfpi_extract_info_for_version_names(version_name_style, survey_data_list)
+
+  rsdfpi_process_age <- function(survey_data_list) {
+    survey_data_list <- purrr::map(survey_data_list, ~{
+      revised_data <- .x
+      if("age" %in% colnames(revised_data)) {
+        revised_data$age <- as.numeric(revised_data$age)
+        current_year <- lubridate::today() %>% lubridate::year()
+        revised_data$age_group <- dplyr::case_when(
+          revised_data$age >= current_year - 1945 ~ "Seniors_Traditional",
+          revised_data$age >= current_year - 1964 & revised_data$age <= current_year - 1946 ~ "Baby Boomers",
+          revised_data$age >= current_year - 1980 & revised_data$age <= current_year - 1965 ~ "Gen X",
+          revised_data$age >= current_year - 1996 & revised_data$age <= current_year - 1981 ~ "Millennials",
+          revised_data$age <= current_year - 1995 ~ "Gen Z"
+        ) %>% factor(levels = c("Gen Z", "Millennials", "Gen X", "Baby Boomers", "Seniors_Traditional"), ordered = TRUE)
+      }
+      revised_data
+    })
+    return(survey_data_list)
+  }
+
+  survey_data_list <- rsdfpi_process_age(survey_data_list)
+
+  rsdfpi_do_initial_processing <- function(survey_data_list, path_to_column_workbook) {
+    survey_data_list <- purrr::map2(survey_data_list, path_to_column_workbook, ~{
+      # Do the initial cleaning of the data, which includes converting numeric, categorical, and select all to their proper formats.
+      revised_data <- clean_and_process_with_column_workbook_list(
+        data = .x,
+        path_to_column_workbook = .y,
+        likert_indicator = likert_indicator,
+        name_of_column_details = "column_details")
+      revised_data
+    })
+    return(survey_data_list)
+  }
+
+  survey_data_list <- rsdfpi_do_initial_processing(survey_data_list, path_to_column_workbook)
+
+  # If parameters indicate to do so,
+  if(!is.null(item_everyone_must_complete)){
+    # Filter out respondents who did not complete this question
+    survey_data_list <- purrr::map(survey_data_list, ~{
+      revised_data <- .x %>%
+        dplyr::filter(!is.na(.data[[{{item_everyone_must_complete}}]]))
+      revised_data
+    })
+  }
+
+  if(remove_rids == TRUE){
+    rids_to_remove_path <- paste0(survey_directory_path, "/rids_to_remove.csv")
+
+    rids_to_remove <- readr::read_csv(rids_to_remove_path, show_col_types = FALSE)[[1]]
+
+    survey_data_list <- purrr::map(survey_data_list, ~{
+      revised_data <- .x %>%
+        dplyr::filter(!(.data[[{{what_identifier_was_used}}]] %in% rids_to_remove))
+      revised_data
+    })
+  }
+
+  if(keep_rids == TRUE){
+    rids_to_keep_path <- paste0(survey_directory_path, "/rids_to_keep.csv")
+
+    rids_to_keep <- readr::read_csv(rids_to_keep_path, show_col_types = FALSE)[[1]]
+
+    survey_data_list <- purrr::map(survey_data_list, ~{
+      revised_data <- .x %>%
+        dplyr::filter((.data[[{{what_identifier_was_used}}]] %in% rids_to_keep))
+      revised_data
+    })
+  }
+
+  return(survey_data_list)
+}
+
+
+
+#' Process the data for all of the numeric variables
+#'
+#' @param data_used data frame with the survey data
+#' @param column_details column details df
+#' @param likert_indicator character string that is used at the start of each likert variable name.
+#'
+#' @return data_used
+#' @export
+#'
+process_numeric_vars <- function(data_used, column_details, likert_indicator = likert_indicator) {
+
+  # Check that data_used is a data frame
+  if(!is.data.frame(data_used)) {
+    rlang::abort(glue::glue("The `data_used` object is not a data frame."))
+  }
+
+  # Check that column_details is a df
+  if(!is.data.frame(column_details)) {
+    rlang::abort(glue::glue("The `column_details` object is not a data frame."))
+  }
+
+  # Check that the likert_indicator is a character string
+  if(!is.null(likert_indicator)) {
+    if(!is.character(likert_indicator)) {
+      rlang::abort(glue::glue("The likert_indicator object is not a character string."))
+    }
+  }
+
+  # Detect numeric questions
+  numeric_variable_names <- column_details %>%
+    dplyr::filter(stringr::str_to_lower(type) == "numeric") %>%
+    dplyr::pull(column_names)
+
+  # If likert inficator is null, make it a empty vector
+  if(is.null(likert_indicator)) {
+    likert_variable_names <- c()
+  } else {
+    # Otherwise detect any variables that start with the likert indicator
+    filter_for_likert_var_names <- stringr::str_detect(column_details$column_names, paste0("^", stringr::str_to_lower(likert_indicator)))
+
+    # Obtain those variable names
+    likert_variable_names <- column_details$column_names[filter_for_likert_var_names]
+  }
+
+  # combine the numeric and likert variables
+  numeric_variable_names <- c(numeric_variable_names, likert_variable_names)
+
+  # Convert variables from that vector to numeric
+  data_used <- data_used %>%
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::all_of(numeric_variable_names),
+        as.numeric,
+        # This provides the naming convention to use
+        .names = "NUM__{.col}")
+    )
+
+  if(!is.null(likert_indicator)) {
+    # Calculate total for likert scale
+    data_used$NUM__likert_total <- data_used %>%
+      select(starts_with(paste0("NUM__", likert_indicator))) %>%
+      rowMeans()
+  }
+
+  # Return the data frame for the survey data
+  return(data_used)
+}
 
 # POWER BI
 #' process_numeric_vars_power_bi
@@ -1534,7 +3860,7 @@ process_numeric_vars_power_bi <- function(data, column_workbook_list, name_of_co
   numeric_column_details_names <- numeric_column_details %>% dplyr::pull(column_names)
 
   # See if numeric type should be run
-  numeric_included <- "numeric" %in% column_details$type | any(!is.na(scale_names))
+  numeric_included <- "numeric" %in% column_details$type | any(!is.na(column_details$scale_names))
 
   if(numeric_included == TRUE) {
 
@@ -1597,6 +3923,60 @@ process_numeric_vars_power_bi <- function(data, column_workbook_list, name_of_co
     return(data_used)
   }
 }
+
+
+#' Process the data for all of the select all questions
+#'
+#' @param column_workbook_list List with all of the named vectors
+#' @param df data frame that contains the survey data
+#' @param column_details_question_type_df data frame that contains the column details for a specified question type
+#'
+#' @return df
+#' @export
+#'
+process_select_all_vars <- function(df, column_details_question_type_df, column_workbook_list) {
+  # Check that df is a data frame
+  if(!is.data.frame(df)) {
+    rlang::abort(glue::glue("The `df` object is not a data frame."))
+  }
+
+  # Check the column details df data fram
+  if(!is.data.frame(column_details_question_type_df)) {
+    rlang::abort(glue::glue("The `column_details_question_type_df` object is not a data frame."))
+  }
+
+  # Check if it is a list
+  if(!is.list(column_workbook_list)) {
+    rlang::abort(glue::glue("The `column_workbook_list` object is not a list."))
+  }
+
+  # Detect sa questions with text responses
+  select_all_text_vars <- column_details_question_type_df %>%
+    dplyr::filter(type == "sa_other") %>%
+    dplyr::pull(column_names)
+
+  # If there are sa other variables
+  if(length(select_all_text_vars) > 0) {
+    # Copy them under a new name
+    for(i in select_all_text_vars){
+      df[[paste0("text_", i)]] <- df[[i]]
+    }
+  }
+
+  # Extract the names of the select all questions
+  SELECT_ALL_VARS <- column_details_question_type_df$column_names %>%
+    stringr::str_extract("^.+__") %>%
+    unique()
+
+  # Loop through all select all questions and process them
+  for(i in SELECT_ALL_VARS) {
+    df <- process_select_all_question(df, i)
+  }
+
+  #Return the df
+  return(df)
+}
+
 
 #POWER BI
 #' process_select_all_vars_power_bi
@@ -1707,7 +4087,7 @@ process_survey_data_for_single_power_bi <- function(
     file_ext = survey_file_ext, format_pattern = survey_datetime_format_pattern,
     survey_version_name = survey_version_name,
     column_workbook_list = column_workbook_list_pb
-  )
+  ) %>% suppressWarnings()
 
   # Convert Age
   if(convert_numeric_age_to_age_group == TRUE) {
@@ -1733,7 +4113,7 @@ process_survey_data_for_single_power_bi <- function(
     name_of_column_details = name_of_column_details)
 
   # Process the Numeric Variables
-  survey_data_for_power_bi_single <- process_numeric_vars_power_bi(
+  survey_data_for_power_bi_single <- bkissell::process_numeric_vars_power_bi(
     data = survey_data_for_power_bi_single,
     column_workbook_list = column_workbook_list_pb,
     name_of_column_details = name_of_column_details)
@@ -1896,6 +4276,77 @@ read_survey_data_for_power_bi_single <- function(
 }
 
 
+#' read_survey_data_for_power_bi
+#'
+#' @param survey_directory_path survey_directory_path
+#'
+#' @return survey_data_list
+#' @export
+#'
+read_survey_data_for_power_bi <- function(survey_directory_path){
+
+  # Create Version Directories
+  version_directories <- prepare_version_directory_paths(survey_directory_path)
+
+  # Obtain the newest version from each directory
+  newest_files_for_project <- obtain_newest_file_per_directory(version_directories)
+
+  # Obtain the paths for the column names excel files
+  version_column_names_paths <- obtain_column_name_paths_for_all_survey_versions(version_directories)
+
+  # Check if the column names excel file exists for each version
+  the_column_names_file_exists <- check_if_the_column_names_file_exists(version_column_names_paths)
+
+  # Obtain appropriate initial column names
+  initial_column_names_for_version <- obtain_initial_column_names_for_version(
+    version_column_names_paths,
+    the_column_names_file_exists
+  )
+
+  # Create Connection to zip files
+  connection_to_zip_files <- obtain_connection_to_zip_files_for_versions(newest_files_for_project)
+
+  # Read in data stored in the the csv
+  survey_data_list <- read_csv_in_zip(connection_to_zip_files, initial_column_names_for_version)
+
+  # Stop the program if column files do not exist.
+  if_no_csv_for_colnames_make_one(
+    survey_data_list,
+    the_column_names_file_exists,
+    version_column_names_paths
+  )
+
+  version_name <- basename(version_directories)
+
+  survey_data_list <- purrr::map2(survey_data_list, version_name, ~{
+    data_frame <- .x
+
+    data_frame$version_name <- .y
+
+    data_frame
+  })
+
+  survey_data_list <- purrr::map(survey_data_list, ~{
+    df <- .x
+
+    if("RID" %in% names(df)) {
+      df$RID <- df$RID
+    } else if("Respondent ID" %in% names(df)) {
+      df$RID <- df$`Respondent ID`
+    } else if("respondent_id" %in% names(df)) {
+      df$RID <- df$respondent_id
+    }
+
+    df
+  })
+
+  survey_data_list <- survey_data_list %>% purrr::set_names(version_name)
+
+  # Return the df
+  return(survey_data_list)
+}
+
+
 #' read_survey_monkey_data
 #'
 #' @param man_wd man_wd
@@ -2026,10 +4477,135 @@ replace_spelling_with_excel_workbook <- function(df, spellchecked_path) {
   }
 }
 
+### CHECK THIS ONE aS IT SEEMS WRONG
+#' run_create_table_with_var_names_and_orders
+#'
+#' @param response_var_type response_var_type
+#' @param df df
+#' @param response_var_names response_var_names
+#' @param response_var_used_order response_var_used_order
+#' @param grouping_vars grouping_vars
+#' @param grouping_var_used_order grouping_var_used_order
+#'
+#' @return power_bi_table
+#' @export
+#'
+run_create_table_with_var_names_and_orders <- function(
+    response_var_type,
+    df,
+    response_var_names,
+    response_var_used_order,
+    grouping_vars,
+    grouping_var_used_order) {
+
+  rv_names_and_order_df <- data.frame(
+    response_var_names = response_var_names,
+    response_var_used_order = response_var_used_order
+  )
+
+  gv_names_and_order_df <- data.frame(
+    grouping_vars = grouping_vars,
+    grouping_var_used_order = grouping_var_used_order
+  )
+
+  parameter_df <- expand.grid(response_var_names, grouping_vars)
+  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+  parameter_df <- parameter_df %>%
+    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+  n_iterations <- length(parameter_df$response_var_names)
+  pb <- progress::progress_bar$new(total = n_iterations)
+
+  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+    t <- create_table_single(
+      df = df,
+      response_var_name = parameter_df$response_var_names[[.x]],
+      grouping_var_name = parameter_df$grouping_vars[[.x]],
+      response_var_type = response_var_type)
+
+    pb$tick()
+
+    t$response_var_used <- parameter_df$response_var_names[[.x]]
+    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
+    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
+    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+    t
+  })
+
+  power_bi_table <- purrr::map2_df(response_var_names, response_var_used_order, ~{
+    single_tables <- run_create_table_with_var_names_and_orders_part(
+      df = df, response_variable_name = .x,
+      response_var_type = response_var_type, grouping_vars = grouping_vars,
+      grouping_var_used_order = grouping_var_used_order)
+
+    single_tables$response_var_used <- .x
+    single_tables$response_var_used_order <- .y
+    single_tables
+  })
+  power_bi_table
+}
+
 
 # S -----------------------------------------------------------------------
 
+#' separate_most_least_single
+#'
+#' @param data data
+#' @param grouping_vars grouping_vars
+#'
+#' @return most_least_table
+#' @export
+#'
+separate_most_least_single <- function(data, grouping_vars){
 
+  most_least_table <- data %>%
+    tidyr::pivot_longer(
+      cols = !c("RID", all_of(grouping_vars)),
+      values_to = "Rating_selection",
+      names_to = "Question_name"
+    )
+
+  most_least_table$condition_name <- most_least_table$Question_name %>%
+    stringr::str_replace("^ml__", "") %>%
+    stringr::str_extract("^.+_") %>%
+    stringr::str_replace_all("_", "") %>%
+    stringr::str_to_title()
+
+  most_least_table$item_name <- most_least_table$Question_name %>%
+    stringr::str_replace("^ml__", "") %>%
+    stringr::str_replace("^.+_", "") %>%
+    stringr::str_replace_all("_", " ") %>%
+    stringr::str_to_title()
+
+  most_least_table$least <- ifelse(stringr::str_detect(most_least_table$Rating_selection, "^Least"), 1, 0)
+  most_least_table$most <- ifelse(stringr::str_detect(most_least_table$Rating_selection, "^Most"), 1, 0)
+
+  most_least_table <- most_least_table %>%
+    tidyr::pivot_longer(cols = c("least", "most"), names_to = "direction", values_to = "selection")
+
+  return(most_least_table)
+}
+
+#' separate_most_least_multiple
+#'
+#' @param data data
+#' @param ml_indicator ml_indicator
+#' @param grouping_vars grouping_vars
+#'
+#' @return most_least_data_frame
+#' @export
+#'
+separate_most_least_multiple <- function(data, ml_indicator, grouping_vars) {
+  response_item_names <- data %>% dplyr::select(tidyselect::starts_with({{ml_indicator}})) %>% colnames()
+
+  most_least_data_frame <- purrr::map_df(response_item_names, ~ {
+    separate_most_least_single(data = data, var_name = .x, grouping_vars = grouping_vars)
+  })
+
+  return(most_least_data_frame)
+}
 
 
 #' set_project_working_directory
@@ -2083,6 +4659,33 @@ set_project_working_directory <- function(
 }
 
 
+#' Select all of the data that should be provided in the text df
+#'
+#' @param data data frame with the survey data
+#' @param variables_to_include Character vector with names of the variables to keep
+#'
+#' @return text_survey_data
+#' @export
+#'
+select_text_survey_data <- function(data, variables_to_include) {
+  variables_to_include <- c(variables_to_include, "study_version")
+  # Run Checks
+  if(!is.data.frame(data)) abort_bad_argument("data", must = "be data.frame", not = data)
+  if(!is.character(variables_to_include)) abort_bad_argument("variables_to_include", must = "be character", not = variables_to_include)
+
+  # Filter for needed variables
+  text_survey_data <- data %>%
+    dplyr::select(
+      tidyselect::all_of(variables_to_include),
+      starts_with("text_")
+    )
+
+  #Return the survey data
+  return(text_survey_data)
+}
+
+
+
 #' Simple function to convert first to numeric and then to sum the numbers
 #'
 #' @param x numeric variable
@@ -2105,120 +4708,6 @@ sum2 <- function(x) {
 
 
 # U -----------------------------------------------------------------------
-
-
-# V -----------------------------------------------------------------------
-
-
-# W -----------------------------------------------------------------------
-
-
-# X -----------------------------------------------------------------------
-
-
-# Y -----------------------------------------------------------------------
-
-
-# Z -----------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Development -------------------------------------------------------------
-
-
-
-library(datacollectiontools)
-
-
-
-
-
-
-
-#' Pull rows from the column details that are indicated as multiple choice.
-#'
-#' @param question_type_indicator Character string that tells the program what data type is being evaluated and processed.
-#' @param column_details Data frame that contains the details and information on the variables.
-#'
-#' @return column_details_question_type_df
-#' @export
-#'
-
-extract_column_details_question_type_df <- function(column_details, question_type_indicator = "mc") {
-
-  # Check that column details is a data frame
-  if(!is.data.frame(column_details)) {
-    rlang::abort(glue::glue("The column_details object is not a data frame."))
-  }
-
-  # Check that the indicator is a character string
-  if(!is.character(question_type_indicator)) {
-    rlang::abort(glue::glue("The question_type_indicator object is not a character string."))
-  }
-
-  # Check that indicator is a valid option
-  appropriate_choice_indicators <- c("mc", "sa")
-  if(!(question_type_indicator %in% appropriate_choice_indicators)) {
-    rlang::abort(glue::glue("`question_type_indicator` is '{question_type_indicator}', which is not an appropriate type indicator. Please use one of the following: {paste0(appropriate_choice_indicators, collapse = ", ")}"))
-  }
-
-  if(question_type_indicator == "mc") {
-    # Filter for multiple choice questions
-    column_details_question_type_df <- column_details %>%
-      dplyr::filter(type == {{question_type_indicator}})
-  }
-
-  if(question_type_indicator == "sa") {
-    column_details_question_type_df <- column_details %>%
-      dplyr::filter(
-        # Find all rows that start with sa
-        stringr::str_detect(column_details$type, "^sa")
-      )
-  }
-
-  # Return the df
-  return(column_details_question_type_df)
-}
 
 #' Use column workbook to convert vars to factors
 #'
@@ -2288,375 +4777,233 @@ use_column_workbook_to_convert_vars_to_factors <- function(df, column_details_qu
   # Return the df
   return(df)
 }
+# V -----------------------------------------------------------------------
 
-#' Process the data for all of the select all questions
+
+# W -----------------------------------------------------------------------
+
+
+# X -----------------------------------------------------------------------
+
+
+# Y -----------------------------------------------------------------------
+
+
+# Z -----------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Development -------------------------------------------------------------
+
+
+
+
+#' create_order_information_lookup_table
 #'
-#' @param column_workbook_list List with all of the named vectors
-#' @param df data frame that contains the survey data
-#' @param column_details_question_type_df data frame that contains the column details for a specified question type
+#' @param column_workbook_list column_workbook_list
+#' @param name_of_column_details name_of_column_details
 #'
-#' @return df
+#' @return full_lookup_table
 #' @export
 #'
-process_select_all_vars <- function(df, column_details_question_type_df, column_workbook_list) {
-  # Check that df is a data frame
-  if(!is.data.frame(df)) {
-    rlang::abort(glue::glue("The `df` object is not a data frame."))
+create_order_information_lookup_table <- function(column_workbook_list, name_of_column_details) {
+  # Obtain the column details
+  column_details <- column_workbook_list[[name_of_column_details]]
+
+  # Obtain a list of all of the variable label types
+  names_of_all_sheets_in_column_workbook_list <- names(column_workbook_list)
+
+  # Remove the column details sheet
+  names_of_all_sheets_for_variable_info <-
+    names_of_all_sheets_in_column_workbook_list[names_of_all_sheets_in_column_workbook_list != name_of_column_details]
+
+  # If there are duplicates in the sheets, throw an error
+  if(length(names_of_all_sheets_for_variable_info) != length(unique(names_of_all_sheets_for_variable_info))){
+    stop("Duplicates in column_workbook_list")
   }
 
-  # Check the column details df data fram
-  if(!is.data.frame(column_details_question_type_df)) {
-    rlang::abort(glue::glue("The `column_details_question_type_df` object is not a data frame."))
-  }
+  # Loop through every sheet in the column details workbook and create the lookup table
+  lookup_table <- purrr::map_df(names_of_all_sheets_for_variable_info, ~{
 
-  # Check if it is a list
-  if(!is.list(column_workbook_list)) {
-    rlang::abort(glue::glue("The `column_workbook_list` object is not a list."))
-  }
+    # Get the levels for that sheet
+    var_label_info_levels <- names(column_workbook_list[[.x]])
 
-  # Detect sa questions with text responses
-  select_all_text_vars <- column_details_question_type_df %>%
-    dplyr::filter(type == "sa_other") %>%
-    dplyr::pull(column_names)
+    # Save which sheet was used
+    var_label_info_used  <- rep(.x, length(var_label_info_levels))
 
-  # If there are sa other variables
-  if(length(select_all_text_vars) > 0) {
-    # Copy them under a new name
-    for(i in select_all_text_vars){
-      df[[paste0("text_", i)]] <- df[[i]]
-    }
-  }
-
-  # Extract the names of the select all questions
-  SELECT_ALL_VARS <- column_details_question_type_df$column_names %>%
-    stringr::str_extract("^.+__") %>%
-    unique()
-
-  # Loop through all select all questions and process them
-  for(i in SELECT_ALL_VARS) {
-    df <- process_select_all_question(df, i)
-  }
-
-  #Return the df
-  return(df)
-}
-
-#' Process the data for all of the numeric variables
-#'
-#' @param data_used data frame with the survey data
-#' @param column_details column details df
-#' @param likert_indicator character string that is used at the start of each likert variable name.
-#'
-#' @return data_used
-#' @export
-#'
-process_numeric_vars <- function(data_used, column_details, likert_indicator = likert_indicator) {
-
-  # Check that data_used is a data frame
-  if(!is.data.frame(data_used)) {
-    rlang::abort(glue::glue("The `data_used` object is not a data frame."))
-  }
-
-  # Check that column_details is a df
-  if(!is.data.frame(column_details)) {
-    rlang::abort(glue::glue("The `column_details` object is not a data frame."))
-  }
-
-  # Check that the likert_indicator is a character string
-  if(!is.null(likert_indicator)) {
-    if(!is.character(likert_indicator)) {
-      rlang::abort(glue::glue("The likert_indicator object is not a character string."))
-    }
-  }
-
-  # Detect numeric questions
-  numeric_variable_names <- column_details %>%
-    dplyr::filter(stringr::str_to_lower(type) == "numeric") %>%
-    dplyr::pull(column_names)
-
-  # If likert inficator is null, make it a empty vector
-  if(is.null(likert_indicator)) {
-    likert_variable_names <- c()
-  } else {
-    # Otherwise detect any variables that start with the likert indicator
-    filter_for_likert_var_names <- stringr::str_detect(column_details$column_names, paste0("^", stringr::str_to_lower(likert_indicator)))
-
-    # Obtain those variable names
-    likert_variable_names <- column_details$column_names[filter_for_likert_var_names]
-  }
-
-  # combine the numeric and likert variables
-  numeric_variable_names <- c(numeric_variable_names, likert_variable_names)
-
-  # Convert variables from that vector to numeric
-  data_used <- data_used %>%
-    dplyr::mutate(
-      dplyr::across(
-        tidyselect::all_of(numeric_variable_names),
-        as.numeric,
-        # This provides the naming convention to use
-        .names = "NUM__{.col}")
+    # Create a data frame with that info
+    df_label_info <- data.frame(
+      var_label_info_used = var_label_info_used,
+      var_label_info_levels = var_label_info_levels
     )
 
-  if(!is.null(likert_indicator)) {
-    # Calculate total for likert scale
-    data_used$NUM__likert_total <- data_used %>%
-      select(starts_with(paste0("NUM__", likert_indicator))) %>%
-      rowMeans()
-  }
+    # and return it
+    df_label_info
+  })
 
-  # Return the data frame for the survey data
-  return(data_used)
+  # Make sure there are no duplicates
+  lookup_table <- distinct(lookup_table)
+
+  # Create the number for each level
+  lookup_table$id_var_order <- factor(lookup_table$var_label_info_levels, unique(lookup_table$var_label_info_levels)) %>% as.numeric()
+
+  # Custom adjustment of other label
+  lookup_table$id_var_order <- ifelse(
+    lookup_table$var_label_info_levels == "Other",
+    9999,
+    lookup_table$id_var_order
+  )
+
+  # Custom adjustement of none label
+  lookup_table$id_var_order <- ifelse(
+    lookup_table$var_label_info_levels == "None",
+    9998,
+    lookup_table$id_var_order
+  )
+
+  # Because the label and the name can be different, lets use the names in the lookup table
+  df_all_vars_and_label_info <- column_details %>%
+    dplyr::filter(!is.na(label_info)) %>%
+    dplyr::select(column_names, label_info)
+
+  # Go through each name
+  full_lookup_table <- purrr::map_df(seq_along(df_all_vars_and_label_info$column_names), ~{
+    # Filter for the relevant levels
+    temp_lookup_table <- lookup_table %>%
+      dplyr::filter(.data[["var_label_info_used"]] == df_all_vars_and_label_info$label_info[[.x]])
+
+    # Add the correct name
+    temp_lookup_table$variable_used <- df_all_vars_and_label_info$column_names[[.x]]
+
+    # Return the table
+    temp_lookup_table
+  }, lookup_table)
+
+
+  # Add the variable used column to the lookup table
+  lookup_table$variable_used <- lookup_table$var_label_info_used
+
+  # Join these together and make sure there are no duplicates
+  full_lookup_table <- full_lookup_table %>%
+    rbind(lookup_table) %>% distinct()
+
+  # Create All versions for the grouping variables
+  All_label_table <- data.frame(
+    var_label_info_used = unique(full_lookup_table$variable_used),
+    var_label_info_levels= rep("All", length(unique(full_lookup_table$variable_used))),
+    id_var_order = rep(0, length(unique(full_lookup_table$variable_used))),
+    variable_used =  unique(full_lookup_table$variable_used)
+  )
+
+  # Join these together and make sure there are no duplicates
+  full_lookup_table <- full_lookup_table %>%
+    rbind(All_label_table) %>%
+    distinct()
+
+  # Return the table
+  return(full_lookup_table)
 }
 
-        #' Clean the survey data
-        #'
-        #' @param data data frame with the survey data
-        #' @param path_to_column_workbook Path to where the column details workbook is located.
-        #' @param likert_indicator character string that is used at the start of each likert variable name.
-        #' @param name_of_column_details column details df
-        #'
-        #' @return data_used
-        #' @export
-        #'
-        clean_and_process_with_column_workbook_list <- function(
-            data,
-            path_to_column_workbook,
-            likert_indicator = NULL,
-            name_of_column_details = "column_details") {
 
-          # Run Checks
-          if(!is.data.frame(data)) abort_bad_argument("data", must = "be data.frame", not = data)
-          if(!is.character(path_to_column_workbook)) abort_bad_argument("path_to_column_workbook", must = "be character", not = path_to_column_workbook)
-          if(!is.null(likert_indicator)){
-            if(!is.character(likert_indicator)) abort_bad_argument("likert_indicator", must = "be character", not = likert_indicator)
-          }
-          if(!is.character(name_of_column_details)) abort_bad_argument("name_of_column_details", must = "be character", not = name_of_column_details)
 
-          # Prep the data
-          data_used <- data
-
-          # Create the column details and named vectors list
-          column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-          # Create the df that just contains the column details
-          column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
-
-          # function to process the net_promoter data
-          capwcw_process_net_promoter <- function(data_used, column_details) {
-
-            if(!is.data.frame(data_used)) abort_bad_argument("data_used", must = "be data.frame", not = data_used)
-            if(!is.data.frame(column_details)) abort_bad_argument("column_details", must = "be data.frame", not = column_details)
-
-            # See if net promoter should be included
-            net_promoter_included = "net_promoter" %in% column_details$column_names
-
-            if(net_promoter_included == TRUE) {
-              # Get the column details for net promoter
-              net_promoter_df <- column_details %>% dplyr::filter(column_names == "net_promoter")
-              net_promoter_name <- net_promoter_df$column_names
-
-              # Prep categorical net promoter
-              data_used$NUM_net_promoter <- as.numeric(data_used$net_promoter)
-              data_used$net_promoter <- dplyr::case_when(
-                data_used$NUM_net_promoter %in% 0:6 ~ "Detractors",
-                data_used$NUM_net_promoter %in% 7:8 ~ "Passives",
-                data_used$NUM_net_promoter %in% 9:10 ~ "Promoter"
-              )
-
-              # Prep numeric net_promoter_coded
-              data_used$net_promoter_coded <- dplyr::case_when(
-                data_used$net_promoter == "Detractors" ~ -1,
-                data_used$net_promoter == "Passives" ~ 0,
-                data_used$net_promoter == "Promoter" ~ 1
-              )
-
-              # Turn the net_promoter into a factor
-              data_used$net_promoter <- factor(data_used$net_promoter, c("Detractors", "Passives", "Promoter"), ordered = TRUE)
-            }
-
-            # Return the data used
-            return(data_used)
-          }
-
-          data_used <- capwcw_process_net_promoter(data_used, column_details)
-
-          capwcw_process_multiple_choice <- function(data_used, column_details) {
-            # Check that data_used is a data frame
-            if(!is.data.frame(data_used)) {
-              rlang::abort(glue::glue("The `data_used` object is not a data frame."))
-            }
-
-            # Check that column_details is a df
-            if(!is.data.frame(column_details)) {
-              rlang::abort(glue::glue("The `column_details` object is not a data frame."))
-            }
-
-            # Get the names of the mc variable
-            multiple_choice_included <- "mc" %in% column_details$type
-
-            # If mc is included
-            if(multiple_choice_included == TRUE) {
-              # Get the column details for multiple choice
-              multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
-              # Process multiple choice
-              data_used <- use_column_workbook_to_convert_vars_to_factors(df = data_used, column_details_question_type_df = multiple_choice_df, column_workbook_list = column_workbook_list, question_type_indicator = "mc")
-            }
-
-            return(data_used)
-          }
-
-          data_used <- capwcw_process_multiple_choice(data_used, column_details)
-
-          capwcw_process_select_all <- function(data_used, column_details) {
-            # Check that data_used is a data frame
-            if(!is.data.frame(data_used)) {
-              rlang::abort(glue::glue("The `data_used` object is not a data frame."))
-            }
-
-            # Check that column_details is a df
-            if(!is.data.frame(column_details)) {
-              rlang::abort(glue::glue("The `column_details` object is not a data frame."))
-            }
-
-            # See if sa is included in the study
-            select_all_included <- "sa" %in% column_details$type
-
-            if(select_all_included == TRUE) {
-              # Get the column details for select all questions
-              select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
-
-              # Process the select all questions
-              data_used <- process_select_all_vars(data_used, select_all_df, column_workbook_list)
-            }
-
-            return(data_used)
-          }
-
-          data_used <- capwcw_process_select_all(data_used, column_details)
-
-          capwcw_process_numeric <- function(data_used, column_details) {
-            # Check that data_used is a data frame
-            if(!is.data.frame(data_used)) {
-              rlang::abort(glue::glue("The `data_used` object is not a data frame."))
-            }
-
-            # Check that column_details is a df
-            if(!is.data.frame(column_details)) {
-              rlang::abort(glue::glue("The `column_details` object is not a data frame."))
-            }
-
-            # See if numeric type should be run
-            numeric_included <- "numeric" %in% column_details$type | "likert" %in% column_details$type
-
-            if(numeric_included == TRUE) {
-              # Process the numeric questions
-              data_used <- process_numeric_vars(data_used = data_used, column_details = column_details, likert_indicator = likert_indicator)
-            }
-
-            return(data_used)
-          }
-
-          data_used <- capwcw_process_numeric(data_used, column_details)
-
-          # Return the data frame
-          return(data_used)
-        }
-
-###############################################################################
-
-#' Select all of the data that should be provided in the text df
+#' adjust_order_information_lookup_table_per_type
 #'
-#' @param data data frame with the survey data
-#' @param variables_to_include Character vector with names of the variables to keep
+#' @param table table
+#' @param order_information_lookup_table order_information_lookup_table
+#' @param type type
 #'
-#' @return text_survey_data
+#' @return table_2
 #' @export
 #'
-select_text_survey_data <- function(data, variables_to_include) {
-  variables_to_include <- c(variables_to_include, "study_version")
-  # Run Checks
-  if(!is.data.frame(data)) abort_bad_argument("data", must = "be data.frame", not = data)
-  if(!is.character(variables_to_include)) abort_bad_argument("variables_to_include", must = "be character", not = variables_to_include)
+adjust_order_information_lookup_table_per_type <- function(table, order_information_lookup_table, type = "grouping_var_"){
 
-  # Filter for needed variables
-  text_survey_data <- data %>%
-    dplyr::select(
-      tidyselect::all_of(variables_to_include),
-      starts_with("text_")
-    )
+  # Prepare the variables you will be ajusting
+  table_2 <- table
+  order_information_lookup_table_2 <- order_information_lookup_table
 
-  #Return the survey data
-  return(text_survey_data)
-}
+  # Create the labels according to whether it is response or grouping
+  order_label <- paste0(type, "order")
+  levels_label <- paste0(type, "levels")
+  used_label <- paste0(type, "used")
 
-#' Reshape the text data so that it works with power bi
-#'
-#' @param text_survey_data survey data with only text related columns
-#' @param variables_to_include Character vector with names of the variables to keep
-#'
-#' @return power_bi_text
-#' @export
-#'
-create_power_bi_text_data <- function(text_survey_data, variables_to_include) {
-  variables_to_include <- c(variables_to_include, "study_version")
-  # Run Checks
-  if(!is.data.frame(text_survey_data)) abort_bad_argument("text_survey_data", must = "be data.frame", not = text_survey_data)
-  if(!is.character(variables_to_include)) abort_bad_argument("variables_to_include", must = "be character", not = variables_to_include)
+  # Create an id for the table
+  table_2$var_id_to_match <- paste0(table_2[[used_label]], "_", table_2[[levels_label]])
 
-  # Shape and filter the textual data
-  power_bi_text <- text_survey_data %>%
-    tidyr::pivot_longer(
-      cols = -c(tidyselect::all_of(variables_to_include)),
-      names_to = "response_var_used",
-      names_prefix = "text_",
-      values_to = "textual_responses"
-    ) %>%
-    dplyr::filter(!is.na(textual_responses))
+  # Create an id for the lookup table
+  order_information_lookup_table_2$var_id_to_match <- paste0(order_information_lookup_table_2$variable_used, "_", order_information_lookup_table_2$var_label_info_levels)
 
-  # Remove the "'" as the symbol is entered incorrectly in excel
-  power_bi_text$textual_responses <- stringr::str_replace_all(power_bi_text$textual_responses, "'", "")
+  # Rename the order variable
+  order_information_lookup_table_2[[order_label]] <- order_information_lookup_table_2[["id_var_order"]]
 
-  power_bi_text$wave <- "Wave 1"
-  power_bi_text <- power_bi_text <- power_bi_text %>% dplyr::select(wave, everything())
-  # Return this new table
-  return(power_bi_text)
-}
+  # Select only needed variables
+  order_information_lookup_table_2 <- order_information_lookup_table_2 %>% dplyr::select("var_id_to_match", all_of(order_label))
 
-#' Prepare the grouping and response variables
-#'
-#' @param df data frame with the survey data
-#' @param response_var_name character with the response var name
-#' @param grouping_var_name character with the grouping var name
-#'
-#' @return df
-#' @export
-#'
-prepare_VAR_ORDER_variables_single <- function(df, response_var_name, grouping_var_name){
+  # Detect missing variables
+  missing_variables <- setdiff(table_2$var_id_to_match, order_information_lookup_table_2$var_id_to_match)
 
-  # Check if df is a data frame
-  if(!is.data.frame(df)) abort_bad_argument("df", must = "be data.frame", not = df)
+  # Join the two tables together
+  table_2 <- table_2 %>%
+    dplyr::select(-any_of(order_label)) %>%
+    dplyr::left_join(order_information_lookup_table_2, by = "var_id_to_match")
 
-  # Allow response_var_name and grouping_var_name to be null, but if not
-  # Check to see if they are character strings, and then prepare the ordering variables
-  if(!is.null(response_var_name)) {
-    if(!is.character(response_var_name)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
-    df[[paste0("VAR_ORDER__", {{response_var_name}})]] <- df[[{{response_var_name}}]] %>% as.factor() %>% as.numeric()
-    order_variable <<- paste0("VAR_ORDER__", {{response_var_name}})
+  # Create an order number for the missing variables so it does not get messed up
+  counter = 1
+  for(i in missing_variables){
+    table_2[[order_label]][table_2[["var_id_to_match"]] == i] <- max(table_2[[order_label]], na.rm = TRUE) + counter
+    counter <- counter + 1
   }
 
-  if(!is.null(grouping_var_name)) {
-    if(!is.character(grouping_var_name)) abort_bad_argument("grouping_var_name", must = "be character", not = grouping_var_name)
-    df[[paste0("VAR_ORDER__", {{grouping_var_name}})]] <- df[[{{grouping_var_name}}]] %>% as.factor() %>% as.numeric()
-    order_grouping_var <<- paste0("VAR_ORDER__", {{grouping_var_name}})
-  }
-
-  # Return the df
-  return(df)
+  # Return the adjusted table
+  return(table_2)
 }
 
 
-#' Create a single table
+
+
+
+
+# I want to rewrite this one.
+#' Create a single table Multiple Choice
 #'
 #' @param df data frame with the survey data
 #' @param response_var_name character with the response var name
@@ -2666,13 +5013,12 @@ prepare_VAR_ORDER_variables_single <- function(df, response_var_name, grouping_v
 #' @return table
 #' @export
 #'
-create_table_single <- function(df, response_var_name, grouping_var_name, response_var_type){
+create_table_single_mc_DEV <- function(df, response_var_name, grouping_var_name){
 
   # Run Checks
   if(!is.data.frame(df)) abort_bad_argument("df", must = "be data.frame", not = df)
   if(!is.character(response_var_name)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
   if(!is.character(grouping_var_name)) abort_bad_argument("grouping_var_name", must = "be character", not = grouping_var_name)
-  if(!is.character(response_var_type)) abort_bad_argument("response_var_name", must = "be character", not = response_var_name)
 
   ## Create Helper Functions
   cts_create_grouping_and_order_var <- function(df, grouping_var_name, order_grouping_var) {
@@ -2739,715 +5085,86 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
     return(table_counts)
   }
 
-  if(response_var_type == "mc") {
-    # Create Grouped Table
-    df <- df %>% ungroup()
-    df <- prepare_VAR_ORDER_variables_single(df, response_var_name, grouping_var_name)
-    df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
-    df <- cts_create_response_and_order_var(df, response_var_name, order_variable)
-    variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order")
-    for(i in variable_names_to_group) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
-    for(j in variable_names_to_group) {df <- cts_add_group_by(df, var_name = j)}
-    table <- cts_calculate_counts(df)
-    table <- cts_add_group_by(table, var_name = "grouping_var_levels")
-    table <- cts_calculate_group_counts_and_percentages(table)
-    table$grouping_var_used <- {{grouping_var_name}}
-    table$response_var_used <- {{response_var_name}}
-    table <- table %>% dplyr::ungroup()
+  # Make sure the df is not grouped by anything
+  df <- df %>% ungroup()
 
-    # Create Overall Table
-    df <- df %>% ungroup()
-    variable_names_to_group_for_all <- c("response_var_levels", "response_var_order")
-    for(i in variable_names_to_group_for_all) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
-    for(j in variable_names_to_group_for_all) {df <- cts_add_group_by(df, var_name = j)}
-    table_all <- cts_calculate_counts(df)
-    table_all <- cts_calculate_group_counts_and_percentages(table_all)
-    table_all$grouping_var_used <- "All"
-    table_all$response_var_used <- {{response_var_name}}
-    table_all <- table_all %>% dplyr::ungroup()
-    table_all$grouping_var_levels <- "All"
-    table_all$grouping_var_order <- 0
+  table(df[[response_var_name]], df[[grouping_var_name]])
+  ptable(df[[response_var_name]], df[[grouping_var_name]])
+  grouping_var_levels
+  response_var_levels
+  counts
+  # Add VAR_ORDER for both grouping and response vars to the df it is working on
+  df <- prepare_VAR_ORDER_variables_single(df, response_var_name, grouping_var_name)
 
-    # join Tables
-    table_var_order <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order", "counts", "group_n", "percentage", "grouping_var_used", "response_var_used")
-    table <- table %>% dplyr::select(dplyr::all_of(table_var_order))
-    table_all <- table_all %>% dplyr::select(dplyr::all_of(table_var_order))
-    table <- table %>% rbind(table_all)
-    df <- df %>% dplyr::ungroup()
-    table$overall_sample_size_for_response_var <- cts_calculate_overall_sample_size(df, response_var_name)
-  }
-  ################################################################################
-  if(response_var_type == "sa"){
+  df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
+  df <- cts_create_response_and_order_var(df, response_var_name, order_variable)
 
+  variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order")
+  for(i in variable_names_to_group) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+  for(j in variable_names_to_group) {df <- cts_add_group_by(df, var_name = j)}
+  table <- cts_calculate_counts(df)
+  table <- cts_add_group_by(table, var_name = "grouping_var_levels")
+  table <- cts_calculate_group_counts_and_percentages(table)
+  table$grouping_var_used <- {{grouping_var_name}}
+  table$response_var_used <- {{response_var_name}}
+  table <- table %>% dplyr::ungroup()
 
-    list_of_variable_names <- find_var_names_that_start_with(df, starts_with = response_var_name)
-    df <- prepare_VAR_ORDER_variables_single(df, response_var_name = NULL, grouping_var_name)
-    order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
-    df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
-    df <- df  %>% dplyr::select("grouping_var_levels", "grouping_var_order", all_of(list_of_variable_names))
+  # Create Overall Table
+  df <- df %>% ungroup()
+  variable_names_to_group_for_all <- c("response_var_levels", "response_var_order")
+  for(i in variable_names_to_group_for_all) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+  for(j in variable_names_to_group_for_all) {df <- cts_add_group_by(df, var_name = j)}
+  table_all <- cts_calculate_counts(df)
+  table_all <- cts_calculate_group_counts_and_percentages(table_all)
+  table_all$grouping_var_used <- "All"
+  table_all$response_var_used <- {{response_var_name}}
+  table_all <- table_all %>% dplyr::ungroup()
+  table_all$grouping_var_levels <- "All"
+  table_all$grouping_var_order <- 0
 
-    table_counts <- cts_pivot_longer_count_type(df, response_var_name, count_type = "counts")
-    table_counts <- table_counts %>% dplyr::mutate(counts = as.numeric(counts))
-    table_counts <- table_counts %>% dplyr::filter(!is.na(counts))
-
-    variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order")
-    for(i in variable_names_to_group) {table_counts <- cts_filter_out_NAs_from_df(table_counts, var_name = i)}
-    for(j in variable_names_to_group) {table_counts <- cts_add_group_by(table_counts, var_name = j)}
-    table_counts <- table_counts %>% dplyr::summarize(counts = sum(counts), .groups = "drop")
-
-    table_n <- df %>%
-      dplyr::select(grouping_var_levels, grouping_var_order, all_of(list_of_variable_names)) %>%
-      tidyr::pivot_longer(
-        cols = -c("grouping_var_levels", "grouping_var_order"),
-        names_to = "response_var_levels",
-        values_to = "group_n"
-      ) %>%
-      dplyr::mutate(group_n = as.numeric(group_n)) %>%
-      dplyr::filter(!is.na(group_n)) %>%
-      dplyr::group_by(
-        .data[["grouping_var_levels"]],
-        .data[["grouping_var_order"]],
-        .data[["response_var_levels"]]
-      ) %>%
-      dplyr::summarize(group_n = n(), .groups = "drop")
-
-    table_percent <- table_counts %>%
-      dplyr::left_join(table_n, by = c("grouping_var_levels", "response_var_levels", "grouping_var_order")) %>%
-      dplyr::mutate(percentage = counts / group_n)
-
-    table_percent$percentage <- ifelse(table_percent$counts == 0 & table_percent$group_n == 0, 0, table_percent$percentage)
-
-    table_percent$grouping_var_used_order <- NA
-    table_percent$response_var_used_order <- NA
-    table_percent$grouping_var_used = {{grouping_var_name}}
-    table_percent$grouping_var_levels <- as.character(table_percent$grouping_var_levels)
-
-    table_percent$response_var_used = {{response_var_name}}
-    table_percent$response_var_order <- NA
-
-    table_percent <- table_percent %>%
-      dplyr::select(grouping_var_levels, response_var_levels, grouping_var_order,
-                    response_var_order, counts, group_n, percentage,
-                    grouping_var_used, grouping_var_used_order, response_var_used
-      )
-
-    all_table_count <- df %>%
-      dplyr::select(all_of(list_of_variable_names)) %>%
-      tidyr::pivot_longer(
-        cols = everything(),
-        names_to = "response_var_levels",
-        values_to = "counts")  %>%
-      dplyr::mutate(counts = as.numeric(counts)) %>%
-      dplyr::filter(!is.na(counts)) %>%
-      dplyr::group_by(
-        .data[["response_var_levels"]]) %>%
-      dplyr::summarize(counts = sum(counts))
-
-    all_table_n <- df %>%
-      dplyr::select(all_of(list_of_variable_names)) %>%
-      tidyr::pivot_longer(
-        cols = everything(),
-        names_to = "response_var_levels",
-        values_to = "group_n") %>%
-      dplyr::mutate(group_n = as.numeric(group_n)) %>%
-      dplyr::filter(!is.na(group_n)) %>%
-      dplyr::group_by(
-        .data[["response_var_levels"]]) %>%
-      dplyr::summarize(group_n = n())
-
-    all_table_percent <- all_table_count %>%
-      dplyr::left_join(all_table_n, by = c("response_var_levels")) %>%
-      dplyr::mutate(percentage = counts / group_n)
-
-    all_table_percent$percentage <- ifelse(all_table_percent$counts == 0 & all_table_percent$group_n == 0, 0, all_table_percent$percentage)
-
-    all_table_percent <- all_table_percent %>%
-      dplyr::mutate(grouping_var_levels = "All",
-                    grouping_var_order = 0,
-                    grouping_var_used = grouping_var_name,
-                    grouping_var_used_order = 0)
-
-    all_table_percent$response_var_used = {{response_var_name}}
-    all_table_percent$response_var_order <- NA
-
-    all_table_percent <- all_table_percent %>%
-      dplyr::select(grouping_var_levels, response_var_levels, grouping_var_order,
-                    response_var_order, counts, group_n, percentage,
-                    grouping_var_used, grouping_var_used_order, response_var_used
-      )
-
-    table <- table_percent %>% rbind(all_table_percent)
-
-    table$overall_sample_size_for_response_var <- all_table_n %>% dplyr::pull(group_n) %>% max()
-  }
-
-  if(response_var_type == "numeric") {
-
-    variable_used <- response_var_name
-
-    if(!(is.numeric(df[[variable_used]]))){
-      variable_used <- paste0("NUM__", variable_used)
-    }
-
-    # Rename the variable as all
-    df$all <- df[[{{variable_used}}]]
-
-    # Obtain the order for all
-    df <- df %>%
-      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.factor)) %>%
-      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.numeric, .names = "VAR_ORDER__{.col}"))
-
-    # Create the name of the grouping_variable's order var
-    order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
-
-    table <- df %>%
-      # Rename these variables so that we can combine everything into the same column
-      dplyr::mutate(
-        grouping_var_levels = as.character(.data[[{{grouping_var_name}}]]),
-        grouping_var_order = .data[[order_grouping_var]]) %>%
-      # Group by these variables
-      dplyr::group_by(
-        grouping_var_levels,
-        grouping_var_order) %>%
-
-      dplyr::filter(!is.na(.data[[{{variable_used}}]])) %>%
-      # Get the counts for the grouping variable by the response variables
-      dplyr::summarize(
-        mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
-        sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
-        n = n(),
-        se = sd/sqrt(n),
-        ci_limit = se * 1.96,
-        ci_upper = mean + ci_limit,
-        ci_lower = mean - ci_limit, .groups = "drop")
-
-    # Get the order for the grouping variables
-    table$grouping_var_used <- {{grouping_var_name}}
-
-    table$grouping_var_used_order <- NA
-
-    table <- table %>%
-      dplyr::select(
-        grouping_var_levels, grouping_var_order,
-        mean, sd, n, se, ci_limit, ci_upper, ci_lower,
-        grouping_var_used,
-        grouping_var_used_order
-      )
-
-    table_all <- df %>%
-      dplyr::mutate(
-        grouping_var_levels = "All",
-        grouping_var_order = 0) %>%
-      # Group by these variables
-      dplyr::group_by(
-        grouping_var_levels,
-        grouping_var_order) %>%
-      dplyr::filter(!is.na(.data[[{{variable_used}}]])) %>%
-      # Calculate the counts
-      dplyr::summarize(
-        mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
-        sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
-        n = n(),
-        se = sd/sqrt(n),
-        ci_limit = se * 1.96,
-        ci_upper = mean + ci_limit,
-        ci_lower = mean - ci_limit, .groups = "drop")
-
-    table_all$grouping_var_used <- "All"
-    table_all$grouping_var_levels <- "All"
-    table_all$grouping_var_order <- 0
-    table_all$grouping_var_used_order <- 0
-
-    # Order the variables
-    table_all <- table_all %>%
-      dplyr::select(
-        grouping_var_levels, grouping_var_order,
-        mean, sd, n, se, ci_limit, ci_upper, ci_lower,
-        grouping_var_used,
-        grouping_var_used_order
-      )
-
-    # Combine the two data frames
-    table <- table %>% rbind(table_all)
-
-    table$overall_sample_size_for_response_var <- table_all %>% dplyr::pull(n) %>% max()
-  }
-
-  if(response_var_type == "net_promoter") {
-
-    # Obtain the order for all
-    df$VAR_ORDER__all <- as.numeric(df[[{{"net_promoter"}}]])
-
-    df <- df %>%
-      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.factor)) %>%
-      mutate(dplyr::across(tidyselect::all_of(grouping_var_name), as.numeric, .names = "VAR_ORDER__{.col}"))
-
-    # Create the name of the grouping_variable's order var
-    order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
-
-    table <- df %>%
-      # Rename these variables so that we can combine everything into the same column
-      dplyr::mutate(
-        grouping_var_levels = as.character(.data[[{{grouping_var_name}}]]),
-        grouping_var_order = .data[[order_grouping_var]]) %>%
-      # Group by these variables
-      dplyr::group_by(
-        grouping_var_levels,
-        grouping_var_order) %>%
-      dplyr::filter(!is.na(.data[[{{"net_promoter"}}]])) %>%
-      # Get the counts for the grouping variable by the response variables
-      dplyr::summarize(
-        sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
-        n = n(),
-        average = sum / n,
-        NPS = average * 100, .groups = "drop")
-
-    # Get the order for the grouping variables
-    table$grouping_var_used <- grouping_var_name
-
-    table$grouping_var_used_order <- NA
-
-    table <- table %>%
-      dplyr::select(
-        grouping_var_levels, grouping_var_order,
-        sum, n, average, NPS,
-        grouping_var_used,
-        grouping_var_used_order
-      )
-
-    table_all <- df %>%
-      dplyr::mutate(
-        grouping_var_levels = "All",
-        grouping_var_order = 0) %>%
-      # Group by these variables
-      dplyr::group_by(
-        grouping_var_levels,
-        grouping_var_order) %>%
-      dplyr::filter(!is.na(.data[[{{"net_promoter"}}]])) %>%
-      # Calculate the counts
-      dplyr::summarize(
-        sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
-        n = n(),
-        average = sum / n,
-        NPS = average * 100, .groups = "drop")
-
-    table_all$grouping_var_used <- "All"
-    table_all$grouping_var_levels <- "All"
-    table_all$grouping_var_order <- 0
-    table_all$grouping_var_used_order <- 0
-
-    # Order the variables
-    table_all <- table_all %>%
-      dplyr::select(
-        grouping_var_levels, grouping_var_order,
-        sum, n, average, NPS,
-        grouping_var_used,
-        grouping_var_used_order
-      )
-
-    # Combine the two data frames
-    table <- table %>% rbind(table_all)
-
-    table$overall_sample_size_for_response_var <- table_all %>% dplyr::pull(n) %>% max()
-  }
+  # join Tables
+  table_var_order <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order", "counts", "group_n", "percentage", "grouping_var_used", "response_var_used")
+  table <- table %>% dplyr::select(dplyr::all_of(table_var_order))
+  table_all <- table_all %>% dplyr::select(dplyr::all_of(table_var_order))
+  table <- table %>% rbind(table_all)
+  df <- df %>% dplyr::ungroup()
+  table$overall_sample_size_for_response_var <- cts_calculate_overall_sample_size(df, response_var_name)
 
   return(table)
 }
 
 
-#' Adjust Order for Other Labels
+
+
+#' create_power_bi_data_mc_CALCULATED_TABLES
 #'
-#' @param table table
-#' @param grouping_var_levels_included grouping_var_levels_included
-#' @param response_var_levels_included response_var_levels_included
-#'
-#' @return table
-#' @export
-#'
-adjust_order_for_other_labels <- function(table, grouping_var_levels_included = TRUE, response_var_levels_included = TRUE) {
-
-  # Run Checks
-  if(!is.data.frame(table)) abort_bad_argument("table", must = "be data.frame", not = table)
-  if(!is.logical(grouping_var_levels_included)) abort_bad_argument("grouping_var_levels_included", must = "be logical", not = grouping_var_levels_included)
-  if(!is.logical(response_var_levels_included)) abort_bad_argument("response_var_levels_included", must = "be logical", not = response_var_levels_included)
-
-  if(grouping_var_levels_included == TRUE) {
-    table$grouping_var_order <- table$grouping_var_order + (table$grouping_var_used_order * 100)
-
-    table$grouping_var_order <- ifelse(
-      table$grouping_var_levels == "Other",
-      max(table$grouping_var_order) + 1,
-      table$grouping_var_order
-    )
-
-    table <- table %>%
-      dplyr::group_by(grouping_var_levels) %>%
-      mutate(grouping_var_order = max(grouping_var_order))
-  }
-
-  if(response_var_levels_included == TRUE) {
-    table$response_var_order <- table$response_var_order + (table$response_var_used_order * 100)
-
-    table$response_var_order <- ifelse(
-      table$response_var_levels == "Other",
-      max(table$response_var_order) + 1,
-      table$response_var_order
-    )
-
-    table <- table %>%
-      dplyr::group_by(response_var_levels) %>%
-      mutate(response_var_order = max(response_var_order))
-  }
-
-  return(table)
-}
-
-### CHECK THIS ONE aS IT SEEMS WRONG
-#' run_create_table_with_var_names_and_orders
-#'
-#' @param response_var_type response_var_type
 #' @param df df
-#' @param response_var_names response_var_names
-#' @param response_var_used_order response_var_used_order
-#' @param grouping_vars grouping_vars
-#' @param grouping_var_used_order grouping_var_used_order
-#'
-#' @return
-#' @export
-#'
-#' @examples
-run_create_table_with_var_names_and_orders <- function(
-    response_var_type,
-    df,
-    response_var_names,
-    response_var_used_order,
-    grouping_vars,
-    grouping_var_used_order) {
-
-  rv_names_and_order_df <- data.frame(
-    response_var_names = response_var_names,
-    response_var_used_order = response_var_used_order
-  )
-
-  gv_names_and_order_df <- data.frame(
-    grouping_vars = grouping_vars,
-    grouping_var_used_order = grouping_var_used_order
-  )
-
-  parameter_df <- expand.grid(response_var_names, grouping_vars)
-  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
-
-  parameter_df <- parameter_df %>%
-    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
-    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
-
-  n_iterations <- length(parameter_df$response_var_names)
-  pb <- progress::progress_bar$new(total = n_iterations)
-
-  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
-    t <- create_table_single(
-      df = df,
-      response_var_name = parameter_df$response_var_names[[.x]],
-      grouping_var_name = parameter_df$grouping_vars[[.x]],
-      response_var_type = response_var_type)
-
-    pb$tick()
-
-    t$response_var_used <- parameter_df$response_var_names[[.x]]
-    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
-    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
-    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
-    t
-  })
-
-  power_bi_table <- purrr::map2_df(response_var_names, response_var_used_order, ~{
-    single_tables <- run_create_table_with_var_names_and_orders_part(
-      df = df, response_variable_name = .x,
-      response_var_type = response_var_type, grouping_vars = grouping_vars,
-      grouping_var_used_order = grouping_var_used_order)
-
-    single_tables$response_var_used <- .x
-    single_tables$response_var_used_order <- .y
-    single_tables
-  })
-  power_bi_table
-}
-
-#' fix_levels_and_order_in_table
-#'
-#' @param table table
-#' @param var_type var_type
-#' @param column_details column_details
 #' @param column_workbook_list column_workbook_list
-#' @param title_form title_form
-#'
-#' @return table
-#' @export
-#'
-fix_levels_and_order_in_table <- function(table, var_type, column_details, column_workbook_list, title_form = FALSE) {
-
-  label_for_var_used <- paste0({{var_type}}, "_used")
-  label_for_var_levels <- paste0({{var_type}}, "_levels")
-  label_for_var_order <- paste0({{var_type}}, "_order")
-
-  var_names_that_need_levels <- table[[label_for_var_used]] %>% unique()
-
-  if(title_form == TRUE) {
-    var_names_that_need_levels <- stringr::str_replace_all(var_names_that_need_levels, " ", "_") %>% stringr::str_to_lower()
-  }
-
-  var_vector_names <- column_details %>%
-    dplyr::filter(column_names %in% var_names_that_need_levels) %>%
-    dplyr::pull(label_info)
-
-  var_names_that_need_levels_details_names <- column_details %>%
-    dplyr::filter(column_names %in% var_names_that_need_levels) %>%
-    dplyr::pull(column_names)
-
-  var_vector_names <- purrr::map_chr(var_names_that_need_levels, ~{
-    ifelse(
-      .x %in% var_names_that_need_levels_details_names,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info),
-      .x
-    )
-  })
-
-  named_vectors_for_factor <- purrr::map(var_vector_names, ~{
-    column_workbook_list[[.x]]
-  }) %>% unlist()
-
-  All_label <- c("All")
-  names(All_label) <- All_label
-
-  named_vectors_for_factor <- c(All_label,  named_vectors_for_factor)
-
-  table[[label_for_var_levels]] <- factor(table[[label_for_var_levels]], levels = names(named_vectors_for_factor), labels = names(named_vectors_for_factor))
-
-  table[[label_for_var_order]] <- as.numeric(table[[label_for_var_levels]])
-
-  table[[label_for_var_order]] <- ifelse(
-    table[[label_for_var_levels]] == "Other",
-    9999,
-    table[[label_for_var_order]]
-  )
-
-  table[[label_for_var_order]] <- ifelse(
-    table[[label_for_var_levels]] == "None",
-    9998,
-    table[[label_for_var_order]]
-  )
-
-  return(table)
-}
-
-#' create_power_bi_data
-#'
-#' @param df df
-#' @param single_path_to_column_workbook single_path_to_column_workbook
 #' @param grouping_vars grouping_vars
-#' @param response_var_type response_var_type
-#' @param qualitative_type qualitative_type
 #'
-#' @return combined_final_table
+#' @return wave_tables_df
 #' @export
 #'
-create_power_bi_data <- function(
+create_power_bi_data_mc_CALCULATED_TABLES <- function(
     df,
-    single_path_to_column_workbook,
+    column_workbook_list,
     grouping_vars,
-    response_var_type,
-    qualitative_type = NULL
+    name_of_column_details
 ) {
 
-  name_of_column_details = "column_details"
-
-  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
+  column_details <- column_workbook_list[[name_of_column_details]]
 
   grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
-    ifelse(
-      !(.x %in% column_details$column_names),
-      .x,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
-  })
-
-  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
-
-  if(response_var_type == "mc"){
-
-    multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
-
-    response_var_names <- multiple_choice_df$column_names
-
-    response_var_used_vector_names <- multiple_choice_df$label_info
-
-    response_var_used_order <- factor(response_var_used_vector_names, unique(response_var_used_vector_names)) %>% as.numeric()
-
-    power_bi_multiple_choice <- run_create_table_with_var_names_and_orders(
-      df = df, response_var_names = response_var_names,
-      response_var_used_order = response_var_used_order,
-      response_var_type = "mc", grouping_vars = grouping_vars,
-      grouping_var_used_order = grouping_var_used_order)
-
-    power_bi_multiple_choice <- power_bi_multiple_choice %>%
-      dplyr::filter(!is.na(response_var_levels)) %>%
-      dplyr::filter(!is.na(grouping_var_levels))
-
-    power_bi_multiple_choice <- fix_levels_and_order_in_table(table = power_bi_multiple_choice, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
-    power_bi_multiple_choice <- fix_levels_and_order_in_table(table = power_bi_multiple_choice, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-    power_bi_multiple_choice$grouping_var_used  <- stringr::str_replace_all(power_bi_multiple_choice$grouping_var_used, "_", " ") %>% stringr::str_to_title()
-
-    power_bi_multiple_choice$response_var_used  <- stringr::str_replace_all(power_bi_multiple_choice$response_var_used, "_", " ") %>% stringr::str_to_title()
-
-    combined_final_table <- power_bi_multiple_choice
-  }
-
-  ##############################################################################
-
-  if(response_var_type == "sa"){
-
-    select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
-
-    response_var_names <- select_all_df$column_names %>% stringr::str_extract( "^.+__") %>% unique()
-
-    response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
-
-    power_bi_select_all <- run_create_table_with_var_names_and_orders(
-      df = df, response_var_names = response_var_names,
-      response_var_used_order = response_var_used_order,
-      response_var_type = "sa", grouping_vars = grouping_vars,
-      grouping_var_used_order = grouping_var_used_order)
-
-    label_info_var <- stringr::str_replace({{response_var_names}}, "__$", "")
-
-    combined_named_vector_for_select_all <- purrr::map(label_info_var, ~{
-      column_workbook_list[[.x]]
-    }) %>% unlist()
-
-    power_bi_select_all$response_var_levels <- factor(power_bi_select_all$response_var_levels, levels = combined_named_vector_for_select_all, labels = names(combined_named_vector_for_select_all))
-
-    power_bi_select_all$response_var_order <- as.numeric(power_bi_select_all$response_var_levels)
-
-    power_bi_select_all <- power_bi_select_all %>%
-      dplyr::filter(!is.na(response_var_levels))%>%
-      dplyr::filter(!is.na(grouping_var_levels))
-
-    power_bi_select_all <- fix_levels_and_order_in_table(table = power_bi_select_all, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-    power_bi_select_all$grouping_var_used  <- stringr::str_replace_all(power_bi_select_all$grouping_var_used, "_", " ") %>%
-      stringr::str_to_title()
-
-    power_bi_select_all$response_var_used  <- stringr::str_replace_all(power_bi_select_all$response_var_used, "__$", "") %>%
-      stringr::str_to_lower()
-
-    unique_select_all_items <- power_bi_select_all$response_var_used %>% unique()
-
-    question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% distinct()
-
-    for(i in seq_along(question_text_df$label_info)) {
-      power_bi_select_all$response_var_used <- ifelse(
-        power_bi_select_all$response_var_used == question_text_df$label_info[[i]],
-        question_text_df$question[[i]],
-        power_bi_select_all$response_var_used
-      )
+    if(!(.x %in% column_details$column_names)){
+      var <- .x
+    } else {
+      var <- column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info)
     }
-
-    combined_final_table <- power_bi_select_all
-  }
-
-  if(response_var_type == "numeric"){
-
-    additional_text_vars <- column_details$column_names[column_details$type == "numeric"]
-
-    likert_variables <- df %>%
-      select( starts_with("NUM__ec_")) %>%
-      colnames()
-
-    response_var_names <- c(additional_text_vars, likert_variables)
-
-    response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
-
-    power_bi_descr_table_num <- run_create_table_with_var_names_and_orders(
-      df = df, response_var_names = response_var_names,
-      response_var_used_order = response_var_used_order,
-      response_var_type = "numeric", grouping_vars = grouping_vars,
-      grouping_var_used_order = grouping_var_used_order)
-
-    power_bi_descr_table_num <- power_bi_descr_table_num %>%
-      dplyr::filter(!is.na(grouping_var_levels))
-
-    power_bi_descr_table_num <- fix_levels_and_order_in_table(table = power_bi_descr_table_num, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-    power_bi_descr_table_num$grouping_var_used  <- stringr::str_replace_all(power_bi_descr_table_num$grouping_var_used, "_", " ") %>%
-      stringr::str_to_title()
-
-    power_bi_descr_table_num$response_var_used  <- stringr::str_replace_all(power_bi_descr_table_num$response_var_used, "NUM__ec__", "") %>%
-      stringr::str_replace_all("_", " ") %>%
-      stringr::str_to_title()
-
-    combined_final_table <- power_bi_descr_table_num %>%
-      dplyr::select(grouping_var_levels,	grouping_var_order,	mean,	sd,	n,	se,
-                    ci_limit,	ci_upper,	ci_lower,	grouping_var_used,
-                    grouping_var_used_order,	response_var_used,
-                    response_var_used_order, overall_sample_size_for_response_var)
-  }
-
-  if(response_var_type == "net_promoter"){
-
-    response_var_names <- "net_promoter"
-
-    response_var_used_order <- 1
-
-    power_bi_net_promoter <- run_create_table_with_var_names_and_orders(df, response_var_names, response_var_used_order, response_var_type = "net_promoter", grouping_vars, grouping_var_used_order)
-
-    power_bi_net_promoter <- fix_levels_and_order_in_table(table = power_bi_net_promoter, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-    power_bi_net_promoter$grouping_var_used  <- stringr::str_replace_all(power_bi_net_promoter$grouping_var_used, "_", " ") %>%
-      stringr::str_to_title()
-
-    combined_final_table <- power_bi_net_promoter %>%
-      dplyr::select(grouping_var_levels,	grouping_var_order,
-                    sum,	n,	average,	NPS,	grouping_var_used,
-                    grouping_var_used_order, overall_sample_size_for_response_var)
-
-  }
-
-  return(combined_final_table)
-}
-
-#' create_power_bi_data_mc
-#'
-#' @param df df
-#' @param single_path_to_column_workbook single_path_to_column_workbook
-#' @param grouping_vars grouping_vars
-#'
-#' @return table
-#' @export
-#'
-create_power_bi_data_mc <- function(
-    df,
-    single_path_to_column_workbook,
-    grouping_vars
-) {
-
-  library(progress)
-
-  name_of_column_details = "column_details"
-
-  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
-
-  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
-    ifelse(
-      !(.x %in% column_details$column_names),
-      .x,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
+    var
   })
 
   grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
 
   multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
 
@@ -3474,1550 +5191,118 @@ create_power_bi_data_mc <- function(
     dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
     dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
 
-  n_iterations <- length(parameter_df$response_var_names)
-  pb <- progress::progress_bar$new(total = n_iterations)
 
-  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
-    t <- create_table_single(
-      df = df,
-      response_var_name = parameter_df$response_var_names[[.x]],
-      grouping_var_name = parameter_df$grouping_vars[[.x]],
-      response_var_type = "mc")
 
-    pb$tick()
 
-    t$response_var_used <- parameter_df$response_var_names[[.x]]
-    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
-    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
-    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
-    t
-  })
-
-  table <- table %>%
-    dplyr::filter(!is.na(response_var_levels)) %>%
-    dplyr::filter(!is.na(grouping_var_levels))
-
-  table <- fix_levels_and_order_in_table(table = table, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
-  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>% stringr::str_to_title()
-
-  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "_", " ") %>% stringr::str_to_title()
-
-  table$wave <- "Wave 1"
-
-  table <- table %>% dplyr::select(
-    "wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
-    "response_var_order", "counts", "group_n", "percentage",
-    "grouping_var_used", "grouping_var_used_order", "response_var_used", "response_var_used_order", "overall_sample_size_for_response_var")
-
-  return(table)
-}
-
-#' create_power_bi_data_sa
-#'
-#' @param df df
-#' @param single_path_to_column_workbook single_path_to_column_workbook
-#' @param grouping_vars grouping_vars
-#'
-#' @return table
-#' @export
-#'
-create_power_bi_data_sa <- function(
-    df,
-    single_path_to_column_workbook,
-    grouping_vars
-) {
-
-  library(progress)
-
-  name_of_column_details = "column_details"
-
-  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
-
-  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
-    ifelse(
-      !(.x %in% column_details$column_names),
-      .x,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
-  })
-
-  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
-
-  select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
-
-  response_var_names <- select_all_df$column_names %>% stringr::str_extract( "^.+__") %>% unique()
-
-  response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
-
-  rv_names_and_order_df <- data.frame(
-    response_var_names = response_var_names,
-    response_var_used_order = response_var_used_order
-  )
-
-  gv_names_and_order_df <- data.frame(
-    grouping_vars = grouping_vars,
-    grouping_var_used_order = grouping_var_used_order
-  )
-
-  parameter_df <- expand.grid(response_var_names, grouping_vars)
-
-  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
-
-  parameter_df <- parameter_df %>%
-    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
-    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
-
-  n_iterations <- length(parameter_df$response_var_names)
-
-  pb <- progress::progress_bar$new(total = n_iterations)
-
-  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
-    t <- create_table_single(
-      df = df,
-      response_var_name = parameter_df$response_var_names[[.x]],
-      grouping_var_name = parameter_df$grouping_vars[[.x]],
-      response_var_type = "sa")
-
-    pb$tick()
-
-    t$response_var_used <- parameter_df$response_var_names[[.x]]
-    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
-    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
-    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
-    t
-  })
-
-  label_info_var <- stringr::str_replace({{response_var_names}}, "__$", "")
-
-  combined_named_vector_for_select_all <- purrr::map(label_info_var, ~{
-    column_workbook_list[[.x]]
-  }) %>% unlist()
-
-  table$response_var_levels <- factor(table$response_var_levels, levels = combined_named_vector_for_select_all, labels = names(combined_named_vector_for_select_all))
-
-  table$response_var_order <- as.numeric(table$response_var_levels)
-
-  table <- table %>%
-    dplyr::filter(!is.na(response_var_levels))%>%
-    dplyr::filter(!is.na(grouping_var_levels))
-
-  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>%
-    stringr::str_to_title()
-
-  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "__$", "") %>%
-    stringr::str_to_lower()
-
-  unique_select_all_items <- table$response_var_used %>% unique()
-
-  question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% distinct()
-
-  for(i in seq_along(question_text_df$label_info)) {
-    table$response_var_used <- ifelse(
-      table$response_var_used == question_text_df$label_info[[i]],
-      question_text_df$question[[i]],
-      table$response_var_used
-    )
-  }
-
-  table$wave <- "Wave 1"
-
-  table <- table %>% dplyr::select("wave", "grouping_var_levels",	"response_var_levels",
-                                   "grouping_var_order",	"response_var_order",	"counts",
-                                   "group_n",	"percentage",	"grouping_var_used",
-                                   "grouping_var_used_order",	"response_var_used",
-                                   "response_var_used_order", "overall_sample_size_for_response_var")
-
-  return(table)
-}
-
-
-
-#' create_power_bi_data_num
-#'
-#' @param df  df
-#' @param single_path_to_column_workbook single_path_to_column_workbook
-#' @param grouping_vars grouping_vars
-#'
-#' @return table
-#' @export
-#'
-create_power_bi_data_num <- function(
-    df,
-    single_path_to_column_workbook,
-    grouping_vars
-) {
-
-  library(progress)
-
-  name_of_column_details = "column_details"
-
-  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
-
-  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
-    ifelse(
-      !(.x %in% column_details$column_names),
-      .x,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
-  })
-
-  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
-
-  additional_num_vars <- column_details$column_names[column_details$type == "numeric"]
-
-  likert_variables <- df %>%
-    select( tidyselect::starts_with("NUM__")) %>%
-    colnames()
-
-  response_var_names <- c(additional_num_vars, likert_variables)
-
-  response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
-
-  rv_names_and_order_df <- data.frame(
-    response_var_names = response_var_names,
-    response_var_used_order = response_var_used_order
-  )
-
-  gv_names_and_order_df <- data.frame(
-    grouping_vars = grouping_vars,
-    grouping_var_used_order = grouping_var_used_order
-  )
-
-  parameter_df <- expand.grid(response_var_names, grouping_vars)
-
-  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
-
-  parameter_df <- parameter_df %>%
-    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
-    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
-
-  n_iterations <- length(parameter_df$response_var_names)
-
-  pb <- progress::progress_bar$new(total = n_iterations)
-
-  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
-    t <- create_table_single(
-      df = df,
-      response_var_name = parameter_df$response_var_names[[.x]],
-      grouping_var_name = parameter_df$grouping_vars[[.x]],
-      response_var_type = "numeric")
-
-    pb$tick()
-
-    t$response_var_used <- parameter_df$response_var_names[[.x]]
-    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
-    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
-    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
-
-    t
-  })
-
-  table <- table %>%
-    dplyr::filter(!is.na(grouping_var_levels))
-
-  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>%
-    stringr::str_to_title()
-
-  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "NUM__ec__", "") %>%
-    stringr::str_replace_all("_", " ") %>%
-    stringr::str_to_title()
-
-  table$wave <- "Wave 1"
-
-  table <- table %>%
-    dplyr::select("wave", "grouping_var_levels",	"grouping_var_order",	"mean",	"sd",	"n",	"se",
-                  "ci_limit",	"ci_upper",	"ci_lower",	"grouping_var_used",
-                  "grouping_var_used_order",	"response_var_used",
-                  "response_var_used_order", "overall_sample_size_for_response_var")
-
-  table <- table %>%
-    dplyr::filter(!is.na(grouping_var_levels))
-
-  table$ci_limit <- tidyr::replace_na(table$ci_limit, 0)
-  table$ci_upper <- tidyr::replace_na(table$ci_upper, 0)
-  table$ci_lower <- tidyr::replace_na(table$ci_lower, 0)
-
-  return(table)
-}
-
-
-#' create_power_bi_data_nps
-#'
-#' @param df df
-#' @param single_path_to_column_workbook single_path_to_column_workbook
-#' @param grouping_vars grouping_vars
-#'
-#' @return table
-#' @export
-#'
-create_power_bi_data_nps <- function(
-    df,
-    single_path_to_column_workbook,
-    grouping_vars
-) {
-
-  library(progress)
-
-  name_of_column_details = "column_details"
-
-  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
-
-  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
-    ifelse(
-      !(.x %in% column_details$column_names),
-      .x,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
-  })
-
-  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
-
-  response_var_names <- "net_promoter"
-
-  response_var_used_order <- 1
-
-  rv_names_and_order_df <- data.frame(
-    response_var_names = response_var_names,
-    response_var_used_order = response_var_used_order
-  )
-
-  gv_names_and_order_df <- data.frame(
-    grouping_vars = grouping_vars,
-    grouping_var_used_order = grouping_var_used_order
-  )
-
-  parameter_df <- expand.grid(response_var_names, grouping_vars)
-
-  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
-
-  parameter_df <- parameter_df %>%
-    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
-    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
-
-  n_iterations <- length(parameter_df$response_var_names)
-
-  pb <- progress::progress_bar$new(total = n_iterations)
-
-  table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
-    t <- create_table_single(
-      df = df,
-      response_var_name = parameter_df$response_var_names[[.x]],
-      grouping_var_name = parameter_df$grouping_vars[[.x]],
-      response_var_type = "net_promoter")
-
-    pb$tick()
-
-    t$response_var_used <- parameter_df$response_var_names[[.x]]
-    t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
-    t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
-    t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
-
-    t
-  })
-
-  table <- fix_levels_and_order_in_table(table = table, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
-
-  table$grouping_var_used  <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>%
-    stringr::str_to_title()
-
-  table$response_var_used  <- stringr::str_replace_all(table$response_var_used, "_", " ") %>%
-    stringr::str_to_title()
-
-  table$wave <- "Wave 1"
-
-
-  table <- table %>%
-    dplyr::select("wave", "grouping_var_levels",	"grouping_var_order",
-                  "sum",	"n",	"average",	"NPS",	"grouping_var_used",
-                  "grouping_var_used_order", "overall_sample_size_for_response_var")
-
-  table <- table %>%
-    dplyr::filter(!is.na(table$grouping_var_levels))
-
-  return(table)
-}
-
-
-
-#' create_power_bi_data_qualitative
-#'
-#' @param df df
-#' @param single_path_to_column_workbook single_path_to_column_workbook
-#' @param grouping_vars grouping_vars
-#' @param qualitative_type qualitative_type
-#' @param identifier identifier
-#'
-#' @return combined_final_table
-#' @export
-#'
-create_power_bi_data_qualitative <- function(
-    df,
-    single_path_to_column_workbook,
-    grouping_vars,
-    qualitative_type = NULL,
-    identifier = "respondent_id"
-) {
-
-  df_used <- df
-
-  library(progress)
-
-  name_of_column_details = "column_details"
-
-  column_workbook_list <- create_column_details_and_named_vectors_list(path_to_column_workbook = single_path_to_column_workbook, name_of_column_details = name_of_column_details)
-
-  column_details <- obtain_column_details_table(column_workbook_list = column_workbook_list, name_of_column_details = name_of_column_details)
-
-  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
-    ifelse(
-      !(.x %in% column_details$column_names),
-      .x,
-      column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info))
-  })
-
-  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
-
-  response_var_names <- column_details$column_names[column_details$type == "qualitative"]
-
-  path_to_qualitative_coding_data <- paste0(dirname(single_path_to_column_workbook), "/qualitative_coding_data.xlsx")
-
-  workbook_sheets_qualitative_names_all <- readxl::excel_sheets(path_to_qualitative_coding_data)
-
-  qualitative_coding_details <- readxl::read_excel(path_to_qualitative_coding_data, "qual_column_details")
-
-  workbook_sheets_qualitative_names <- workbook_sheets_qualitative_names_all[workbook_sheets_qualitative_names_all != "qual_column_details"]
-
-  # Loop through each sheet
-  workbook_sheets_qualitative <- purrr::map(workbook_sheets_qualitative_names, ~{
-
-    # Read in the data for it
-    coding_data <- readxl::read_excel(path_to_qualitative_coding_data, sheet = .x)
-
-    qual_coding_data <- df_used %>%
-      dplyr::left_join(coding_data, by = {{identifier}})
-
-    return(qual_coding_data)
-
-    # Name all sheets so they can be easily accessed
-  }) %>% purrr::set_names(workbook_sheets_qualitative_names)
-
-  qualitative_coding_details_df_list <- purrr::map(workbook_sheets_qualitative_names,  ~{
-    single_sheet_qualitative_coding_details <- qualitative_coding_details %>%
-      dplyr::filter(question == .x)
-
-    single_sheet_qualitative_coding_details
-  })
-
-  overall_qualitative_coding_details_df_list <- purrr::map(qualitative_coding_details_df_list, ~{
-    overall_qualitative_coding_details <- .x %>%
-      dplyr::filter(section_type == "overall_coding_labels")
-
-    overall_qualitative_coding_details
-  })
-
-  overall_code_labels_list <- purrr::map(overall_qualitative_coding_details_df_list, ~{
-    .x$column_labels
-  })
-
-  overall_code_indicator_list <- purrr::map(overall_qualitative_coding_details_df_list, ~{
-    response_var_names_overall <- .x$column_names %>% stringr::str_extract("^.+__") %>% unique()
-    response_var_names_overall
-  })
-
-  overall_code_indicator_order_list <- purrr::map(seq_along(overall_code_indicator_list), ~{
-    response_var_used_order_overall <- .x
-    response_var_used_order_overall
-  })
-
-  grouping_vars_selected_list <- purrr::map(workbook_sheets_qualitative, ~{
-    .x %>% dplyr::select(tidyselect::any_of(grouping_vars)) %>% colnames()
-  })
-
-  grouping_vars_selected_order_list <- purrr::map(grouping_vars_selected_list, ~{
-    .x %>% as.factor() %>% as.numeric()
-  })
-
-  obtain_the_parameters_for_overall <- function(overall_code_indicator, overall_code_indicator_order, grouping_vars_selected, grouping_vars_selected_order) {
-
-    rv_names_and_order_df <- data.frame(
-      response_var_names = overall_code_indicator,
-      response_var_used_order = overall_code_indicator_order
-    )
-
-    gv_names_and_order_df <- data.frame(
-      grouping_vars = grouping_vars_selected,
-      grouping_var_used_order = grouping_vars_selected_order
-    )
-
-    parameter_df <- expand.grid(rv_names_and_order_df$response_var_names, gv_names_and_order_df$grouping_vars)
-
-    colnames(parameter_df) <- c("response_var_names", "grouping_vars")
-
-    parameter_df <- parameter_df %>%
-      dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
-      dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
-
-    parameter_df
-
-  }
-
-  overall_parameter_list <- list(overall_code_indicator_list, overall_code_indicator_order_list, grouping_vars_selected_list, grouping_vars_selected_order_list)
-
-  parameter_df_list <- purrr::pmap(overall_parameter_list, obtain_the_parameters_for_overall)
-
-  table_list <- purrr::map2(parameter_df_list, workbook_sheets_qualitative, ~{
-    overall_code_data <- .y
-
-    single_parameter_df <- .x
-
-    n_iterations <- length(single_parameter_df$response_var_names)
-
-    pb <- progress::progress_bar$new(total = n_iterations)
-
-    table <- purrr::map_df(seq_along(single_parameter_df$response_var_names), ~{
-      number_for_row <- .x
-      t <- create_table_single(
-        df = overall_code_data,
-        response_var_name = single_parameter_df$response_var_names[[number_for_row]],
-        grouping_var_name = single_parameter_df$grouping_vars[[number_for_row]],
-        response_var_type = "sa")
+  perform_calc_create_table_single_mc <- function(df, WaveName = "All Waves"){
+    n_iterations <- length(parameter_df$response_var_names)
+    pb <- progress::progress_bar$new(total = n_iterations, format = glue::glue("Performing Calculations for Multiple Choice PBT for Wave: {WaveName}  [:bar] :percent eta: :eta"))
+    purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+      t <- bkissell::create_table_single_mc(
+        df = df,
+        response_var_name = parameter_df$response_var_names[[.x]],
+        grouping_var_name = parameter_df$grouping_vars[[.x]])
 
       pb$tick()
 
-      t$response_var_used <- single_parameter_df$response_var_names[[number_for_row]]
-      t$response_var_used_order <- single_parameter_df$response_var_used_order[[number_for_row]]
-      t$grouping_var_used <- single_parameter_df$grouping_vars[[number_for_row]]
-      t$grouping_var_used_order <- single_parameter_df$grouping_var_used_order[[number_for_row]]
-
+      t$response_var_used <- parameter_df$response_var_names[[.x]]
+      t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
+      t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
+      t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+      t$Wave <- WaveName
       t
     })
-
-    table
-  })
-
-  overall_table_list <- purrr::map2(table_list, overall_qualitative_coding_details_df_list, ~{
-    table <- .x
-    table$response_var_levels <- factor(table$response_var_levels, .y$column_names, .y$column_labels)
-    table$response_var_order <- as.numeric(table$response_var_levels)
-    table
-  })
-
-  overall_table_list <- purrr::map(overall_table_list, ~{
-    table <- .x
-    table$grouping_var_used <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>% stringr::str_to_title()
-    table
-  })
-
-  break_down_qualitative_coding_details <- purrr::map2(qualitative_coding_details_df_list, overall_code_labels_list, ~{
-    .x %>%
-      dplyr::filter(section_type %in% .y)
-  })
-
-  break_down_categories_list <- purrr::map(break_down_qualitative_coding_details, ~{
-    break_down_categories <- .x$section_type %>% unique()
-    break_down_categories
-  })
-
-  break_down_categories_details_list <- purrr::map2(break_down_qualitative_coding_details, break_down_categories_list, ~{
-    break_down_qualitative_coding_details_1 <- .x
-    break_down_categories <- .y
-    purrr::pmap(list(seq_along(break_down_categories)), ~{
-      break_down_qualitative_coding_details_1 %>% dplyr::filter(section_type == break_down_categories[[..1]])
-    })
-
-  })
-
-  break_down_code_labels_list <- purrr::map(break_down_categories_details_list, ~{
-    break_down_categories_details <- .x
-
-    purrr::pmap(list(seq_along(break_down_categories_details)), ~{
-      break_down_categories_details[[.x]]$column_labels %>% as.character()
-    })
-  })
-
-  break_down_code_indicator_list <- purrr::map(break_down_categories_details_list, ~{
-    break_down_categories_details <- .x
-
-    purrr::pmap(list(seq_along(break_down_categories_details)), ~{
-      break_down_categories_details[[.x]]$column_names %>% stringr::str_extract("^.+__.+__") %>% unique()
-    })
-  })
-
-  break_down_code_indicator_order_list <- purrr::map(break_down_categories_details_list, ~{
-    break_down_code_indicator_order <- .x
-
-    purrr::pmap(list(seq_along(break_down_code_indicator_order)), ~{
-      ..1
-    })
-  })
-
-  break_down_parameter_df_list <- purrr::map(seq_along(break_down_code_indicator_list), ~{
-    first_level <- .x
-
-    purrr::map(seq_along(break_down_code_indicator_list[[first_level]]), ~{
-      second_level <- .x
-
-      break_down_parameter_list <- list(
-        break_down_code_indicator_list[[first_level]][[second_level]],
-        break_down_code_indicator_order_list[[first_level]][[second_level]],
-        grouping_vars_selected_list[[first_level]],
-        grouping_vars_selected_order_list[[first_level]])
-
-      purrr::pmap_df(break_down_parameter_list, obtain_the_parameters_for_overall)
-
-    })})
-
-  break_down_table_list <- purrr::map2(break_down_parameter_df_list, workbook_sheets_qualitative, ~{
-    overall_code_data <- .y
-
-    single_parameter_df_list <- .x
-
-    purrr::map_df(single_parameter_df_list, ~{
-      single_parameter_df <- .x
-
-      table <- purrr::map_df(seq_along(single_parameter_df$response_var_names), ~{
-        number_for_row <- .x
-        t <- create_table_single(
-          df = overall_code_data,
-          response_var_name = single_parameter_df$response_var_names[[number_for_row]],
-          grouping_var_name = single_parameter_df$grouping_vars[[number_for_row]],
-          response_var_type = "sa")
-
-
-        t$response_var_used <- single_parameter_df$response_var_names[[number_for_row]]
-        t$response_var_used_order <- single_parameter_df$response_var_used_order[[number_for_row]]
-        t$grouping_var_used <- single_parameter_df$grouping_vars[[number_for_row]]
-        t$grouping_var_used_order <- single_parameter_df$grouping_var_used_order[[number_for_row]]
-
-        t
-      })
-
-      table
-    })
-  })
-
-  break_down_table_list <- purrr::map2(break_down_table_list, break_down_qualitative_coding_details, ~{
-    table <- .x
-    table$response_var_levels <- factor(table$response_var_levels, .y$column_names, .y$column_labels)
-    table$response_var_order <- as.numeric(table$response_var_levels)
-    table
-  })
-
-  break_down_table_list <- purrr::map(break_down_table_list, ~{
-    table <- .x
-    table$grouping_var_used <- stringr::str_replace_all(table$grouping_var_used, "_", " ") %>% stringr::str_to_title()
-    table
-  })
-
-  if(qualitative_type == "overall_coding") {
-    combined_final_table <- overall_table_list
-  } else if(qualitative_type == "break_down_coding"){
-    combined_final_table <- break_down_table_list
   }
 
-  return(combined_final_table)
+  # table <- perform_calc_create_table_single(df)
+
+
+  split_wave_dfs <- split(df, as.factor(df$wave_info))
+
+  all_dfs <- append(list("All Waves" = df), split_wave_dfs)
+
+  wave_tables_df <- purrr::map2_df(all_dfs, names(all_dfs), ~{
+    perform_calc_create_table_single_mc(.x, .y)
+  })
+
+  wave_tables_df <- wave_tables_df %>%
+    dplyr::filter(!is.na(response_var_levels)) %>%
+    dplyr::filter(!is.na(grouping_var_levels))
+
+
+  order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+
+
+
+  wave_tables_df2 <- adjust_order_information_lookup_table_per_type(
+    table = wave_tables_df,
+    order_information_lookup_table = order_information_lookup_table,
+    type = "response_var_")
+
+  wave_tables_df2 <- adjust_order_information_lookup_table_per_type(wave_tables_df2, order_information_lookup_table, type = "grouping_var_")
+  # wave_tables_df <- fix_levels_and_order_in_table(table = wave_tables_df, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
+  # wave_tables_df <- fix_levels_and_order_in_table(table = wave_tables_df, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+  wave_tables_df$grouping_var_used  <- stringr::str_replace_all(wave_tables_df$grouping_var_used, "_", " ") %>% stringr::str_to_title()
+
+  wave_tables_df$response_var_used  <- stringr::str_replace_all(wave_tables_df$response_var_used, "_", " ") %>% stringr::str_to_title()
+
+  wave_tables_df <- wave_tables_df %>% dplyr::select(
+    "Wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
+    "response_var_order", "counts", "group_n", "percentage",
+    "grouping_var_used", "grouping_var_used_order", "response_var_used", "response_var_used_order", "overall_sample_size_for_response_var")
+
+  return(wave_tables_df)
 }
 
 
-#' encode_text_columns_correctly
+# I want to add use this function to obtain the calculations instead of the way I am currently doing it. I may come to this later, as the priority needs to be again on getting the draft ready.
+#' create_grouped_percentages_table
 #'
-#' @param data df that has text columns
+#' @param df df
+#' @param grouping_var_name grouping_var_name
+#' @param response_var_name response_var_name
 #'
-#' @return data_used
+#' @return grouped_percentage_table
 #' @export
 #'
-encode_text_columns_correctly <- function(data) {
-  # Prep data
-  data_used <- data
+create_grouped_percentages_table <- function(df, grouping_var_name, response_var_name) {
+  n_responses <- length(df[[response_var_name]])
+  grouping_var <- df[[grouping_var_name]]
+  response_var <- df[[response_var_name]]
 
-  # Helper function to encode text
-  encode_text_correctly <- function(x){
-    Encoding(x) <- "UTF-8"
-    x
-  }
+  group_level_counts <- table(grouping_var, response_var) %>% as.data.frame()
+  colnames(group_level_counts) <- c("grouping_var_levels", "response_var_levels", "counts")
 
-  # Encode the text columns correctly
-  data_used <- data_used %>%
-    mutate(across(starts_with("text_"), encode_text_correctly))
+  combined_group_levels <- rep("All Group Levels", n_responses)
+  combined_group_level_counts <- table(combined_group_levels, response_var) %>% as.data.frame()
+  colnames(combined_group_level_counts) <- c("grouping_var_levels", "response_var_levels", "counts")
 
-  # Return the df
-  return(data_used)
+  grouped_count_table <- group_level_counts %>%
+    rbind(combined_group_level_counts)
+
+
+  group_n_table <- grouped_count_table |>
+    dplyr::group_by(grouping_var_levels) |>
+    dplyr::summarise(group_n = sum(counts))
+
+  grouped_percentage_table <- grouped_count_table %>%
+    dplyr::left_join(group_n_table, by = "grouping_var_levels")
+
+  grouped_percentage_table$overall_n <- n_responses
+
+  grouped_percentage_table$percentage <- round(grouped_percentage_table$counts / grouped_percentage_table$group_n, 4)
+
+  grouped_percentage_table$grouping_var_used <- grouping_var_name
+  grouped_percentage_table$response_var_used <- response_var_name
+  grouped_percentage_table
+
 }
 
 
-#' create_survey_folder_structure_paths_list_power_bi
-#'
-#' @param project_year project_year
-#' @param project_folder_name project_folder_name
-#' @param list_of_survey_version_names list_of_survey_version_names
-#' @param all_versions_in_same_analysis_folder all_versions_in_same_analysis_folder
-#' @param storage_directory storage_directory
-#' @param should_create_survey_folders_if_they_do_not_exist should_create_survey_folders_if_they_do_not_exist
-#'
-#' @return survey_data_list
-#' @export
-#'
-create_survey_folder_structure_paths_list_power_bi <- function(
-    project_year,
-    project_folder_name,
-    list_of_survey_version_names = list("All_Versions"),
-    all_versions_in_same_analysis_folder = FALSE,
-    storage_directory = "Dropbox (TCM)",
-    should_create_survey_folders_if_they_do_not_exist = TRUE
-) {
-  # Get the parts of your working directory
-  parts_of_wd <- unlist(strsplit(getwd(), .Platform$file.sep))
-
-  # Re-Combine the first 3 parts
-  path_part_to_adjust <- paste0(parts_of_wd[1:3], collapse = "/")
-
-  # Create the home directory for the current project
-  home_dir <- paste0(path_part_to_adjust, "/", storage_directory, "/04 MDM Neuro-Fundraising Lab/00 Jobs/", as.character(project_year), "/", as.character(project_folder_name))
-
-  # Analysis Folder
-  project_analysis_folder_location <- paste0(home_dir, "/Analysis")
-  project_analysis_respondent_investigation_folder_location <- paste0(home_dir, "/Analysis/Respondent Investigation")
-
-  # Archive Folder
-  project_archive_folder_location <- paste0(home_dir, "/Archive")
-
-  # Assets Folder
-  project_assets_folder_location <- paste0(home_dir, "/Assets")
-
-  # Data Collection
-  project_data_collection_folder_location <- paste0(home_dir, "/Data Collection")
-  project_data_collection_survey_monkey_data_folder_location <- paste0(home_dir, "/Data Collection/survey_monkey_data")
-  project_data_collection_survey_monkey_data_processed_data_folder_location <- paste0(home_dir, "/Data Collection/survey_monkey_data/processed_data")
-
-  snake_version_names <- snakecase::to_snake_case(list_of_survey_version_names %>% unlist())
-
-  version_folders_location_names <- paste0(
-    "project_data_collection_survey_monkey_data_version_folder_",
-    snake_version_names
-  )
-
-  project_data_collection_survey_monkey_data_version_folders_location <-
-    purrr::map(list_of_survey_version_names, ~{
-      paste0(home_dir, "/Data Collection/survey_monkey_data/", .x)
-    }) %>% purrr::set_names(version_folders_location_names)
-
-  # Instructions
-  project_instructions_folder_location <- paste0(home_dir, "/Instructions")
-
-  # Presentation
-  project_presentation_folder_location <- paste0(home_dir, "/Presentation")
-
-  # Presentation
-  project_proposal_folder_location <- paste0(home_dir, "/Proposal")
-
-  if(all_versions_in_same_analysis_folder == TRUE){
-    list_of_survey_version_names <- list("All_Versions")
-    snake_version_names <- snakecase::to_snake_case(list_of_survey_version_names %>% unlist())
-  }
-
-  survey_version_analysis_folder_names <- paste0("survey_version_analysis_folder_", snake_version_names)
-
-  project_power_bi_version_folders_location <-
-    purrr::map(list_of_survey_version_names, ~{
-      paste0(project_analysis_respondent_investigation_folder_location, "/", .x)
-    }) %>% purrr::set_names(survey_version_analysis_folder_names)
-
-  survey_version_analysis_deck_names <- paste0(survey_version_analysis_folder_names, "_Power_BI_Deck_folder")
-  survey_version_analysis_processed_data_names <- paste0(survey_version_analysis_folder_names, "_processed_data_folder")
-  survey_version_analysis_processed_text_names <- paste0(survey_version_analysis_folder_names, "_processed_text_folder")
-
-  survey_version_analysis_deck_folder_location <- purrr::map(project_power_bi_version_folders_location, ~{
-    paste0(.x, "/Power_BI_Deck")
-  }) %>% purrr::set_names(survey_version_analysis_deck_names)
-
-  survey_version_analysis_processed_data_folder_location <- purrr::map(project_power_bi_version_folders_location, ~{
-    paste0(.x, "/processed_data")
-  }) %>% purrr::set_names(survey_version_analysis_processed_data_names)
-
-  survey_version_analysis_processed_text_folder_location <- purrr::map(project_power_bi_version_folders_location, ~{
-    paste0(.x, "/processed_text")
-  }) %>% purrr::set_names(survey_version_analysis_processed_text_names)
-
-  # Maybe add TCM Folders Later
-
-  # Put these together as a list
-  list_of_folders_paths <- list(
-    "home_dir" = home_dir,
-    "project_analysis_folder_location" = project_analysis_folder_location,
-    "project_analysis_respondent_investigation_folder_location" = project_analysis_respondent_investigation_folder_location,
-    "project_archive_folder_location, project_assets_folder_location" = project_archive_folder_location,
-    "project_assets_folder_location" = project_assets_folder_location,
-    "project_data_collection_folder_location" = project_data_collection_folder_location,
-    "project_data_collection_survey_monkey_data_folder_location" = project_data_collection_survey_monkey_data_folder_location,
-    "project_data_collection_survey_monkey_data_processed_data_folder_location" = project_data_collection_survey_monkey_data_processed_data_folder_location,
-    "project_instructions_folder_location" = project_instructions_folder_location,
-    "project_presentation_folder_location" = project_presentation_folder_location,
-    "project_proposal_folder_location" = project_proposal_folder_location
-  ) %>% append(project_data_collection_survey_monkey_data_version_folders_location) %>%
-    append(project_power_bi_version_folders_location) %>%
-    append(survey_version_analysis_deck_folder_location) %>%
-    append(survey_version_analysis_processed_data_folder_location) %>%
-    append(survey_version_analysis_processed_text_folder_location)
-
-  if(should_create_survey_folders_if_they_do_not_exist == TRUE) {
-    # If theses do not exist, create them.
-    create_survey_folders_if_they_do_not_exist(list_of_folders_paths)
-  }
-
-  return(list_of_folders_paths)
-}
-
-
-#' read_survey_data_for_power_bi
-#'
-#' @param survey_directory_path survey_directory_path
-#'
-#' @return survey_data_list
-#' @export
-#'
-read_survey_data_for_power_bi <- function(survey_directory_path){
-
-  # Create Version Directories
-  version_directories <- prepare_version_directory_paths(survey_directory_path)
-
-  # Obtain the newest version from each directory
-  newest_files_for_project <- obtain_newest_file_per_directory(version_directories)
-
-  # Obtain the paths for the column names excel files
-  version_column_names_paths <- obtain_column_name_paths_for_all_survey_versions(version_directories)
-
-  # Check if the column names excel file exists for each version
-  the_column_names_file_exists <- check_if_the_column_names_file_exists(version_column_names_paths)
-
-  # Obtain appropriate initial column names
-  initial_column_names_for_version <- obtain_initial_column_names_for_version(
-    version_column_names_paths,
-    the_column_names_file_exists
-  )
-
-  # Create Connection to zip files
-  connection_to_zip_files <- obtain_connection_to_zip_files_for_versions(newest_files_for_project)
-
-  # Read in data stored in the the csv
-  survey_data_list <- read_csv_in_zip(connection_to_zip_files, initial_column_names_for_version)
-
-  # Stop the program if column files do not exist.
-  if_no_csv_for_colnames_make_one(
-    survey_data_list,
-    the_column_names_file_exists,
-    version_column_names_paths
-  )
-
-  version_name <- basename(version_directories)
-
-  survey_data_list <- purrr::map2(survey_data_list, version_name, ~{
-    data_frame <- .x
-
-    data_frame$version_name <- .y
-
-    data_frame
-  })
-
-  survey_data_list <- purrr::map(survey_data_list, ~{
-    df <- .x
-
-    if("RID" %in% names(df)) {
-      df$RID <- df$RID
-    } else if("Respondent ID" %in% names(df)) {
-      df$RID <- df$`Respondent ID`
-    } else if("respondent_id" %in% names(df)) {
-      df$RID <- df$respondent_id
-    }
-
-    df
-  })
-
-  survey_data_list <- survey_data_list %>% purrr::set_names(version_name)
-
-  # Return the df
-  return(survey_data_list)
-}
-
-#' get_power_bi_parameters
-#'
-#' @param project_year project_year
-#' @param project_folder_name project_folder_name
-#' @param list_of_survey_version_names list_of_survey_version_names
-#' @param all_versions_in_same_analysis_folder all_versions_in_same_analysis_folder
-#' @param other_vars_to_include other_vars_to_include
-#' @param grouping_vars grouping_vars
-#' @param spellcheck_replace_columns spellcheck_replace_columns
-#'
-#' @export
-#'
-get_power_bi_parameters <- function(
-    project_year = 2023,
-    project_folder_name = "230389_SDZ_BC__Quarterly Survey_OID1771",
-    list_of_survey_version_names = list("Wave 1 - Member", "Wave 1 - Donor"),
-    all_versions_in_same_analysis_folder = FALSE,
-    other_vars_to_include,
-    grouping_vars,
-    spellcheck_replace_columns = TRUE,
-    version_name_style,
-    item_everyone_must_complete,
-    remove_rids = FALSE,
-    keep_rids = FALSE
-) {
-
-  # Create the paths for the folders that need to exist for the survey project
-  survey_folder_structure_paths_list <<- create_survey_folder_structure_paths_list_power_bi(
-    project_year = project_year,
-    project_folder_name = project_folder_name,
-    list_of_survey_version_names = list_of_survey_version_names,
-    all_versions_in_same_analysis_folder = all_versions_in_same_analysis_folder
-  )
-
-  # Point to where the survey data is located
-  survey_directory_path <<- survey_folder_structure_paths_list$project_data_collection_survey_monkey_data_folder_location
-
-  # Create path for home dir
-  home_dir <<- survey_folder_structure_paths_list$home_dir
-
-  # Read the survey data as a list
-  survey_data_list <<- read_survey_data_for_power_bi(survey_directory_path = survey_directory_path)
-
-  # Obtain the version names
-  version_names_from_list_data_collection <<- names(survey_data_list)
-
-  # Create Version Directories
-  version_directories_data_collection_path <<- prepare_version_directory_paths(survey_directory_path)
-
-  spellcheck_column_paths <<- paste0(version_directories_data_collection_path, "/spellchecked_text_columns.xlsx")
-
-  # Create the path where the column information workbook will be located
-  path_to_column_workbook <<- obtain_column_name_paths_for_all_survey_versions(version_directories_data_collection_path)
-
-  path_to_column_workbook_list <<- path_to_column_workbook
-
-  version_names_from_list_analysis <<- names(survey_data_list)
-
-  rids_to_remove_path <<- paste0(survey_directory_path, "/rids_to_remove.csv")
-
-  rids_to_keep_path <<- paste0(survey_directory_path, "/rids_to_keep.csv")
-
-  power_bi_clean_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/clean_data.csv")
-  }, home_dir)
-
-  processed_data_clean_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_data/PROCESSED_", snakecase::to_snake_case(.x), "_data_", create_time_chr_string_for_file_names(), ".csv")
-  }, home_dir)
-
-  # Combine other and group variable names
-  variables_to_include_in_all_tables <<- c(other_vars_to_include, grouping_vars)
-
-
-  survey_data_list <<- process_and_clean_power_bi_survey_data(
-    survey_directory_path,
-    spellcheck_replace_columns,
-    spellcheck_column_paths,
-    all_versions_in_same_analysis_folder,
-    path_to_column_workbook,
-    version_name_style,
-    likert_indicator = "ec__",
-    item_everyone_must_complete,
-    remove_rids,
-    keep_rids
-  )
-
-
-  # Filter list to match the variables contained in the df
-  variables_to_include_list <<- purrr::map(survey_data_list, ~{
-    data <- .x
-    #
-    #     if(!("age_group" %in% colnames(data))) {
-    #       data$age_group <- NA
-    #     }
-    #
-    #     if(!("study_version" %in% colnames(data))) {
-    #       data$study_version <- NA
-    #     }
-
-
-    data %>% dplyr::select(any_of(variables_to_include_in_all_tables)) %>% colnames()
-  })
-
-  # Filter to list only the grouping vars contained in each data frame
-  grouping_vars_list <<- purrr::map(survey_data_list, ~{
-    .x %>% dplyr::select(any_of(grouping_vars)) %>% colnames()
-  })
-
-  text_survey_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(.x), "_", create_time_chr_string_for_file_names(), ".csv")
-  }, home_dir)
-
-  # Save it to the powerbi folder
-  power_bi_text_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_text_survey_data.csv")
-  }, home_dir)
-
-
-  if(spellcheck_replace_columns == TRUE) {
-    text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
-      paste0(home_dir, "/Data Collection/survey_monkey_data/", .x, "/selected_example_text.xlsx")
-    }, home_dir)
-
-    text_selected_example_response_vars_list <<- purrr::map(text_selected_example_text_survey_data_path_list, ~{
-      readxl::excel_sheets(.x)
-    })
-
-    create_VAR_df_with_single_row <- purrr::as_mapper(
-      function(path, response_var_to_use) {
-        data.frame(Var1 = response_var_to_use, Var2 = path)
-      })
-
-    create_VAR_df_with_multiple_rows <- purrr::as_mapper(
-      function(path, response_vars_to_use) {
-        path <- path
-        response_vars_to_use <- response_vars_to_use
-        purrr::map_df(response_vars_to_use,  ~ {
-          create_VAR_df_with_single_row(path, .x)
-        }, path)
-      })
-
-    parameters_for_example_read_list <<- purrr::map2(text_selected_example_text_survey_data_path_list, text_selected_example_response_vars_list, ~ {
-      create_VAR_df_with_multiple_rows(.x, .y)
-    })
-
-    text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
-      paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_selected_example_text.csv")
-    }, home_dir)
-  }
-
-  power_bi_mc_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_multiple_choice.csv")
-  }, home_dir)
-
-  power_bi_sa_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_select_all.csv")
-  }, home_dir)
-
-  power_bi_descr_table_num_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_descr_table_num.csv")
-  }, home_dir)
-
-  power_bi_net_promoter_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_net_promoter.csv")
-  }, home_dir)
-
-  column_workbook_list <<- purrr::map(path_to_column_workbook_list, ~{
-    create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
-  })
-
-  column_details_list <<- purrr::map(column_workbook_list, ~{
-    obtain_column_details_table(column_workbook_list = .x, name_of_column_details = "column_details")
-  })
-
-  power_bi_overall_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
-  }, home_dir)
-
-  power_bi_break_down_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-    paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-  }, home_dir)
-}
-
-
-#' process_and_clean_power_bi_survey_data
-#'
-#' @param survey_directory_path survey_directory_path
-#' @param spellcheck_replace_columns spellcheck_replace_columns
-#' @param spellcheck_column_paths spellcheck_column_paths
-#' @param all_versions_in_same_analysis_folder all_versions_in_same_analysis_folder
-#' @param path_to_column_workbook path_to_column_workbook
-#' @param version_name_style version_name_style
-#' @param likert_indicator likert_indicator
-#' @param item_everyone_must_complete item_everyone_must_complete
-#' @param remove_rids remove_rids
-#' @param keep_rids keep_rids
-#'
-#' @return survey_data_list
-#' @export
-#'
-process_and_clean_power_bi_survey_data <- function(
-    survey_directory_path,
-    spellcheck_replace_columns = TRUE,
-    spellcheck_column_paths = NULL,
-    all_versions_in_same_analysis_folder = TRUE,
-    path_to_column_workbook = NULL,
-    version_name_style = "wave - condition",
-    likert_indicator = "ec__",
-    item_everyone_must_complete = "annual_household_income",
-    remove_rids = FALSE,
-    keep_rids = FALSE
-) {
-
-  # # Read the survey data as a list
-  # survey_data_list <- read_survey_data_for_power_bi(survey_directory_path = survey_directory_path)
-  #
-  # # If there are spellcheck columns to replace, this function will make those adjustments (if set up correctly)
-  # rsdfpi_spellcheck_replace <- function(survey_data_list, spellcheck_replace_columns, spellcheck_column_paths) {
-  #   if(spellcheck_replace_columns == TRUE) {
-  #     if(is.null(spellcheck_column_paths)){ stop("Please add spellcheck_column_paths list.")}
-  #     survey_data_list <- purrr::map2(survey_data_list, spellcheck_column_paths, ~{
-  #       df <- .x
-  #       named_spellcheck_workbook_sheets <- readxl::excel_sheets(.y)
-  #       get_spellchecked_data <- function(df, path, sheet_name) {
-  #         sc_df <- readxl::read_excel(path, sheet = sheet_name)
-  #         df <- df %>% dplyr::select(!{{sheet_name}})
-  #         df$respondent_id <- as.numeric(df$respondent_id)
-  #         df <- df %>% dplyr::left_join(sc_df, by = "respondent_id")
-  #         return(df)
-  #       }
-  #       for(i in named_spellcheck_workbook_sheets) {
-  #         df <- get_spellchecked_data(df, .y, i)
-  #       }
-  #       return(df)
-  #     })
-  #   }
-  # }
-  #
-  # survey_data_list <- rsdfpi_spellcheck_replace(survey_data_list, spellcheck_replace_columns, spellcheck_column_paths)
-  #
-  # rsdfpi_combine_survey_versions <- function(survey_data_list, path_to_column_workbook) {
-  #   if(all_versions_in_same_analysis_folder == TRUE) {
-  #     survey_data_list <- survey_data_list %>% purrr::map_df(~.x) %>% list()
-  #     survey_data_list <- survey_data_list %>% purrr::set_names("All_Versions")
-  #     path_to_column_workbook <<- path_to_column_workbook[[1]]
-  #   }
-  #   return(survey_data_list)
-  # }
-  #
-  # survey_data_list <- rsdfpi_combine_survey_versions(survey_data_list, path_to_column_workbook)
-
-  # rsdfpi_extract_info_for_version_names <- function(version_name_style, survey_data_list) {
-  #   if(version_name_style == "wave - condition"){
-  #     survey_data_list <- purrr::map(survey_data_list, ~{
-  #       revised_data <- .x
-  #       revised_data$wave <- stringr::str_extract(revised_data$version_name, "^.+-") %>% stringr::str_replace(" -$", "")
-  #       revised_data$study_version <- stringr::str_extract(revised_data$version_name, "-.+$") %>% stringr::str_replace("^- ", "")
-  #       revised_data
-  #     })
-  #   } else if(version_name_style == "none") {
-  #     survey_data_list <- purrr::map(survey_data_list, ~{
-  #       revised_data <- .x
-  #       revised_data$wave <- "Wave 1"
-  #       revised_data$study_version <- revised_data$version_name
-  #       revised_data
-  #     })
-  #   }
-  #   return(survey_data_list)
-  # }
-  #
-  # survey_data_list <- rsdfpi_extract_info_for_version_names(version_name_style, survey_data_list)
-  #
-  # rsdfpi_process_age <- function(survey_data_list) {
-  #   survey_data_list <- purrr::map(survey_data_list, ~{
-  #     revised_data <- .x
-  #     if("age" %in% colnames(revised_data)) {
-  #       revised_data$age <- as.numeric(revised_data$age)
-  #       current_year <- lubridate::today() %>% lubridate::year()
-  #       revised_data$age_group <- dplyr::case_when(
-  #         revised_data$age >= current_year - 1945 ~ "Seniors_Traditional",
-  #         revised_data$age >= current_year - 1964 & revised_data$age <= current_year - 1946 ~ "Baby Boomers",
-  #         revised_data$age >= current_year - 1980 & revised_data$age <= current_year - 1965 ~ "Gen X",
-  #         revised_data$age >= current_year - 1996 & revised_data$age <= current_year - 1981 ~ "Millennials",
-  #         revised_data$age <= current_year - 1995 ~ "Gen Z"
-  #       ) %>% factor(levels = c("Gen Z", "Millennials", "Gen X", "Baby Boomers", "Seniors_Traditional"), ordered = TRUE)
-  #     }
-  #     revised_data
-  #   })
-  #   return(survey_data_list)
-  # }
-  #
-  # survey_data_list <- rsdfpi_process_age(survey_data_list)
-
-  rsdfpi_do_initial_processing <- function(survey_data_list, path_to_column_workbook) {
-    survey_data_list <- purrr::map2(survey_data_list, path_to_column_workbook, ~{
-      # Do the initial cleaning of the data, which includes converting numeric, categorical, and select all to their proper formats.
-      revised_data <- clean_and_process_with_column_workbook_list(
-        data = .x,
-        path_to_column_workbook = .y,
-        likert_indicator = likert_indicator,
-        name_of_column_details = "column_details")
-      revised_data
-    })
-    return(survey_data_list)
-  }
-
-  survey_data_list <- rsdfpi_do_initial_processing(survey_data_list, path_to_column_workbook)
-
-  # If parameters indicate to do so,
-  if(!is.null(item_everyone_must_complete)){
-    # Filter out respondents who did not complete this question
-    survey_data_list <- purrr::map(survey_data_list, ~{
-      revised_data <- .x %>%
-        dplyr::filter(!is.na(.data[[{{item_everyone_must_complete}}]]))
-      revised_data
-    })
-  }
-
-  if(remove_rids == TRUE){
-    rids_to_remove_path <- paste0(survey_directory_path, "/rids_to_remove.csv")
-
-    rids_to_remove <- readr::read_csv(rids_to_remove_path, show_col_types = FALSE)[[1]]
-
-    survey_data_list <- purrr::map(survey_data_list, ~{
-      revised_data <- .x %>%
-        dplyr::filter(!(.data[[{{what_identifier_was_used}}]] %in% rids_to_remove))
-      revised_data
-    })
-  }
-
-  if(keep_rids == TRUE){
-    rids_to_keep_path <- paste0(survey_directory_path, "/rids_to_keep.csv")
-
-    rids_to_keep <- readr::read_csv(rids_to_keep_path, show_col_types = FALSE)[[1]]
-
-    survey_data_list <- purrr::map(survey_data_list, ~{
-      revised_data <- .x %>%
-        dplyr::filter((.data[[{{what_identifier_was_used}}]] %in% rids_to_keep))
-      revised_data
-    })
-  }
-
-  return(survey_data_list)
-}
-
-
-##################################################################################
-
-
-#' create_all_power_bi_tables
-#'
-#' @param survey_data_list survey_data_list
-#' @param write_data write_data
-#' @param power_bi_clean_data_path_list power_bi_clean_data_path_list
-#' @param variables_to_include_list variables_to_include_list
-#' @param grouping_vars_list grouping_vars_list
-#' @param text_survey_data_path_list text_survey_data_path_list
-#' @param power_bi_text_path_list power_bi_text_path_list
-#' @param text_selected_example_text_survey_data_path_list text_selected_example_text_survey_data_path_list
-#' @param include_selected_example include_selected_example
-#' @param parameters_for_example_read_list parameters_for_example_read_list
-#' @param power_bi_mc_path_list power_bi_mc_path_list
-#' @param power_bi_sa_path_list power_bi_sa_path_list
-#' @param power_bi_descr_table_num_path_list power_bi_descr_table_num_path_list
-#' @param power_bi_net_promoter_path_list power_bi_net_promoter_path_list
-#'
-#' @export
-#'
-create_all_power_bi_tables <- function(
-    survey_data_list,
-    write_data = TRUE,
-    power_bi_clean_data_path_list,
-    variables_to_include_list,
-    grouping_vars_list,
-    text_survey_data_path_list,
-    power_bi_text_path_list,
-    text_selected_example_text_survey_data_path_list,
-    include_selected_example = TRUE,
-    parameters_for_example_read_list,
-    power_bi_mc_path_list,
-    power_bi_sa_path_list,
-    power_bi_descr_table_num_path_list,
-    power_bi_net_promoter_path_list
-){
-
-  # Save the cleaned data to the power bi folder
-  if(write_data){
-    purrr::walk2(survey_data_list, power_bi_clean_data_path_list, ~{
-      readr::write_csv(.x, .y)
-    })
-
-    Sys.sleep(1)
-
-    # Save another copy to the backup folder
-    purrr::walk2(survey_data_list, processed_data_clean_data_path_list, ~{
-      readr::write_csv(.x, .y)
-    })
-  }
-
-  # Select the text variables in the df.
-  text_survey_data <- purrr::map2(survey_data_list, variables_to_include_list, ~{
-    select_text_survey_data(data = .x, variables_to_include = .y)
-  })
-
-  if(write_data){
-    # Save a copy of the text data as a backup
-    purrr::walk2(text_survey_data, text_survey_data_path_list, ~{
-      readr::write_csv(.x, .y)
-    })
-  }
-
-  # Shape the text data for power bi
-  power_bi_text <- purrr::map2(text_survey_data, variables_to_include_list, ~{
-    create_power_bi_text_data(text_survey_data =.x, variables_to_include = .y)
-  })
-
-  if(write_data){
-    # Save it to the powerbi folder
-    purrr::walk2(power_bi_text, power_bi_text_path_list, ~{
-      readr::write_csv(.x, .y)
-    })
-  }
-
-  if(include_selected_example == TRUE){
-    read_and_add_param_to_column <- purrr::as_mapper(
-      function(param_df) {
-        purrr::map_df(seq_along(param_df$Var1), ~{
-          selected_examples_df <- readxl::read_excel(param_df$Var2[[.x]], param_df$Var1[[.x]])
-          selected_examples_df$response_var_used <- param_df$Var2[[.x]]
-          selected_examples_df
-        }, param_df)
-      })
-
-    selected_examples_text_df_list <- purrr::map(parameters_for_example_read_list, ~{
-      read_and_add_param_to_column(.x)
-    })
-  }
-
-  combined_df_selected_examples_text_df_list <- purrr::map2(text_survey_data, selected_examples_text_df_list, ~{
-    .y %>%
-      dplyr::left_join(.x, by = "respondent_id") %>%
-      dplyr::select(!tidyselect::starts_with("text_"))
-  })
-
-  if(write_data){
-    purrr::walk2(combined_df_selected_examples_text_df_list, text_selected_example_text_survey_data_path_list, ~{
-      data <- .x
-      data$wave <- "Wave 1"
-      data <- data %>% dplyr::select("wave", everything())
-      readr::write_csv(data, .y)
-    })
-  }
-  ##############################################################################
-  ### Multiple Choice ##########################################################
-  power_bi_multiple_choice_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_mc_path_list)
-
-  power_bi_multiple_choice_list <- purrr::pmap(power_bi_multiple_choice_parameters, ~{
-    if(any(..4$type == "mc")){
-      power_bi_multiple_choice <- create_power_bi_data_mc(
-        df = ..1,
-        single_path_to_column_workbook = ..2,
-        grouping_vars = ..3)
-      if(write_data){
-        readr::write_csv(power_bi_multiple_choice, ..5)
-      }
-      power_bi_multiple_choice
-    }
-  })
-  ##############################################################################
-  ### Select All ###############################################################
-  power_bi_select_all_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_sa_path_list)
-
-  power_bi_select_all_list <- purrr::pmap(power_bi_select_all_parameters, ~{
-    if(any(..4$type == "sa")){
-      power_bi_select_all <- create_power_bi_data_sa(
-        df = ..1,
-        single_path_to_column_workbook = ..2,
-        grouping_vars = ..3)
-      if(write_data){
-        readr::write_csv(power_bi_select_all, ..5)
-      }
-      power_bi_select_all
-    }
-  })
-  ##############################################################################
-  ### Numeric ##################################################################
-  power_bi_num_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_descr_table_num_path_list)
-
-  power_bi_descr_table_num_list <- purrr::pmap(power_bi_num_parameters, ~{
-    if(any(..4$type == "sa")){
-      power_bi_descr_table_num <- create_power_bi_data_num(
-        df = ..1,
-        single_path_to_column_workbook = ..2,
-        grouping_vars = ..3)
-      if(write_data){
-        readr::write_csv(power_bi_descr_table_num, ..5)
-      }
-      power_bi_descr_table_num
-    }
-  })
-  ##############################################################################
-  ### Net Promoter #############################################################
-  power_bi_net_promoter_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_net_promoter_path_list)
-
-  power_bi_net_promoter_list <- purrr::pmap(power_bi_net_promoter_parameters, ~{
-    if(any(..4$column_names == "net_promoter")){
-      power_bi_net_promoter <- create_power_bi_data_nps(
-        df = ..1,
-        single_path_to_column_workbook = ..2,
-        grouping_vars = ..3)
-      if(write_data){
-        readr::write_csv(power_bi_net_promoter, ..5)
-      }
-      power_bi_net_promoter
-    }
-  })
-  ##############################################################################
-  ### Qualitative Coding #######################################################
-  power_bi_overall_qualitative_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list)
-
-  power_bi_overall_qualitative <- purrr::pmap( power_bi_overall_qualitative_parameters, ~{
-    create_power_bi_data_qualitative(
-      df = ..1,
-      single_path_to_column_workbook = ..2,
-      grouping_vars = ..3,
-      qualitative_type = "overall_coding",
-      identifier = "respondent_id"
-    )
-  })
-
-  column_workbook_list <- purrr::map(path_to_column_workbook_list, ~{
-    create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
-  })
-
-  column_details_list <- purrr::map(column_workbook_list, ~{
-    obtain_column_details_table(column_workbook_list = .x, name_of_column_details = "column_details")
-  })
-
-  power_bi_overall_qualitative <- purrr::pmap(list(power_bi_overall_qualitative, column_workbook_list, column_details_list), ~{
-    revised_table <- ..1[[1]]
-    revised_table <- fix_levels_and_order_in_table(
-      table = revised_table,
-      var_type = "grouping_var",
-      column_details = ..3,
-      column_workbook_list = ..2,
-      title_form = TRUE)
-
-    revised_table
-  })
-
-  power_bi_overall_qualitative <- purrr::map(power_bi_overall_qualitative, ~{
-    data_to_revise <- .x
-    data_to_revise <- data_to_revise %>%
-      dplyr::filter(!is.na(grouping_var_levels))
-    data_to_revise
-  })
-
-  if(write_data){
-    purrr::walk2(power_bi_overall_qualitative, version_names_from_list_analysis, ~{
-      power_bi_overall_qualitative_path <- paste0(home_dir, "/Analysis/Respondent Investigation/", .y, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
-      readr::write_csv(.x, power_bi_overall_qualitative_path)
-    })
-  }
-
-  power_bi_break_down_qualitative <- purrr::pmap( power_bi_overall_qualitative_parameters, ~{
-    create_power_bi_data_qualitative(
-      df = ..1,
-      single_path_to_column_workbook = ..2,
-      grouping_vars = ..3,
-      qualitative_type = "break_down_coding",
-      identifier = "respondent_id"
-    )
-  })
-
-  power_bi_break_down_qualitative <- purrr::pmap(list(power_bi_break_down_qualitative, column_workbook_list, column_details_list), ~{
-    revised_table <- ..1[[1]]
-    revised_table <- fix_levels_and_order_in_table(
-      table = revised_table,
-      var_type = "grouping_var",
-      column_details = ..3,
-      column_workbook_list = ..2,
-      title_form = TRUE)
-
-    revised_table
-  })
-
-  power_bi_break_down_qualitative <- purrr::map(power_bi_break_down_qualitative, ~{
-    data_to_revise <- .x
-    data_to_revise <- data_to_revise %>%
-      dplyr::filter(!is.na(grouping_var_levels))
-    data_to_revise
-  })
-
-  if(write_data){
-    purrr::walk2(power_bi_break_down_qualitative, version_names_from_list_analysis, ~{
-      power_bi_break_down_qualitative_path <- paste0(home_dir, "/Analysis/Respondent Investigation/", .y, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-      readr::write_csv(.x, power_bi_break_down_qualitative_path)
-    })
-  }
-}
-
-
-#' separate_most_least_single
-#'
-#' @param data data
-#' @param grouping_vars grouping_vars
-#'
-#' @return most_least_table
-#' @export
-#'
-separate_most_least_single <- function(data, grouping_vars){
-
-  most_least_table <- data %>%
-    tidyr::pivot_longer(
-      cols = !c("RID", all_of(grouping_vars)),
-      values_to = "Rating_selection",
-      names_to = "Question_name"
-    )
-
-  most_least_table$condition_name <- most_least_table$Question_name %>%
-    stringr::str_replace("^ml__", "") %>%
-    stringr::str_extract("^.+_") %>%
-    stringr::str_replace_all("_", "") %>%
-    stringr::str_to_title()
-
-  most_least_table$item_name <- most_least_table$Question_name %>%
-    stringr::str_replace("^ml__", "") %>%
-    stringr::str_replace("^.+_", "") %>%
-    stringr::str_replace_all("_", " ") %>%
-    stringr::str_to_title()
-
-  most_least_table$least <- ifelse(stringr::str_detect(most_least_table$Rating_selection, "^Least"), 1, 0)
-  most_least_table$most <- ifelse(stringr::str_detect(most_least_table$Rating_selection, "^Most"), 1, 0)
-
-  most_least_table <- most_least_table %>%
-    tidyr::pivot_longer(cols = c("least", "most"), names_to = "direction", values_to = "selection")
-
-  return(most_least_table)
-}
-
-#' separate_most_least_multiple
-#'
-#' @param data data
-#' @param ml_indicator ml_indicator
-#' @param grouping_vars grouping_vars
-#'
-#' @return most_least_data_frame
-#' @export
-#'
-separate_most_least_multiple <- function(data, ml_indicator, grouping_vars) {
-  response_item_names <- data %>% dplyr::select(tidyselect::starts_with({{ml_indicator}})) %>% colnames()
-
-  most_least_data_frame <- purrr::map_df(response_item_names, ~ {
-    separate_most_least_single(data = data, var_name = .x, grouping_vars = grouping_vars)
-  })
-
-  return(most_least_data_frame)
-}
-
-
-
-
-
-
-
-
-
-
-
-
+# results <- microbenchmark(
+#   create_grouped_percentages_table(df, grouping_var_name, response_var_name),
+#   times = 50)
 
 
 

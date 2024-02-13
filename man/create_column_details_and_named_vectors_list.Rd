@@ -8,6 +8,11 @@ create_column_details_and_named_vectors_list(
   path_to_column_workbook,
   name_of_column_details = "column_details"
 )
+
+create_column_details_and_named_vectors_list(
+  path_to_column_workbook,
+  name_of_column_details = "column_details"
+)
 }
 \arguments{
 \item{path_to_column_workbook}{Path to where the column details workbook is located. This needs to be a character string and it needs to point to an existing file.}
@@ -16,7 +21,11 @@ create_column_details_and_named_vectors_list(
 }
 \value{
 named_vectors_list
+
+named_vectors_list
 }
 \description{
+Create the table that contains the information related to the variable names and column details
+
 Create the table that contains the information related to the variable names and column details
 }
