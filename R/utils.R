@@ -5002,7 +5002,7 @@ adjust_order_information_lookup_table_per_type <- function(table, order_informat
 
 
 
-# I want to rewrite this one.
+# I want to rewrite this one. I do not think I am currently using it.
 #' Create a single table Multiple Choice
 #'
 #' @param df data frame with the survey data
@@ -5152,8 +5152,10 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
     name_of_column_details
 ) {
 
+  # Bring in the column details
   column_details <- column_workbook_list[[name_of_column_details]]
 
+  # Create a list of variables that includes those not in the details sheet
   grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
     if(!(.x %in% column_details$column_names)){
       var <- .x
@@ -5163,89 +5165,111 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
     var
   })
 
+  # Obtain the grouping var order
   grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
 
-
+  # Get the multiple choice variables df
   multiple_choice_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "mc")
 
+  # get the mc column names
   response_var_names <- multiple_choice_df$column_names
 
+  # Get the mc vector names
   response_var_used_vector_names <- multiple_choice_df$label_info
 
+  # Get the response var order
   response_var_used_order <- factor(response_var_used_vector_names, unique(response_var_used_vector_names)) %>% as.numeric()
 
+  # Create df with response var data
   rv_names_and_order_df <- data.frame(
     response_var_names = response_var_names,
     response_var_used_order = response_var_used_order
   )
 
+  # Create df with groupiong var data
   gv_names_and_order_df <- data.frame(
     grouping_vars = grouping_vars,
     grouping_var_used_order = grouping_var_used_order
   )
 
+  # Put together all combinations
   parameter_df <- expand.grid(response_var_names, grouping_vars)
+
+  # Rename the columns
   colnames(parameter_df) <- c("response_var_names", "grouping_vars")
 
+  # Join the tables creating the parameters df
   parameter_df <- parameter_df %>%
     dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
     dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
 
-
-
-
-  perform_calc_create_table_single_mc <- function(df, WaveName = "All Waves"){
+  # Make a function to obtain the mc calcualtions
+  perform_calc_create_table_single_mc <- function(df, WaveName = "All Waves", parameter_df){
+    # Obtain the number of iterations
     n_iterations <- length(parameter_df$response_var_names)
+    # Create progress bar
     pb <- progress::progress_bar$new(total = n_iterations, format = glue::glue("Performing Calculations for Multiple Choice PBT for Wave: {WaveName}  [:bar] :percent eta: :eta"))
+    # Loop through every possibility from the parameter df
     purrr::map_df(seq_along(parameter_df$response_var_names), ~{
-      t <- bkissell::create_table_single_mc(
+      # Obtain Grouped percentages
+      t <- create_grouped_percentages_table(
         df = df,
-        response_var_name = parameter_df$response_var_names[[.x]],
-        grouping_var_name = parameter_df$grouping_vars[[.x]])
+        grouping_var_name = parameter_df$grouping_vars[[.x]],
+        response_var_name = parameter_df$response_var_names[[.x]])
 
-      pb$tick()
-
+      # Add additional needed info to df
       t$response_var_used <- parameter_df$response_var_names[[.x]]
       t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
       t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
       t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
       t$Wave <- WaveName
+
+      # Indicate progress
+      pb$tick()
+      # Return the table that was made
       t
     })
   }
 
-  # table <- perform_calc_create_table_single(df)
-
-
+  # Make a df for every wave
   split_wave_dfs <- split(df, as.factor(df$wave_info))
 
+  # Add the df with all data to that list
   all_dfs <- append(list("All Waves" = df), split_wave_dfs)
 
+  # Obtain the calculations for every df in the list
   wave_tables_df <- purrr::map2_df(all_dfs, names(all_dfs), ~{
-    perform_calc_create_table_single_mc(.x, .y)
+    perform_calc_create_table_single_mc(.x, .y, parameter_df)
   })
 
+  # Temp create these
+  wave_tables_df$grouping_var_order <- NA
+  wave_tables_df$response_var_order <- NA
+
+  # Get rid of any nas
   wave_tables_df <- wave_tables_df %>%
     dplyr::filter(!is.na(response_var_levels)) %>%
     dplyr::filter(!is.na(grouping_var_levels))
 
-
+  #Obtain the order information lookup table
   order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
 
-
-
-  wave_tables_df2 <- adjust_order_information_lookup_table_per_type(
+  # Fix the order numbers for response vars
+  wave_tables_df <- adjust_order_information_lookup_table_per_type(
     table = wave_tables_df,
     order_information_lookup_table = order_information_lookup_table,
     type = "response_var_")
 
-  wave_tables_df2 <- adjust_order_information_lookup_table_per_type(wave_tables_df2, order_information_lookup_table, type = "grouping_var_")
+  # Fix the order numbers for grouping vars
+  wave_tables_df <- adjust_order_information_lookup_table_per_type(wave_tables_df, order_information_lookup_table, type = "grouping_var_")
   # wave_tables_df <- fix_levels_and_order_in_table(table = wave_tables_df, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
   # wave_tables_df <- fix_levels_and_order_in_table(table = wave_tables_df, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
 
   wave_tables_df$grouping_var_used  <- stringr::str_replace_all(wave_tables_df$grouping_var_used, "_", " ") %>% stringr::str_to_title()
 
   wave_tables_df$response_var_used  <- stringr::str_replace_all(wave_tables_df$response_var_used, "_", " ") %>% stringr::str_to_title()
+
+  wave_tables_df$percentage[is.nan(wave_tables_df$percentage)] <- 0
 
   wave_tables_df <- wave_tables_df %>% dplyr::select(
     "Wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
@@ -5256,7 +5280,6 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
 }
 
 
-# I want to add use this function to obtain the calculations instead of the way I am currently doing it. I may come to this later, as the priority needs to be again on getting the draft ready.
 #' create_grouped_percentages_table
 #'
 #' @param df df
@@ -5267,36 +5290,58 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
 #' @export
 #'
 create_grouped_percentages_table <- function(df, grouping_var_name, response_var_name) {
+  # grouping_var_name = "ethnicity"
+  # response_var_name = "gender"
+
+  # How many responses are there
   n_responses <- length(df[[response_var_name]])
+
+  # What are the levels in the grouping variable
   grouping_var <- df[[grouping_var_name]]
+
+  # What are the levels in the response variable
   response_var <- df[[response_var_name]]
 
+  # Obtain the grouped counts
   group_level_counts <- table(grouping_var, response_var) %>% as.data.frame()
+
+  # Rename the columns in the table
   colnames(group_level_counts) <- c("grouping_var_levels", "response_var_levels", "counts")
 
-  combined_group_levels <- rep("All Group Levels", n_responses)
+  # Create the All levels
+  combined_group_levels <- rep("All", n_responses)
+
+  # Get the counts for the alls
   combined_group_level_counts <- table(combined_group_levels, response_var) %>% as.data.frame()
+
+  # Rename the columns in the table
   colnames(combined_group_level_counts) <- c("grouping_var_levels", "response_var_levels", "counts")
 
+  # Join these two tables together
   grouped_count_table <- group_level_counts %>%
     rbind(combined_group_level_counts)
 
-
+  # Get the counts for the groups
   group_n_table <- grouped_count_table |>
     dplyr::group_by(grouping_var_levels) |>
     dplyr::summarise(group_n = sum(counts))
 
+  # Add these group counts to the table
   grouped_percentage_table <- grouped_count_table %>%
     dplyr::left_join(group_n_table, by = "grouping_var_levels")
 
-  grouped_percentage_table$overall_n <- n_responses
+  # Add the total sample size as a column
+  grouped_percentage_table$overall_sample_size_for_response_var <- n_responses
 
+  # Obtain a rounded group percentage
   grouped_percentage_table$percentage <- round(grouped_percentage_table$counts / grouped_percentage_table$group_n, 4)
 
+  # Name the variables appropriately
   grouped_percentage_table$grouping_var_used <- grouping_var_name
   grouped_percentage_table$response_var_used <- response_var_name
-  grouped_percentage_table
 
+  # Return the table
+  return(grouped_percentage_table)
 }
 
 
