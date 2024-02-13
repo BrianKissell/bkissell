@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{get_file_paths_from_excel_workbooks_df}
 \alias{get_file_paths_from_excel_workbooks_df}
-\title{get_file_paths_from_excel_workbooks_list}
+\title{get_file_paths_from_excel_workbooks_df}
 \usage{
 get_file_paths_from_excel_workbooks_df(
   path_to_excel_file,
@@ -18,5 +18,5 @@ get_file_paths_from_excel_workbooks_df(
 file_paths_df
 }
 \description{
-get_file_paths_from_excel_workbooks_list
+get_file_paths_from_excel_workbooks_df
 }

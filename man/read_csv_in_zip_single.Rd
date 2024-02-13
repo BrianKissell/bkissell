@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{read_csv_in_zip_single}
 \alias{read_csv_in_zip_single}
-\title{read_csv_in_zip}
+\title{read_csv_in_zip_single}
 \usage{
 read_csv_in_zip_single(
   connection_to_zip_file,
@@ -18,5 +18,5 @@ read_csv_in_zip_single(
 survey_data
 }
 \description{
-read_csv_in_zip
+read_csv_in_zip_single
 }
