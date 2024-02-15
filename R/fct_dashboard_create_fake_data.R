@@ -158,15 +158,37 @@
 #       "None of the above: (Please provide your top reason)"
 #     ),
 #     names_of_factor_levels = c(
-#       "Great value",
+#       "Great value (e.g., admission to two parks, membership level benefits, etc.)",
 #       "Safe activity during COVID",
-#       "To support the parks",
-#       "Family-friendly activity",
-#       "Wanted to see animals",
-#       "To support animal conservation efforts",
-#       "Other"
+#       "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
+#       "I was looking for a family-friendly activity",
+#       "I wanted to see animals from around the world",
+#       "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
+#       "None of the above: (Please provide your top reason)"
 #     )
 #   )
+#
+#
+#   # named_vector_why_originally_became_member <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "Great value (e.g., admission to two parks, membership level benefits, etc.)",
+#   #     "Safe activity during COVID",
+#   #     "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
+#   #     "I was looking for a family-friendly activity",
+#   #     "I wanted to see animals from around the world",
+#   #     "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
+#   #     "None of the above: (Please provide your top reason)"
+#   #   ),
+#   #   names_of_factor_levels = c(
+#   #     "Great value",
+#   #     "Safe activity during COVID",
+#   #     "To support the parks",
+#   #     "Family-friendly activity",
+#   #     "Wanted to see animals",
+#   #     "To support animal conservation efforts",
+#   #     "Other"
+#   #   )
+#   # )
 #
 #   dataframe <- create_fake_data_multiple_choice(
 #     df = dataframe,
@@ -192,15 +214,36 @@
 #       "7 – Very Frequently Used"
 #     ),
 #     names_of_factor_levels = c(
-#       "Never Used",
-#       "Rarely Used",
-#       "Infrequently Used",
-#       "Occasionally Used",
-#       "Sometimes Used",
-#       "Frequently Used",
-#       "Very Frequently Used"
+#       "1 – Never Used",
+#       "2 - Rarely Used",
+#       "3 - Infrequently Used",
+#       "4 - Occasionally Used",
+#       "5 - Sometimes Used",
+#       "6 - Frequently Used",
+#       "7 – Very Frequently Used"
 #     )
 #   )
+#
+#   # named_vector_frequency_of_use <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "1 – Never Used",
+#   #     "2 - Rarely Used",
+#   #     "3 - Infrequently Used",
+#   #     "4 - Occasionally Used",
+#   #     "5 - Sometimes Used",
+#   #     "6 - Frequently Used",
+#   #     "7 – Very Frequently Used"
+#   #   ),
+#   #   names_of_factor_levels = c(
+#   #     "Never Used",
+#   #     "Rarely Used",
+#   #     "Infrequently Used",
+#   #     "Occasionally Used",
+#   #     "Sometimes Used",
+#   #     "Frequently Used",
+#   #     "Very Frequently Used"
+#   #   )
+#   # )
 #
 #   frequency_use_of_benefits_items <- c(
 #     "frequency_use_of_benefits__tour_or_tram",
@@ -232,26 +275,74 @@
 #       "7 – I value it completely"
 #     ),
 #     names_of_factor_levels = c(
-#       "I do not value it at all",
-#       "I value it very little",
-#       "I value it somewhat",
-#       "I value it moderately",
-#       "I value it considerably",
-#       "I value it significantly",
-#       "I value it completely"
+#       "1 – I do not value it at all",
+#       "2 - I value it very little",
+#       "3 – I value it somewhat",
+#       "4 – I value it moderately",
+#       "5 – I value it considerably",
+#       "6 – I value it significantly",
+#       "7 – I value it completely"
 #     )
 #   )
 #
+#   # named_vector_level_of_value <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "1 – I do not value it at all",
+#   #     "2 - I value it very little",
+#   #     "3 – I value it somewhat",
+#   #     "4 – I value it moderately",
+#   #     "5 – I value it considerably",
+#   #     "6 – I value it significantly",
+#   #     "7 – I value it completely"
+#   #   ),
+#   #   names_of_factor_levels = c(
+#   #     "I do not value it at all",
+#   #     "I value it very little",
+#   #     "I value it somewhat",
+#   #     "I value it moderately",
+#   #     "I value it considerably",
+#   #     "I value it significantly",
+#   #     "I value it completely"
+#   #   )
+#   # )
+#
+#   create_fake_data_multiple_choice_2 <- function(df, n_respondents, var_name, response_options_named_list, other_text_col = NULL, other_text_cond = NULL, filter_var = NULL, filter_label_options = NULL) {
+#     # Create random data for each column
+#     rand_levels <- sample(names({{response_options_named_list}}), n_respondents, replace = TRUE)
+#
+#     # If a text column is added, randomly create text when the text column indicates text should be there
+#     if(!is.null(other_text_col)){
+#       potential_strings <- stringi::stri_rand_lipsum(n_respondents)
+#       response_options[[{{other_text_col}}]] <- ifelse(
+#         response_options[[{{var_name}}]] == {{other_text_cond}},
+#         potential_strings,
+#         NA
+#       )
+#     }
+#     # If indicated, changed rows that match the condition to NAs
+#     if(!is.null(filter_var) & !is.null(filter_label_options)){
+#       should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
+#       rand_levels[should_loose] <- NA
+#     }
+#
+#     df[[var_name]] <- rand_levels
+#     # Add the new columns to the df
+#     # df <- df %>% cbind(response_options)
+#     # Return the df
+#     return(df)
+#   }
+#
 #   for(variable in c("value_of_benefits__tour_or_tram", "value_of_benefits__support_global_conservation_efforts", "value_of_benefits__wild_perks_discounts", "value_of_benefits__50_perc_admission_discount", "value_of_benefits__sdzwa_journal_subscription")) {
-#     dataframe <- create_fake_data_multiple_choice(
+#     dataframe <- create_fake_data_multiple_choice_2(
 #       df = dataframe,
 #       n_respondents = n_respondents,
 #       var_name = variable,
 #       response_options_named_list = named_vector_level_of_value,
-#       filter_var = "frequency_use_of_benefits__tour_or_tram",
-#       filter_label_options = c("Rarely Used", "Infrequently Used", "Occasionally Used", "Sometimes Used", "Frequently Used", "Very Frequently Used")
+#       filter_var = stringr::str_replace(variable, "^value_of", "frequency_use_of"),
+#       filter_label_options = c("2 - Rarely Used", "3 - Infrequently Used", "4 - Occasionally Used", "5 - Sometimes Used", "6 - Frequently Used", "7 – Very Frequently Used")
 #     )
 #   }
+#
 #
 #   ##############################################################################
 #
@@ -274,9 +365,28 @@
 #       "Mail offer",
 #       "Online advertisement",
 #       "Information provided on-site at the park",
-#       "Other"
+#       "None of the above: Please provide the advertisement/opportunity that influenced your decision"
 #     )
 #   )
+#
+#   # named_vector_ad_most_influenced_you_to_join_or_renew <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "Information from the website",
+#   #     "Email offer",
+#   #     "Mail offer",
+#   #     "Online advertisement",
+#   #     "Information provided on-site at the park",
+#   #     "None of the above: Please provide the advertisement/opportunity that influenced your decision"
+#   #   ),
+#   #   names_of_factor_levels = c(
+#   #     "Information from the website",
+#   #     "Email offer",
+#   #     "Mail offer",
+#   #     "Online advertisement",
+#   #     "Information provided on-site at the park",
+#   #     "Other"
+#   #   )
+#   # )
 #
 #   dataframe <- create_fake_data_multiple_choice(
 #     df = dataframe,
@@ -375,6 +485,23 @@
 #
 #   ##############################################################################
 #
+#   # named_vector_preferred_method_of_renewal <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "Send check/credit card info via mail",
+#   #     "Renew online",
+#   #     "On site at the parks",
+#   #     "Phone",
+#   #     "None of the above: Please provide how you would prefer to renew your membership"
+#   #   ),
+#   #   names_of_factor_levels = c(
+#   #     "Send via mail",
+#   #     "Renew online",
+#   #     "On site at the parks",
+#   #     "Phone",
+#   #     "Other"
+#   #   )
+#   # )
+#
 #   named_vector_preferred_method_of_renewal <- name_vector(
 #     vector_of_factor_levels = c(
 #       "Send check/credit card info via mail",
@@ -384,11 +511,11 @@
 #       "None of the above: Please provide how you would prefer to renew your membership"
 #     ),
 #     names_of_factor_levels = c(
-#       "Send via mail",
+#       "Send check/credit card info via mail",
 #       "Renew online",
 #       "On site at the parks",
 #       "Phone",
-#       "Other"
+#       "None of the above: Please provide how you would prefer to renew your membership"
 #     )
 #   )
 #
@@ -447,6 +574,30 @@
 #
 #   ##############################################################################
 #
+#   # named_vector_preferred_habitats <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "Amazonia: Jaguar, Andean bear, and giant otter",
+#   #     "Australian Forest: Koala, platypus, and Tasmanian devil",
+#   #     "Oceans: Polar bear and African penguin",
+#   #     "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
+#   #     "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
+#   #     "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
+#   #     "Savanna: Elephant, rhino, lion, and giraffe",
+#   #     "Asian Rainforest: Tiger, orangutan, and sun bear"
+#   #   ),
+#   #   names_of_factor_levels = c(
+#   #     "Amazonia",
+#   #     "Australian Forest",
+#   #     "Oceans",
+#   #     "Southwest",
+#   #     "Pacific Islands",
+#   #     "African Forest",
+#   #     "Savanna",
+#   #     "Asian Rainforest"
+#   #   )
+#   # )
+#
+#
 #   named_vector_preferred_habitats <- name_vector(
 #     vector_of_factor_levels = c(
 #       "Amazonia: Jaguar, Andean bear, and giant otter",
@@ -459,14 +610,14 @@
 #       "Asian Rainforest: Tiger, orangutan, and sun bear"
 #     ),
 #     names_of_factor_levels = c(
-#       "Amazonia",
-#       "Australian Forest",
-#       "Oceans",
-#       "Southwest",
-#       "Pacific Islands",
-#       "African Forest",
-#       "Savanna",
-#       "Asian Rainforest"
+#       "Amazonia: Jaguar, Andean bear, and giant otter",
+#       "Australian Forest: Koala, platypus, and Tasmanian devil",
+#       "Oceans: Polar bear and African penguin",
+#       "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
+#       "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
+#       "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
+#       "Savanna: Elephant, rhino, lion, and giraffe",
+#       "Asian Rainforest: Tiger, orangutan, and sun bear"
 #     )
 #   )
 #
@@ -597,9 +748,14 @@
 #
 #   ##############################################################################
 #
+#   # named_vector_gender <- name_vector(
+#   #   vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
+#   #   names_of_factor_levels = c("Female", "Male", "Other", "Other")
+#   # )
+#
 #   named_vector_gender <- name_vector(
 #     vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
-#     names_of_factor_levels = c("Female", "Male", "Other", "Other")
+#     names_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer")
 #   )
 #
 #   dataframe$gender <- sample(names(named_vector_gender), n_respondents, replace = TRUE)
@@ -625,9 +781,22 @@
 #       "Middle Eastern or North African",
 #       "Native Hawaiian or other pacific islander", "Other (please specify)"),
 #     names_of_factor_levels = c(
-#       "White", "Hispanic", "African American", "Asian",
-#       "Other", "Other", "Other", "Other")
+#       "White", "Hispanic, Latino, or Spanish origin",
+#       "Black or African American", "Asian", "American Indian or Alaska Native",
+#       "Middle Eastern or North African",
+#       "Native Hawaiian or other pacific islander", "Other (please specify)")
 #   )
+#
+#   # named_vector_ethnicity <- name_vector(
+#   #   vector_of_factor_levels = c(
+#   #     "White", "Hispanic, Latino, or Spanish origin",
+#   #     "Black or African American", "Asian", "American Indian or Alaska Native",
+#   #     "Middle Eastern or North African",
+#   #     "Native Hawaiian or other pacific islander", "Other (please specify)"),
+#   #   names_of_factor_levels = c(
+#   #     "White", "Hispanic", "African American", "Asian",
+#   #     "Other", "Other", "Other", "Other")
+#   # )
 #
 #   dataframe <- create_fake_data_multiple_choice(
 #     df = dataframe,
@@ -757,7 +926,7 @@
 # wave_1_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1001)
 # wave_1_sdwza_member_fake$waves <- "Wave 1"
 #
-# wave_2_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1005)
+# wave_2_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 2222)
 # wave_2_sdwza_member_fake$waves <- "Wave 2"
 #
 # wave_3_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1003)

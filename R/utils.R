@@ -5211,17 +5211,18 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
     pb <- progress::progress_bar$new(total = n_iterations, format = glue::glue("Performing Calculations for Multiple Choice PBT for Wave: {WaveName}  [:bar] :percent eta: :eta"))
     # Loop through every possibility from the parameter df
     purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+      iteration <- .x
       # Obtain Grouped percentages
       t <- create_grouped_percentages_table(
         df = df,
-        grouping_var_name = parameter_df$grouping_vars[[.x]],
-        response_var_name = parameter_df$response_var_names[[.x]])
+        grouping_var_name = parameter_df$grouping_vars[[iteration]],
+        response_var_name = parameter_df$response_var_names[[iteration]])
 
       # Add additional needed info to df
-      t$response_var_used <- parameter_df$response_var_names[[.x]]
-      t$response_var_used_order <- parameter_df$response_var_used_order[[.x]]
-      t$grouping_var_used <- parameter_df$grouping_vars[[.x]]
-      t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[.x]]
+      t$response_var_used <- parameter_df$response_var_names[[iteration]]
+      t$response_var_used_order <- parameter_df$response_var_used_order[[iteration]]
+      t$grouping_var_used <- parameter_df$grouping_vars[[iteration]]
+      t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[iteration]]
       t$Wave <- WaveName
 
       # Indicate progress
@@ -5238,9 +5239,9 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
   all_dfs <- append(list("All Waves" = df), split_wave_dfs)
 
   # Obtain the calculations for every df in the list
-  wave_tables_df <- purrr::map2_df(all_dfs, names(all_dfs), ~{
-    perform_calc_create_table_single_mc(.x, .y, parameter_df)
-  })
+  wave_tables_df <- purrr::map2_df(all_dfs, as.list(names(all_dfs)), ~{
+    perform_calc_create_table_single_mc(df = .x, WaveName = .y, parameter_df = parameter_df)
+  }, parameter_df)
 
   # Temp create these
   wave_tables_df$grouping_var_order <- NA
@@ -5289,12 +5290,21 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
 #' @return grouped_percentage_table
 #' @export
 #'
-create_grouped_percentages_table <- function(df, grouping_var_name, response_var_name) {
+create_grouped_percentages_table <- function(df, grouping_var_name, response_var_name, type = NULL, group_n_table = NULL) {
   # grouping_var_name = "ethnicity"
   # response_var_name = "gender"
 
-  # How many responses are there
-  n_responses <- length(df[[response_var_name]])
+  # # How many responses are there
+  # if(type == "sa") {
+  #   group_n_table
+  #   df
+  #   n_responses <- df[["n_responses"]][[1]]
+  #   df <- df %>% dplyr::select(-n_responses)
+  # } else {
+  #   n_responses <- length(df[[response_var_name]])
+  # }
+
+  n_rows <- length(df[[response_var_name]])
 
   # What are the levels in the grouping variable
   grouping_var <- df[[grouping_var_name]]
@@ -5309,7 +5319,7 @@ create_grouped_percentages_table <- function(df, grouping_var_name, response_var
   colnames(group_level_counts) <- c("grouping_var_levels", "response_var_levels", "counts")
 
   # Create the All levels
-  combined_group_levels <- rep("All", n_responses)
+  combined_group_levels <- rep("All",  n_rows)
 
   # Get the counts for the alls
   combined_group_level_counts <- table(combined_group_levels, response_var) %>% as.data.frame()
@@ -5321,14 +5331,40 @@ create_grouped_percentages_table <- function(df, grouping_var_name, response_var
   grouped_count_table <- group_level_counts %>%
     rbind(combined_group_level_counts)
 
-  # Get the counts for the groups
-  group_n_table <- grouped_count_table |>
-    dplyr::group_by(grouping_var_levels) |>
-    dplyr::summarise(group_n = sum(counts))
 
-  # Add these group counts to the table
+    # Get the counts for the groups
+    group_n_table_2 <- grouped_count_table |>
+      dplyr::group_by(grouping_var_levels) |>
+      dplyr::summarise(group_n = sum(counts))
+
+
+  # Convert the grouping_var_levels_to_character
+  group_n_table_2[["grouping_var_levels"]] <- as.character(group_n_table_2[["grouping_var_levels"]])
+
+  n_responses <- group_n_table_2$group_n[group_n_table_2$grouping_var_levels == "All"]
+  #   sum(group_n_table_2$group_n, na.rm = TRUE)
+  #
+  # df_add_all_group_n <- data.frame(
+  #   group_n = n_responses
+  # )
+  #
+  # df_add_all_group_n[[grouping_var_name]] <- "All"
+
+  # group_n_table_2 <- group_n_table_2 %>%
+  #   rbind(df_add_all_group_n)
+
   grouped_percentage_table <- grouped_count_table %>%
-    dplyr::left_join(group_n_table, by = "grouping_var_levels")
+    dplyr::left_join(group_n_table_2, by = "grouping_var_levels")
+
+
+  # if(type == "sa") {
+  #   n_responses <- df[["n_responses"]][[1]]
+  #   df <- df %>% dplyr::select(-n_responses)
+  # }
+  #
+  # # Add these group counts to the table
+  # grouped_percentage_table <- grouped_count_table %>%
+  #   dplyr::left_join(group_n_table, by = "grouping_var_levels")
 
   # Add the total sample size as a column
   grouped_percentage_table$overall_sample_size_for_response_var <- n_responses
@@ -5345,13 +5381,197 @@ create_grouped_percentages_table <- function(df, grouping_var_name, response_var
 }
 
 
+
+
+
+
 # results <- microbenchmark(
 #   create_grouped_percentages_table(df, grouping_var_name, response_var_name),
 #   times = 50)
 
 
 
+#' create_power_bi_data_sa_CALCULATED_TABLES
+#'
+#' @param df df
+#' @param grouping_vars grouping_vars
+#' @param column_workbook_list column_workbook_list
+#' @param name_of_column_details name_of_column_details
+#' @param use_the_question_text_for_variable_name use_the_question_text_for_variable_name
+#'
+#' @return table
+#' @export
+#'
+create_power_bi_data_sa_CALCULATED_TABLES  <- function(
+    df,
+    column_workbook_list,
+    grouping_vars,
+    name_of_column_details,
+    use_the_question_text_for_variable_name = TRUE
+) {
 
+  # Bring in the column details
+  column_details <- column_workbook_list[[name_of_column_details]]
+
+  # Create a list of variables that includes those not in the details sheet
+  grouping_var_used_vector_names <- purrr::map_chr(grouping_vars, ~{
+    if(!(.x %in% column_details$column_names)){
+      var <- .x
+    } else {
+      var <- column_details %>% dplyr::filter(column_names == .x) %>% dplyr::pull(label_info)
+    }
+    var
+  })
+
+  grouping_var_used_order <- factor(grouping_var_used_vector_names, unique(grouping_var_used_vector_names)) %>% as.numeric()
+
+  select_all_df <- extract_column_details_question_type_df(column_details_table = column_details, question_type_indicator = "sa")
+
+  response_var_names <- select_all_df$column_names %>% stringr::str_extract( "^.+__") %>% unique() %>% stringr::str_replace("__$", "")
+
+  response_var_used_order <- factor(response_var_names, unique(response_var_names)) %>% as.numeric()
+
+  rv_names_and_order_df <- data.frame(
+    response_var_names = response_var_names,
+    response_var_used_order = response_var_used_order
+  )
+
+  gv_names_and_order_df <- data.frame(
+    grouping_vars = grouping_vars,
+    grouping_var_used_order = grouping_var_used_order
+  )
+
+  parameter_df <- expand.grid(response_var_names, grouping_vars)
+
+  colnames(parameter_df) <- c("response_var_names", "grouping_vars")
+
+  parameter_df <- parameter_df %>%
+    dplyr::left_join(rv_names_and_order_df, by = "response_var_names") %>%
+    dplyr::left_join(gv_names_and_order_df, by = "grouping_vars")
+
+
+  perform_calc_create_table_single_sa <- function(df, WaveName = "All Waves", parameter_df, column_workbook){
+    # Obtain the number of iterations
+    n_iterations <- length(parameter_df$response_var_names)
+    # Create progress bar
+    pb <- progress::progress_bar$new(total = n_iterations, format = glue::glue("Performing Calculations for Select All PBT for Wave: {WaveName}  [:bar] :percent eta: :eta"))
+    # Loop through every possibility from the parameter df
+    table <- purrr::map_df(seq_along(parameter_df$response_var_names), ~{
+
+      iteration <- .x
+
+      list_of_variable_names <- df %>% dplyr::select(
+        tidyselect::starts_with(parameter_df$response_var_names[[iteration]])) %>%
+        colnames()
+
+      df_filtered <- df %>%
+        dplyr::select(parameter_df$grouping_vars[[iteration]], all_of(list_of_variable_names)) %>%
+        na.omit()
+
+      df_filtered[[parameter_df$grouping_vars[[iteration]]]] <- as.character(df_filtered[[parameter_df$grouping_vars[[iteration]]]])
+
+      df_long <- df_filtered %>%
+        tidyr::pivot_longer(cols = - parameter_df$grouping_vars[[iteration]], names_to = parameter_df$response_var_names[[iteration]], values_to = "values") %>%
+        dplyr::filter(values == 1) %>% dplyr::select(-values)
+
+      new_response_var_labels <- column_workbook_list[[parameter_df$response_var_names[[iteration]]]]
+
+      df_long[[parameter_df$response_var_names[[iteration]]]] <- factor(df_long[[parameter_df$response_var_names[[iteration]]]], new_response_var_labels, names(new_response_var_labels)) %>% as.character()
+
+      # group_n_table <- df_filtered |>
+      #   dplyr::group_by(.data[[parameter_df$grouping_vars[[iteration]]]]) |>
+      #   dplyr::summarise(group_n = n())
+
+      if(nrow(df_long) > 0 ) {
+        # Obtain Grouped percentages
+        t <- create_grouped_percentages_table(
+          df = df_long,
+          grouping_var_name = parameter_df$grouping_vars[[iteration]],
+          response_var_name = parameter_df$response_var_names[[iteration]],
+          type = "sa",
+          group_n_table = NULL)
+
+        # Add additional needed info to df
+        t$response_var_used <- parameter_df$response_var_names[[iteration]]
+        t$response_var_used_order <- parameter_df$response_var_used_order[[iteration]]
+        t$grouping_var_used <- parameter_df$grouping_vars[[iteration]]
+        t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[iteration]]
+        t$Wave <- WaveName
+
+        # Indicate progress
+        pb$tick()
+        # Return the table that was made
+        t
+      } else {
+        pb$tick()
+        return(data.frame())
+      }
+
+    })
+    return(table)
+  }
+
+  # Make a df for every wave
+  split_wave_dfs <- split(df, as.factor(df$wave_info))
+
+  # Add the df with all data to that list
+  all_dfs <- append(list("All Waves" = df), split_wave_dfs)
+
+  # Obtain the calculations for every df in the list
+  wave_tables_df <- purrr::map2_df(all_dfs, as.list(names(all_dfs)), ~{
+    perform_calc_create_table_single_sa(df = .x, WaveName = .y, parameter_df, column_workbook = column_workbook_list)
+    # perform_calc_create_table_single_sa(df = all_dfs[[3]], WaveName = as.list(names(all_dfs))[[3]], parameter_df, column_workbook = column_workbook_list)
+  }, parameter_df, column_workbook)
+
+  # Temp create these
+  wave_tables_df$grouping_var_order <- NA
+  wave_tables_df$response_var_order <- NA
+
+  # Get rid of any nas
+  wave_tables_df <- wave_tables_df %>%
+    dplyr::filter(!is.na(response_var_levels)) %>%
+    dplyr::filter(!is.na(grouping_var_levels))
+
+  # Obtain the order information lookup table
+  order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+
+  # Fix the order numbers for response vars
+  wave_tables_df <- adjust_order_information_lookup_table_per_type(
+    table = wave_tables_df,
+    order_information_lookup_table = order_information_lookup_table,
+    type = "response_var_")
+
+  # Fix the order numbers for grouping vars
+  wave_tables_df <- adjust_order_information_lookup_table_per_type(wave_tables_df, order_information_lookup_table, type = "grouping_var_")
+  # wave_tables_df <- fix_levels_and_order_in_table(table = wave_tables_df, var_type = "response_var", column_details = column_details, column_workbook_list = column_workbook_list)
+  # wave_tables_df <- fix_levels_and_order_in_table(table = wave_tables_df, var_type = "grouping_var", column_details = column_details, column_workbook_list = column_workbook_list)
+
+  unique_sa_variable_names <- unique(wave_tables_df$response_var_used)
+
+  question_text_df <- column_details %>%
+    dplyr::select(all_of(c("label_info", "question"))) %>%
+    na.omit() %>%
+    unique(by = "label_info") %>%
+    dplyr::filter(.data[["label_info"]] %in% unique_sa_variable_names)
+
+  if(use_the_question_text_for_variable_name == TRUE) {
+    wave_tables_df$response_var_used <- factor(wave_tables_df$response_var_used, levels = question_text_df$label_info, labels = question_text_df$question)
+  }
+
+  wave_tables_df$grouping_var_used  <- stringr::str_replace_all(wave_tables_df$grouping_var_used, "_", " ") %>% stringr::str_to_title()
+
+  wave_tables_df$response_var_used  <- stringr::str_replace_all(wave_tables_df$response_var_used, "_", " ") %>% stringr::str_to_title()
+
+  wave_tables_df$percentage[is.nan(wave_tables_df$percentage)] <- 0
+
+  wave_tables_df <- wave_tables_df %>% dplyr::select(
+    "Wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
+    "response_var_order", "counts", "group_n", "percentage",
+    "grouping_var_used", "grouping_var_used_order", "response_var_used", "response_var_used_order", "overall_sample_size_for_response_var")
+
+  return(wave_tables_df)
+
+}
 
 
 

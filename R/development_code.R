@@ -299,32 +299,31 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 # Section 2 - Read and process survey data --------------------------------
 
-
-  survey_data_for_power_bi_list <- purrr::map(seq_along(survey_directory_paths), ~{
+  survey_data_for_power_bi_df <- purrr::map(seq_along(survey_directory_paths), ~{
+    iteration <- .x
 
     survey_data_for_power_bi_single <- try({
       bkissell::process_survey_data_for_single_power_bi(
-        survey_directory_path_pb = survey_directory_paths[[.x]],
-        column_workbook_list_pb = column_workbook_lists[[.x]],
+        survey_directory_path_pb = survey_directory_paths[[iteration]],
+        column_workbook_list_pb = column_workbook_lists[[iteration]],
         survey_file_ext = survey_file_ext,
         survey_datetime_format_pattern = survey_datetime_format_pattern,
         survey_version_name = survey_version_name,
         convert_numeric_age_to_age_group = convert_numeric_age_to_age_group,
-        spellcheck_column_path_pb = spellcheck_column_paths[[.x]],
+        spellcheck_column_path_pb = spellcheck_column_paths[[iteration]],
         name_of_column_details = name_of_column_details
       )
     }, silent = TRUE)
 
     if(any(class(survey_data_for_power_bi_single) == "try-error") ){
       warning("data could not be processed")
+      return(data.frame())
     } else {
-
       return(survey_data_for_power_bi_single)
     }
-
-  }) %>% suppressWarnings()
-
-  survey_data_for_power_bi_df <- purrr::reduce(survey_data_for_power_bi_list, dplyr::bind_rows)
+  }) %>%
+    suppressWarnings() %>%
+    purrr::reduce(dplyr::bind_rows)
 
 
   # Save the cleaned data to the power bi folder
@@ -424,6 +423,41 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   }
 
 
+  ### Select All ###############################################################
+
+
+  if(any(stringr::str_detect(column_workbook_lists_single[[name_of_column_details]]$type, "^sa"))){
+    power_bi_select_all <- create_power_bi_data_sa_CALCULATED_TABLES(
+      df = survey_data_for_power_bi_df,
+      column_workbook_list = column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+    # if(write_data){
+    #   readr::write_csv(power_bi_select_all, ..5)
+    # }
+    power_bi_select_all
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #
 #   library(microbenchmark)
@@ -439,103 +473,6 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 #   times = 50)
 
 
-#   # # Save the cleaned data to the power bi folder
-#   # if(write_data){
-#   #   purrr::walk2(survey_data_list, power_bi_clean_data_path_list, ~{
-#   #     readr::write_csv(.x, .y)
-#   #   })
-#   #
-#   #   Sys.sleep(1)
-#   #
-#   #   # Save another copy to the backup folder
-#   #   purrr::walk2(survey_data_list, processed_data_clean_data_path_list, ~{
-#   #     readr::write_csv(.x, .y)
-#   #   })
-#   # }
-# #
-# #   # Select the text variables in the df.
-# #   text_survey_data <- purrr::map2(survey_data_list, variables_to_include_list, ~{
-# #     select_text_survey_data(data = .x, variables_to_include = .y)
-# #   })
-# #
-# #   if(write_data){
-# #     # Save a copy of the text data as a backup
-# #     purrr::walk2(text_survey_data, text_survey_data_path_list, ~{
-# #       readr::write_csv(.x, .y)
-# #     })
-# #   }
-# #
-# #   # Shape the text data for power bi
-# #   power_bi_text <- purrr::map2(text_survey_data, variables_to_include_list, ~{
-# #     create_power_bi_text_data(text_survey_data =.x, variables_to_include = .y)
-# #   })
-# #
-# #   if(write_data){
-# #     # Save it to the powerbi folder
-# #     purrr::walk2(power_bi_text, power_bi_text_path_list, ~{
-# #       readr::write_csv(.x, .y)
-# #     })
-# #   }
-# #
-# #   if(include_selected_example == TRUE){
-# #     read_and_add_param_to_column <- purrr::as_mapper(
-# #       function(param_df) {
-# #         purrr::map_df(seq_along(param_df$Var1), ~{
-# #           selected_examples_df <- readxl::read_excel(param_df$Var2[[.x]], param_df$Var1[[.x]])
-# #           selected_examples_df$response_var_used <- param_df$Var2[[.x]]
-# #           selected_examples_df
-# #         }, param_df)
-# #       })
-# #
-# #     selected_examples_text_df_list <- purrr::map(parameters_for_example_read_list, ~{
-# #       read_and_add_param_to_column(.x)
-# #     })
-# #   }
-# #
-# #   combined_df_selected_examples_text_df_list <- purrr::map2(text_survey_data, selected_examples_text_df_list, ~{
-# #     .y %>%
-# #       dplyr::left_join(.x, by = "respondent_id") %>%
-# #       dplyr::select(!tidyselect::starts_with("text_"))
-# #   })
-# #
-# #   if(write_data){
-# #     purrr::walk2(combined_df_selected_examples_text_df_list, text_selected_example_text_survey_data_path_list, ~{
-# #       data <- .x
-# #       data$wave <- "Wave 1"
-# #       data <- data %>% dplyr::select("wave", everything())
-# #       readr::write_csv(data, .y)
-# #     })
-# #   }
-#   ### Multiple Choice ##########################################################
-#   power_bi_multiple_choice_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_mc_path_list)
-#
-#   power_bi_multiple_choice_list <- purrr::pmap(power_bi_multiple_choice_parameters, ~{
-#     if(any(..4$type == "mc")){
-#       power_bi_multiple_choice <- create_power_bi_data_mc(
-#         df = ..1,
-#         single_path_to_column_workbook = ..2,
-#         grouping_vars = ..3)
-#       if(write_data){
-#         readr::write_csv(power_bi_multiple_choice, ..5)
-#       }
-#       power_bi_multiple_choice
-#     }
-#   })
-#   ### Select All ###############################################################
-#   power_bi_select_all_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_sa_path_list)
-#
-#   power_bi_select_all_list <- purrr::pmap(power_bi_select_all_parameters, ~{
-#     if(any(..4$type == "sa")){
-#       power_bi_select_all <- create_power_bi_data_sa(
-#         df = ..1,
-#         single_path_to_column_workbook = ..2,
-#         grouping_vars = ..3)
-#       if(write_data){
-#         readr::write_csv(power_bi_select_all, ..5)
-#       }
-#       power_bi_select_all
-#     }
-#   })
 #   ### Numeric ##################################################################
 #   power_bi_num_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_descr_table_num_path_list)
 #

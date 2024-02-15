@@ -4,7 +4,13 @@
 \alias{create_grouped_percentages_table}
 \title{create_grouped_percentages_table}
 \usage{
-create_grouped_percentages_table(df, grouping_var_name, response_var_name)
+create_grouped_percentages_table(
+  df,
+  grouping_var_name,
+  response_var_name,
+  type = NULL,
+  group_n_table = NULL
+)
 }
 \arguments{
 \item{df}{df}
