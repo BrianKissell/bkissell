@@ -118,6 +118,9 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
   power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
 
+
+
+  qualitative_coding_data_path <- paste0(survey_related_dir_list[["p_path_dc_sm_svn"]], "/qualitative_coding_data.xlsx")
   # column_workbook_list <- purrr::map(path_to_column_workbook_list, ~{
   #   create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
   # })
@@ -127,6 +130,8 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   # })
 
   power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+
+  power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
 
   power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
 
@@ -424,166 +429,139 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 
   ### Select All ###############################################################
+  check_for_select_all_vars <- stringr::str_detect(column_workbook_lists_single[[name_of_column_details]]$type, "^sa")
 
-
-  if(any(stringr::str_detect(column_workbook_lists_single[[name_of_column_details]]$type, "^sa"))){
+  if(any(check_for_select_all_vars)){
     power_bi_select_all <- create_power_bi_data_sa_CALCULATED_TABLES(
       df = survey_data_for_power_bi_df,
       column_workbook_list = column_workbook_lists_single,
       grouping_vars = grouping_vars,
       name_of_column_details = name_of_column_details)
-    # if(write_data){
-    #   readr::write_csv(power_bi_select_all, ..5)
-    # }
+    if(write_data){
+      readr::write_csv(power_bi_select_all, power_bi_sa_path)
+    }
     power_bi_select_all
+  }
+
+  ### Numeric ##################################################################
+  check_for_numeric_vars <- column_workbook_lists_single[[name_of_column_details]]$type == "numeric"
+
+  check_for_scale_vars <- !is.na(column_workbook_lists_single[[name_of_column_details]]$scale_names)
+
+  if(any(check_for_numeric_vars) | any(check_for_scale_vars)){
+    power_bi_descr_table_num <- create_power_bi_data_num_CALCULATED_TABLES(
+      df = survey_data_for_power_bi_df,
+      column_workbook_list = column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+    if(write_data){
+      readr::write_csv(power_bi_descr_table_num, power_bi_descr_table_num_path)
+    }
+    power_bi_descr_table_num
+  }
+
+  ### Net Promoter #############################################################
+  check_for_net_promoter_vars <- column_workbook_lists_single[[name_of_column_details]]$type == "numeric"
+
+  if(any(check_for_net_promoter_vars)){
+    power_bi_net_promoter <- create_power_bi_data_nps_CALCULATED_TABLES(
+      df = survey_data_for_power_bi_df,
+      column_workbook_list = column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+    if(write_data){
+      readr::write_csv(power_bi_net_promoter, power_bi_net_promoter_path)
+    }
+    power_bi_net_promoter
   }
 
 
 
+  ### Qualitative Coding #######################################################
+
+
+  if(file.exists(qualitative_coding_data_path)){
+    power_bi_overall_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
+      df = survey_data_for_power_bi_df,
+      column_workbook_list,
+      grouping_vars,
+      name_of_column_details,
+      path_to_qual_coding_data = qualitative_coding_data_path,
+      qualitative_type = "overall_coding",
+      identifier = "RID")
+
+    power_bi_overall_qualitative <- power_bi_overall_qualitative[[1]]
+
+    order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+
+    power_bi_overall_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_overall_qualitative$grouping_var_used)
+
+    power_bi_overall_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_overall_qualitative, order_information_lookup_table, type = "grouping_var_")
+    power_bi_overall_qualitative <- power_bi_overall_qualitative %>%
+            dplyr::filter(!is.na(grouping_var_levels))
+
+    if(write_data){
+      readr::write_csv(power_bi_overall_qualitative, power_bi_overall_qualitative_path)
+    }
+    power_bi_overall_qualitative
+  }
 
 
 
+  if(file.exists(qualitative_coding_data_path)){
+    power_bi_break_down_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
+      df = survey_data_for_power_bi_df,
+      column_workbook_list,
+      grouping_vars,
+      name_of_column_details,
+      path_to_qual_coding_data = qualitative_coding_data_path,
+      qualitative_type = "break_down_coding",
+      identifier = "RID")
+
+    power_bi_break_down_qualitative <- power_bi_break_down_qualitative[[1]]
+
+    order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+
+    power_bi_break_down_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_break_down_qualitative$grouping_var_used)
+
+    power_bi_break_down_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_break_down_qualitative, order_information_lookup_table, type = "grouping_var_")
+    power_bi_break_down_qualitative <- power_bi_break_down_qualitative %>%
+      dplyr::filter(!is.na(grouping_var_levels))
+
+    if(write_data){
+      readr::write_csv(power_bi_break_down_qualitative, power_bi_break_down_qualitative_path)
+    }
+    power_bi_break_down_qualitative
+  }
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-#   library(microbenchmark)
-#   results <- microbenchmark(
-#     create_table_single_mc_DEV(
-#       df = df,
-#       response_var_name = parameter_df$response_var_names[[1]],
-#       grouping_var_name = parameter_df$grouping_vars[[1]]),
-#     times = 50)
-
-# results <- microbenchmark(
-#   create_grouped_percentages_table(df, grouping_var_name, response_var_name),
-#   times = 50)
-
-
-#   ### Numeric ##################################################################
-#   power_bi_num_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_descr_table_num_path_list)
-#
-#   power_bi_descr_table_num_list <- purrr::pmap(power_bi_num_parameters, ~{
-#     if(any(..4$type == "sa")){
-#       power_bi_descr_table_num <- create_power_bi_data_num(
-#         df = ..1,
-#         single_path_to_column_workbook = ..2,
-#         grouping_vars = ..3)
-#       if(write_data){
-#         readr::write_csv(power_bi_descr_table_num, ..5)
-#       }
-#       power_bi_descr_table_num
-#     }
-#   })
-#   ### Net Promoter #############################################################
-#   power_bi_net_promoter_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list, column_details_list, power_bi_net_promoter_path_list)
-#
-#   power_bi_net_promoter_list <- purrr::pmap(power_bi_net_promoter_parameters, ~{
-#     if(any(..4$column_names == "net_promoter")){
-#       power_bi_net_promoter <- create_power_bi_data_nps(
-#         df = ..1,
-#         single_path_to_column_workbook = ..2,
-#         grouping_vars = ..3)
-#       if(write_data){
-#         readr::write_csv(power_bi_net_promoter, ..5)
-#       }
-#       power_bi_net_promoter
-#     }
-#   })
-#
-#   ### Qualitative Coding #######################################################
-#   power_bi_overall_qualitative_parameters <- list(survey_data_list, path_to_column_workbook_list, grouping_vars_list)
-#
-#   power_bi_overall_qualitative <- purrr::pmap( power_bi_overall_qualitative_parameters, ~{
-#     create_power_bi_data_qualitative(
-#       df = ..1,
-#       single_path_to_column_workbook = ..2,
-#       grouping_vars = ..3,
-#       qualitative_type = "overall_coding",
-#       identifier = "respondent_id"
-#     )
-#   })
-#
-#   column_workbook_list <- purrr::map(path_to_column_workbook_list, ~{
-#     create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
-#   })
-#
-#   column_details_list <- purrr::map(column_workbook_list, ~{
-#     obtain_column_details_table(column_workbook_list = .x, name_of_column_details = "column_details")
-#   })
-#
-#   power_bi_overall_qualitative <- purrr::pmap(list(power_bi_overall_qualitative, column_workbook_list, column_details_list), ~{
-#     revised_table <- ..1[[1]]
-#     revised_table <- fix_levels_and_order_in_table(
-#       table = revised_table,
-#       var_type = "grouping_var",
-#       column_details = ..3,
-#       column_workbook_list = ..2,
-#       title_form = TRUE)
-#
-#     revised_table
-#   })
-#
-#   power_bi_overall_qualitative <- purrr::map(power_bi_overall_qualitative, ~{
-#     data_to_revise <- .x
-#     data_to_revise <- data_to_revise %>%
-#       dplyr::filter(!is.na(grouping_var_levels))
-#     data_to_revise
-#   })
-#
-#   if(write_data){
-#     purrr::walk2(power_bi_overall_qualitative, version_names_from_list_analysis, ~{
-#       power_bi_overall_qualitative_path <- paste0(home_dir, "/Analysis/Respondent Investigation/", .y, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
-#       readr::write_csv(.x, power_bi_overall_qualitative_path)
-#     })
-#   }
-#
-#   power_bi_break_down_qualitative <- purrr::pmap( power_bi_overall_qualitative_parameters, ~{
-#     create_power_bi_data_qualitative(
-#       df = ..1,
-#       single_path_to_column_workbook = ..2,
-#       grouping_vars = ..3,
-#       qualitative_type = "break_down_coding",
-#       identifier = "respondent_id"
-#     )
-#   })
-#
-#   power_bi_break_down_qualitative <- purrr::pmap(list(power_bi_break_down_qualitative, column_workbook_list, column_details_list), ~{
-#     revised_table <- ..1[[1]]
-#     revised_table <- fix_levels_and_order_in_table(
-#       table = revised_table,
-#       var_type = "grouping_var",
-#       column_details = ..3,
-#       column_workbook_list = ..2,
-#       title_form = TRUE)
-#
-#     revised_table
-#   })
-#
-#   power_bi_break_down_qualitative <- purrr::map(power_bi_break_down_qualitative, ~{
-#     data_to_revise <- .x
-#     data_to_revise <- data_to_revise %>%
-#       dplyr::filter(!is.na(grouping_var_levels))
-#     data_to_revise
-#   })
-#
-#   if(write_data){
-#     purrr::walk2(power_bi_break_down_qualitative, version_names_from_list_analysis, ~{
-#       power_bi_break_down_qualitative_path <- paste0(home_dir, "/Analysis/Respondent Investigation/", .y, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-#       readr::write_csv(.x, power_bi_break_down_qualitative_path)
-#     })
-#   }
 }
+
+
+
+
+
+
+
+DASHBOARD_CREATION_PLACEHOLDER(
+    survey_version_name = "Member",
+    should_create_nonexistant_dirs = TRUE,
+    survey_monkey_used = TRUE,
+    wave_names = c("w01_11_2023", "w02_02_2024"),
+    storage_platform = "dropbox",
+    storage_platform_name = "TCM Dropbox",
+    group_dir_name = "04 MDM Neuro-Fundraising Lab",
+    jobs_folder_name = "00 Jobs",
+    project_year = 2024,
+    project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2",
+    convert_numeric_age_to_age_group = TRUE,
+    survey_file_ext = ".zip",
+    survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
+    name_of_column_details = "column_details",
+    write_data = TRUE,
+    variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type"),
+    grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+)
+
+
