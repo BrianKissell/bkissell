@@ -17,9 +17,13 @@ create_power_bi_data_qualitative_CALCULATED_TABLES(
 \arguments{
 \item{df}{df}
 
+\item{column_workbook_list}{column_workbook_list}
+
 \item{grouping_vars}{grouping_vars}
 
-\item{path_to_qual_coding_data}{}
+\item{name_of_column_details}{name_of_column_details}
+
+\item{path_to_qual_coding_data}{path_to_qual_coding_data}
 
 \item{qualitative_type}{qualitative_type}
 

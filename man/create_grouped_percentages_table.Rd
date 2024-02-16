@@ -18,6 +18,10 @@ create_grouped_percentages_table(
 \item{grouping_var_name}{grouping_var_name}
 
 \item{response_var_name}{response_var_name}
+
+\item{type}{type}
+
+\item{group_n_table}{group_n_table}
 }
 \value{
 grouped_percentage_table

@@ -12,8 +12,6 @@ create_table_single_mc_DEV(df, response_var_name, grouping_var_name)
 \item{response_var_name}{character with the response var name}
 
 \item{grouping_var_name}{character with the grouping var name}
-
-\item{response_var_type}{character string with the type of variable that is being processed}
 }
 \value{
 table

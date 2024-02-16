@@ -1,5 +1,141 @@
 # ################################################################################
-#
+survey_version_name = "Member"
+should_create_nonexistant_dirs = TRUE
+survey_monkey_used = TRUE
+wave_names = c("w01_11_2023", "w02_02_2024")
+storage_platform = "dropbox"
+storage_platform_name = "TCM Dropbox"
+group_dir_name = "04 MDM Neuro-Fundraising Lab"
+jobs_folder_name = "00 Jobs"
+project_year = 2024
+project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
+convert_numeric_age_to_age_group = TRUE
+survey_file_ext = ".zip"
+survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
+name_of_column_details = "column_details"
+write_data = TRUE
+variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type")
+grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+desired_sample_size = 2000
+
+Simulate_Data <- function(
+    survey_version_name = "Member"
+    ,
+    should_create_nonexistant_dirs = TRUE
+    ,
+    survey_monkey_used = TRUE
+    ,
+    wave_names = c("w01_11_2023", "w02_02_2024")
+    ,
+    storage_platform = "dropbox"
+    ,
+    storage_platform_name = "TCM Dropbox"
+    ,
+    group_dir_name = "04 MDM Neuro-Fundraising Lab"
+    ,
+    jobs_folder_name = "00 Jobs"
+    ,
+    project_year = 2024
+    ,
+    project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
+    ,
+    convert_numeric_age_to_age_group = TRUE
+    ,
+    survey_file_ext = ".zip"
+    ,
+    survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
+    ,
+    name_of_column_details = "column_details"
+    ,
+    write_data = TRUE
+    ,
+    variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type")
+    ,
+    grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+    ,
+    desired_sample_size = 2000
+) {
+
+
+  # Section 1a - Set-up dirs and paths ---------------------------------------
+
+  working_directory_path <- bkissell::set_project_working_directory(
+    storage_platform = storage_platform,
+    storage_platform_name = storage_platform_name,
+    group_dir_name = group_dir_name,
+    jobs_folder_name = jobs_folder_name,
+    project_year = project_year,
+    project_folder_name = project_folder_name
+  )
+
+  traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
+
+  survey_related_dir_list <- create_survey_related_dir_list(
+    survey_version_name = survey_version_name,
+    survey_monkey_used = survey_monkey_used,
+    wave_names = wave_names,
+    should_create_nonexistant_dirs = should_create_nonexistant_dirs
+  )
+
+  survey_directory_path_names <- names(survey_related_dir_list)[stringr::str_detect(names(survey_related_dir_list), "^p_path_dc_sm_svn_wave_names_")]
+  survey_directory_paths <- survey_related_dir_list[survey_directory_path_names]
+  column_names_paths <- purrr::map(survey_directory_paths, ~{ file.path(.x, paste0(basename(.x), "_column_names.xlsx")) })
+  spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
+  power_bi_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/power_bi_deck/clean_data.csv")
+  processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+  text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+  text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+  power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
+  text_selected_example_text_survey_data_path <- paste0("Data Collection/survey_monkey_data/", survey_version_name, "/selected_example_text.xlsx")
+  text_selected_example_response_vars <- readxl::excel_sheets(text_selected_example_text_survey_data_path)
+  parameters_for_example_read <- data.frame(Var1 = text_selected_example_response_vars)
+  parameters_for_example_read$Var2 <- text_selected_example_text_survey_data_path
+  power_bi_mc_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_multiple_choice.csv")
+  power_bi_sa_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_select_all.csv")
+  power_bi_descr_table_num_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_descr_table_num.csv")
+  power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
+  qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
+  power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+  power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+
+  simulated_data_survey_monkey_design_form_path_list <- purrr::map(survey_directory_paths, ~{ file.path(.x, "simulated_data", paste0(basename(.x), "_survey_monkey_design_form.xlsx")) })
+
+  # Section 1b - Set-up for Workbook Lists --------------------------------------------
+
+  # Create the form list
+  simulated_data_survey_monkey_design_form_lists <- purrr::map(seq_along(simulated_data_survey_monkey_design_form_path_list), ~{
+    iteration <- .x
+    simulated_data_survey_monkey_design_form_list_attempt <- try({
+      bkissell::create_survey_monkey_design_form_list(
+        path = simulated_data_survey_monkey_design_form_path_list[[iteration]],
+        name_of_form = "Design Form",
+        name_of_logic = "Logic",
+        names_of_others_to_ignore = c("IGNORE")
+        )
+    }, silent = TRUE)
+
+    if(class(simulated_data_survey_monkey_design_form_list_attempt) == "try-error") return(list()) else return(simulated_data_survey_monkey_design_form_list_attempt)
+  })
+
+
+  design_form_list <- simulated_data_survey_monkey_design_form_lists[[2]]
+
+  design_form_df <- design_form_list[[name_of_form]]
+
+
+  purrr::map(seq_along(design_form_df$item_number), ~{
+    iteration <- .x
+    item_number <- design_form_df$item_number[[iteration]]
+
+  })
+
+
+  sample(100000000000:999999999999, desired_sample_size)
+
+
+}
+
 # ################################################################################
 # # Set up helper functions -------------------------------------------------
 #

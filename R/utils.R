@@ -5008,7 +5008,6 @@ adjust_order_information_lookup_table_per_type <- function(table, order_informat
 #' @param df data frame with the survey data
 #' @param response_var_name character with the response var name
 #' @param grouping_var_name character with the grouping var name
-#' @param response_var_type character string with the type of variable that is being processed
 #'
 #' @return table
 #' @export
@@ -5141,6 +5140,7 @@ create_table_single_mc_DEV <- function(df, response_var_name, grouping_var_name)
 #' @param df df
 #' @param column_workbook_list column_workbook_list
 #' @param grouping_vars grouping_vars
+#' @param name_of_column_details name_of_column_details
 #'
 #' @return wave_tables_df
 #' @export
@@ -5286,6 +5286,8 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
 #' @param df df
 #' @param grouping_var_name grouping_var_name
 #' @param response_var_name response_var_name
+#' @param type type
+#' @param group_n_table group_n_table
 #'
 #' @return grouped_percentage_table
 #' @export
@@ -5673,6 +5675,8 @@ create_power_bi_data_num_CALCULATED_TABLES <- function(
     table$ci_limit <- tidyr::replace_na(table$ci_limit, 0)
     table$ci_upper <- tidyr::replace_na(table$ci_upper, 0)
     table$ci_lower <- tidyr::replace_na(table$ci_lower, 0)
+    table$sd <- tidyr::replace_na(table$sd, 0)
+    table$se <- tidyr::replace_na(table$se, 0)
 
     return(table)
   }
@@ -5789,7 +5793,7 @@ create_power_bi_data_nps_CALCULATED_TABLES <- function(
       iteration <- .x
 
       # Obtain Grouped stats
-      t <- create_grouped_nps_stats_table(
+      t <- bkissell::create_grouped_nps_stats_table(
         df = df,
         grouping_var_name = parameter_df$grouping_vars[[iteration]],
         response_var_name = parameter_df$response_var_names[[iteration]]
@@ -5866,9 +5870,9 @@ create_power_bi_data_nps_CALCULATED_TABLES <- function(
 #' @param grouping_vars grouping_vars
 #' @param qualitative_type qualitative_type
 #' @param identifier identifier
-#' @param column_workbook_list
-#' @param name_of_column_details
-#' @param path_to_qual_coding_data
+#' @param column_workbook_list column_workbook_list
+#' @param name_of_column_details name_of_column_details
+#' @param path_to_qual_coding_data path_to_qual_coding_data
 #'
 #' @return combined_final_table
 #' @export
@@ -6392,7 +6396,7 @@ create_grouped_nps_stats_table <- function(
   table <- table %>% rbind(table_all)
   table$grouping_var_order <- NA
   table$response_var_order <- NA
-  table$response_var_used <- variable_used
+  table$response_var_used <- response_var_name
   table$response_var_levels <- "All"
 
   table$overall_sample_size_for_response_var <- table_all %>% dplyr::pull(n) %>% max()
@@ -6451,4 +6455,44 @@ create_grouped_nps_stats_table <- function(
 
 
 
+#' create_survey_monkey_design_form_list
+#'
+#' @param path path
+#' @param name_of_form name_of_form
+#' @param name_of_logic name_of_logic
+#' @param names_of_others_to_ignore names_of_others_to_ignore
+#'
+#' @return named_vectors_list
+#' @export
+#'
+create_survey_monkey_design_form_list <- function(
+    path,
+    name_of_form = "Design Form",
+    name_of_logic = "Logic",
+    names_of_others_to_ignore = c("IGNORE")
+){
+  # Read in the name of the sheets contained in the excel workbook
+  named_vectors_workbook_sheets <- readxl::excel_sheets(path)
 
+  # Loop through each sheet
+  named_vectors_list <- purrr::map(seq_along(named_vectors_workbook_sheets), ~{
+    iteration = .x
+    # Read in the data for it
+    df <- readxl::read_excel(path, sheet = named_vectors_workbook_sheets[[iteration]])
+
+    # Create named vectors for all sheets except for the column_details sheet
+    if(!(named_vectors_workbook_sheets[[iteration]]  %in% c(name_of_form, name_of_logic, names_of_others_to_ignore))) {
+      named_vector <- df$vector_of_factor_levels
+      names(named_vector) <- df$names_of_factor_levels
+    } else {
+      named_vector <- df
+    }
+
+    return(named_vector)
+
+    # Name all sheets so they can be easily accessed
+  }, path) |> purrr::set_names(named_vectors_workbook_sheets)
+
+  # Return the list with all of this information
+  return(named_vectors_list)
+}

@@ -7,6 +7,7 @@
 # with a nested function, but it should make more theoretical sense.
 
 survey_version_name = "Member"
+survey_version_name = "Donor"
 should_create_nonexistant_dirs = TRUE
 survey_monkey_used = TRUE
 wave_names = c("w01_11_2023", "w02_02_2024")
@@ -120,7 +121,8 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 
 
-  qualitative_coding_data_path <- paste0(survey_related_dir_list[["p_path_dc_sm_svn"]], "/qualitative_coding_data.xlsx")
+  qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
+
   # column_workbook_list <- purrr::map(path_to_column_workbook_list, ~{
   #   create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
   # })
@@ -478,90 +480,128 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 
   ### Qualitative Coding #######################################################
+# If I end up needing a combined set, I will need to add an optional piece that does those calculations
+  power_bi_overall_qualitative_combined <- purrr::map(qualitative_coding_data_path_list, ~ {
+    if(file.exists(.x)){
+      power_bi_overall_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
+        df = survey_data_for_power_bi_df,
+        column_workbook_list,
+        grouping_vars,
+        name_of_column_details,
+        path_to_qual_coding_data = .x,
+        qualitative_type = "overall_coding",
+        identifier = "RID")
+
+      power_bi_overall_qualitative <- power_bi_overall_qualitative[[1]]
+
+      order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+
+      power_bi_overall_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_overall_qualitative$grouping_var_used)
+
+      power_bi_overall_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_overall_qualitative, order_information_lookup_table, type = "grouping_var_")
+      power_bi_overall_qualitative <- power_bi_overall_qualitative %>%
+        dplyr::filter(!is.na(grouping_var_levels))
 
 
-  if(file.exists(qualitative_coding_data_path)){
-    power_bi_overall_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
-      df = survey_data_for_power_bi_df,
-      column_workbook_list,
-      grouping_vars,
-      name_of_column_details,
-      path_to_qual_coding_data = qualitative_coding_data_path,
-      qualitative_type = "overall_coding",
-      identifier = "RID")
+      power_bi_overall_qualitative$Wave <- basename(dirname(.x))
 
-    power_bi_overall_qualitative <- power_bi_overall_qualitative[[1]]
-
-    order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
-
-    power_bi_overall_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_overall_qualitative$grouping_var_used)
-
-    power_bi_overall_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_overall_qualitative, order_information_lookup_table, type = "grouping_var_")
-    power_bi_overall_qualitative <- power_bi_overall_qualitative %>%
-            dplyr::filter(!is.na(grouping_var_levels))
-
-    if(write_data){
-      readr::write_csv(power_bi_overall_qualitative, power_bi_overall_qualitative_path)
+      power_bi_overall_qualitative
+    } else {
+      return(data.frame())
     }
-    power_bi_overall_qualitative
+  }) %>% purrr::reduce(dplyr::bind_rows)
+
+
+  if(write_data){
+    readr::write_csv(power_bi_overall_qualitative_combined, power_bi_overall_qualitative_path)
   }
 
 
+  power_bi_break_down_qualitative_combined <- purrr::map(qualitative_coding_data_path_list, ~ {
+    if(file.exists(.x)){
 
-  if(file.exists(qualitative_coding_data_path)){
-    power_bi_break_down_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
-      df = survey_data_for_power_bi_df,
-      column_workbook_list,
-      grouping_vars,
-      name_of_column_details,
-      path_to_qual_coding_data = qualitative_coding_data_path,
-      qualitative_type = "break_down_coding",
-      identifier = "RID")
+      power_bi_break_down_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
+        df = survey_data_for_power_bi_df,
+        column_workbook_list,
+        grouping_vars,
+        name_of_column_details,
+        path_to_qual_coding_data = .x,
+        qualitative_type = "break_down_coding",
+        identifier = "RID")
 
-    power_bi_break_down_qualitative <- power_bi_break_down_qualitative[[1]]
+      power_bi_break_down_qualitative <- power_bi_break_down_qualitative[[1]]
 
-    order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+      order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
 
-    power_bi_break_down_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_break_down_qualitative$grouping_var_used)
+      power_bi_break_down_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_break_down_qualitative$grouping_var_used)
 
-    power_bi_break_down_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_break_down_qualitative, order_information_lookup_table, type = "grouping_var_")
-    power_bi_break_down_qualitative <- power_bi_break_down_qualitative %>%
-      dplyr::filter(!is.na(grouping_var_levels))
+      power_bi_break_down_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_break_down_qualitative, order_information_lookup_table, type = "grouping_var_")
+      power_bi_break_down_qualitative <- power_bi_break_down_qualitative %>%
+        dplyr::filter(!is.na(grouping_var_levels))
 
-    if(write_data){
-      readr::write_csv(power_bi_break_down_qualitative, power_bi_break_down_qualitative_path)
+      power_bi_break_down_qualitative$Wave <- basename(dirname(.x))
+
+      power_bi_break_down_qualitative
+    } else {
+      return(data.frame())
     }
-    power_bi_break_down_qualitative
+
+  }) %>% purrr::reduce(dplyr::bind_rows)
+
+  if(write_data){
+    readr::write_csv(power_bi_break_down_qualitative_combined, power_bi_break_down_qualitative_path)
   }
+
 
 
 
 }
 
 
-
-
-
-
-
-DASHBOARD_CREATION_PLACEHOLDER(
-    survey_version_name = "Member",
-    should_create_nonexistant_dirs = TRUE,
-    survey_monkey_used = TRUE,
-    wave_names = c("w01_11_2023", "w02_02_2024"),
-    storage_platform = "dropbox",
-    storage_platform_name = "TCM Dropbox",
-    group_dir_name = "04 MDM Neuro-Fundraising Lab",
-    jobs_folder_name = "00 Jobs",
-    project_year = 2024,
-    project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2",
-    convert_numeric_age_to_age_group = TRUE,
-    survey_file_ext = ".zip",
-    survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
-    name_of_column_details = "column_details",
-    write_data = TRUE,
-    variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type"),
-    grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
-)
-
-
+#
+#
+#
+#
+#
+# DASHBOARD_CREATION_PLACEHOLDER(
+#     survey_version_name = "Member",
+#     should_create_nonexistant_dirs = TRUE,
+#     survey_monkey_used = TRUE,
+#     wave_names = c("w01_11_2023", "w02_02_2024"),
+#     storage_platform = "dropbox",
+#     storage_platform_name = "TCM Dropbox",
+#     group_dir_name = "04 MDM Neuro-Fundraising Lab",
+#     jobs_folder_name = "00 Jobs",
+#     project_year = 2024,
+#     project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2",
+#     convert_numeric_age_to_age_group = TRUE,
+#     survey_file_ext = ".zip",
+#     survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
+#     name_of_column_details = "column_details",
+#     write_data = TRUE,
+#     variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type"),
+#     grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+# )
+#
+#
+#
+#
+# DASHBOARD_CREATION_PLACEHOLDER(
+#   survey_version_name = "Donor",
+#   should_create_nonexistant_dirs = TRUE,
+#   survey_monkey_used = TRUE,
+#   wave_names = c("w01_11_2023", "w02_02_2024"),
+#   storage_platform = "dropbox",
+#   storage_platform_name = "TCM Dropbox",
+#   group_dir_name = "04 MDM Neuro-Fundraising Lab",
+#   jobs_folder_name = "00 Jobs",
+#   project_year = 2024,
+#   project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2",
+#   convert_numeric_age_to_age_group = TRUE,
+#   survey_file_ext = ".zip",
+#   survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
+#   name_of_column_details = "column_details",
+#   write_data = TRUE,
+#   variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type"),
+#   grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+# )

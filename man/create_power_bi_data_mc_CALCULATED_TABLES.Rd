@@ -17,6 +17,8 @@ create_power_bi_data_mc_CALCULATED_TABLES(
 \item{column_workbook_list}{column_workbook_list}
 
 \item{grouping_vars}{grouping_vars}
+
+\item{name_of_column_details}{name_of_column_details}
 }
 \value{
 wave_tables_df
