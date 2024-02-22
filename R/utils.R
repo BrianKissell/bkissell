@@ -5223,7 +5223,7 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
       t$response_var_used_order <- parameter_df$response_var_used_order[[iteration]]
       t$grouping_var_used <- parameter_df$grouping_vars[[iteration]]
       t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[iteration]]
-      t$Wave <- WaveName
+      t$wave <- WaveName
 
       # Indicate progress
       pb$tick()
@@ -5273,7 +5273,7 @@ create_power_bi_data_mc_CALCULATED_TABLES <- function(
   wave_tables_df$percentage[is.nan(wave_tables_df$percentage)] <- 0
 
   wave_tables_df <- wave_tables_df %>% dplyr::select(
-    "Wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
+    "wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
     "response_var_order", "counts", "group_n", "percentage",
     "grouping_var_used", "grouping_var_used_order", "response_var_used", "response_var_used_order", "overall_sample_size_for_response_var")
 
@@ -5498,7 +5498,7 @@ create_power_bi_data_sa_CALCULATED_TABLES  <- function(
         t$response_var_used_order <- parameter_df$response_var_used_order[[iteration]]
         t$grouping_var_used <- parameter_df$grouping_vars[[iteration]]
         t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[iteration]]
-        t$Wave <- WaveName
+        t$wave <- WaveName
 
         # Indicate progress
         pb$tick()
@@ -5567,7 +5567,7 @@ create_power_bi_data_sa_CALCULATED_TABLES  <- function(
   wave_tables_df$percentage[is.nan(wave_tables_df$percentage)] <- 0
 
   wave_tables_df <- wave_tables_df %>% dplyr::select(
-    "Wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
+    "wave", "grouping_var_levels", "response_var_levels", "grouping_var_order",
     "response_var_order", "counts", "group_n", "percentage",
     "grouping_var_used", "grouping_var_used_order", "response_var_used", "response_var_used_order", "overall_sample_size_for_response_var")
 
@@ -5661,7 +5661,7 @@ create_power_bi_data_num_CALCULATED_TABLES <- function(
       t$response_var_used_order <- parameter_df$response_var_used_order[[iteration]]
       t$grouping_var_used <- parameter_df$grouping_vars[[iteration]]
       t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[iteration]]
-      t$Wave <- WaveName
+      t$wave <- WaveName
 
       # Indicate progress
       pb$tick()
@@ -5717,7 +5717,7 @@ create_power_bi_data_num_CALCULATED_TABLES <- function(
     stringr::str_replace_all("_", " ") %>%
     stringr::str_to_title()
 
-  wave_tables_df <- wave_tables_df %>% dplyr::select("Wave", "grouping_var_levels",	"grouping_var_order",	"mean",	"sd",	"n",	"se",
+  wave_tables_df <- wave_tables_df %>% dplyr::select("wave", "grouping_var_levels",	"grouping_var_order",	"mean",	"sd",	"n",	"se",
                                                      "ci_limit",	"ci_upper",	"ci_lower",	"grouping_var_used",
                                                      "grouping_var_used_order",	"response_var_used",
                                                      "response_var_used_order", "overall_sample_size_for_response_var", "response_var_order", "response_var_levels")
@@ -5804,7 +5804,7 @@ create_power_bi_data_nps_CALCULATED_TABLES <- function(
       t$response_var_used_order <- parameter_df$response_var_used_order[[iteration]]
       t$grouping_var_used <- parameter_df$grouping_vars[[iteration]]
       t$grouping_var_used_order <- parameter_df$grouping_var_used_order[[iteration]]
-      t$Wave <- WaveName
+      t$wave <- WaveName
 
       # Indicate progress
       pb$tick()
@@ -5854,7 +5854,7 @@ create_power_bi_data_nps_CALCULATED_TABLES <- function(
     stringr::str_to_title()
 
   wave_tables_df <- wave_tables_df %>%
-    dplyr::select("Wave", "grouping_var_levels",	"grouping_var_order",
+    dplyr::select("wave", "grouping_var_levels",	"grouping_var_order",
                   "sum",	"n",	"average",	"NPS",	"grouping_var_used",
                   "grouping_var_used_order", "overall_sample_size_for_response_var", "response_var_used", "response_var_levels")
 

@@ -1,1739 +1,1950 @@
-# ################################################################################
-survey_version_name = "Member"
-should_create_nonexistant_dirs = TRUE
-survey_monkey_used = TRUE
-wave_names = c("w01_11_2023", "w02_02_2024")
-storage_platform = "dropbox"
-storage_platform_name = "TCM Dropbox"
-group_dir_name = "04 MDM Neuro-Fundraising Lab"
-jobs_folder_name = "00 Jobs"
-project_year = 2024
-project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
-convert_numeric_age_to_age_group = TRUE
-survey_file_ext = ".zip"
-survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
-name_of_column_details = "column_details"
-write_data = TRUE
-variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type")
-grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
-desired_sample_size = 2000
 
-Simulate_Data <- function(
-    survey_version_name = "Member"
-    ,
-    should_create_nonexistant_dirs = TRUE
-    ,
-    survey_monkey_used = TRUE
-    ,
-    wave_names = c("w01_11_2023", "w02_02_2024")
-    ,
-    storage_platform = "dropbox"
-    ,
-    storage_platform_name = "TCM Dropbox"
-    ,
-    group_dir_name = "04 MDM Neuro-Fundraising Lab"
-    ,
-    jobs_folder_name = "00 Jobs"
-    ,
-    project_year = 2024
-    ,
-    project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
-    ,
-    convert_numeric_age_to_age_group = TRUE
-    ,
-    survey_file_ext = ".zip"
-    ,
-    survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
-    ,
-    name_of_column_details = "column_details"
-    ,
-    write_data = TRUE
-    ,
-    variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type")
-    ,
-    grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
-    ,
-    desired_sample_size = 2000
+
+#' Simulate Data From the Design Form
+#'
+#' @param sm_design_form_path Path to the design form
+#' @param desired_sample_size How many responses would you like to simulate
+#' @param name_of_form Name of the excel sheet containing the form
+#' @param name_of_logic Name of the excel sheet containing the logic
+#' @param names_of_others_to_ignore Name of any excel sheets that should be ignored
+#'
+#' @return simulated_data
+#' @export
+#'
+simulate_data_from_sm_design_form <- function(
+    sm_design_form_path,
+    desired_sample_size = 2000,
+    name_of_form = "Design Form",
+    name_of_logic = "Logic",
+    names_of_others_to_ignore = c("IGNORE")
 ) {
 
-
-  # Section 1a - Set-up dirs and paths ---------------------------------------
-
-  working_directory_path <- bkissell::set_project_working_directory(
-    storage_platform = storage_platform,
-    storage_platform_name = storage_platform_name,
-    group_dir_name = group_dir_name,
-    jobs_folder_name = jobs_folder_name,
-    project_year = project_year,
-    project_folder_name = project_folder_name
+  # Process the sheets in the design form doc
+  design_form_list <- bkissell::create_survey_monkey_design_form_list(
+    path = sm_design_form_path,
+    name_of_form = name_of_form,
+    name_of_logic = name_of_logic,
+    names_of_others_to_ignore = names_of_others_to_ignore
   )
 
-  traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
-
-  survey_related_dir_list <- create_survey_related_dir_list(
-    survey_version_name = survey_version_name,
-    survey_monkey_used = survey_monkey_used,
-    wave_names = wave_names,
-    should_create_nonexistant_dirs = should_create_nonexistant_dirs
-  )
-
-  survey_directory_path_names <- names(survey_related_dir_list)[stringr::str_detect(names(survey_related_dir_list), "^p_path_dc_sm_svn_wave_names_")]
-  survey_directory_paths <- survey_related_dir_list[survey_directory_path_names]
-  column_names_paths <- purrr::map(survey_directory_paths, ~{ file.path(.x, paste0(basename(.x), "_column_names.xlsx")) })
-  spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
-  power_bi_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/power_bi_deck/clean_data.csv")
-  processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
-  text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
-  text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
-  power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
-  text_selected_example_text_survey_data_path <- paste0("Data Collection/survey_monkey_data/", survey_version_name, "/selected_example_text.xlsx")
-  text_selected_example_response_vars <- readxl::excel_sheets(text_selected_example_text_survey_data_path)
-  parameters_for_example_read <- data.frame(Var1 = text_selected_example_response_vars)
-  parameters_for_example_read$Var2 <- text_selected_example_text_survey_data_path
-  power_bi_mc_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_multiple_choice.csv")
-  power_bi_sa_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_select_all.csv")
-  power_bi_descr_table_num_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_descr_table_num.csv")
-  power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
-  qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
-  power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
-  power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-  power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-
-  simulated_data_survey_monkey_design_form_path_list <- purrr::map(survey_directory_paths, ~{ file.path(.x, "simulated_data", paste0(basename(.x), "_survey_monkey_design_form.xlsx")) })
-
-  # Section 1b - Set-up for Workbook Lists --------------------------------------------
-
-  # Create the form list
-  simulated_data_survey_monkey_design_form_lists <- purrr::map(seq_along(simulated_data_survey_monkey_design_form_path_list), ~{
-    iteration <- .x
-    simulated_data_survey_monkey_design_form_list_attempt <- try({
-      bkissell::create_survey_monkey_design_form_list(
-        path = simulated_data_survey_monkey_design_form_path_list[[iteration]],
-        name_of_form = "Design Form",
-        name_of_logic = "Logic",
-        names_of_others_to_ignore = c("IGNORE")
-        )
-    }, silent = TRUE)
-
-    if(class(simulated_data_survey_monkey_design_form_list_attempt) == "try-error") return(list()) else return(simulated_data_survey_monkey_design_form_list_attempt)
-  })
-
-
-  design_form_list <- simulated_data_survey_monkey_design_form_lists[[2]]
-
+  # Extract the design form
   design_form_df <- design_form_list[[name_of_form]]
 
+  design_form_df_ml_rank <- design_form_df %>%
+    dplyr::filter(type == "ml" | type == "ranking")
 
-  purrr::map(seq_along(design_form_df$item_number), ~{
+  design_form_df_ml_rank$q_number <- factor(design_form_df_ml_rank$multiple_item_q_name) %>% as.numeric()
+
+  # Obtain the number of iterations
+  iterations_to_perform <- unique(design_form_df_ml_rank$q_number)
+  # Create progress bar
+  pb <- progress::progress_bar$new(total = length(iterations_to_perform), format = glue::glue("Simulate Data  [:bar] :percent eta: :eta"))
+
+  list_of_dataframes <- purrr::map_dfc(seq_along(iterations_to_perform), ~{
+    iteration <-  .x
+
+    unique_q_number <- iterations_to_perform[[iteration]]
+    new_variable_names <- design_form_df_ml_rank$var_name[design_form_df_ml_rank$q_number == unique_q_number]
+    new_variable_info_type <- design_form_df_ml_rank$label_info[design_form_df_ml_rank$q_number == unique_q_number] %>% unique()
+    response_options <- design_form_list[[new_variable_info_type]]
+    n_response_options <- length(response_options)
+    n_needed_selection <- length(new_variable_names)
+    n_remaining_needs <- n_needed_selection - n_response_options
+    if(n_remaining_needs > 0) {
+      response_options <- c(unname(response_options), rep(NA, n_remaining_needs))
+    }
+    # response_options
+
+    list_of_randomized_responses <- purrr::map_df(seq(1, desired_sample_size), ~{
+      sampled_responses <- sample(response_options)
+      names(sampled_responses) <- new_variable_names
+      sampled_responses %>% as.list() %>% as.data.frame()
+    })
+
+    pb$tick()
+
+    list_of_randomized_responses
+  })
+
+  # Loop through every variable included in the design form
+  simulated_data <- purrr::map_dfc(seq_along(design_form_df$item_number), ~{
+    # Set the number that will be used in the iteration
     iteration <- .x
-    item_number <- design_form_df$item_number[[iteration]]
 
+    # Extract the needed information from the design form
+    item_number <- design_form_df$item_number[[iteration]]
+    question_text <- design_form_df$question_text[[iteration]]
+    subquestion_text <- design_form_df$subquestion_text[[iteration]]
+    type <- design_form_df$type[[iteration]]
+    label_info <- design_form_df$label_info[[iteration]]
+    var_name <- design_form_df$var_name[[iteration]]
+
+    # Create the potential date data.
+    random_numbers_for_date <- seq(desired_sample_size + 499, 500)
+    random_dates <- Sys.time() - random_numbers_for_date
+    random_time_var <- sample(2:60, desired_sample_size, replace = TRUE)
+    random_dates_plus_time <- random_dates + (random_time_var * 60)
+
+    # Depending of the type of data, randomly select responses
+    simulated_responses <- switch(
+      type,
+      "FUNC_respondent_id" = sample(100000000000:999999999999, desired_sample_size),
+      "FUNC_blank" = rep(NA, desired_sample_size),
+      "FUNC_start_date" = format(random_dates, "%m/%d/%Y %H:%M"),
+      "FUNC_end_date" = format(random_dates_plus_time, "%m/%d/%Y %H:%M"),
+      "FUNC_ip_address" = rep("000.00.000.00", desired_sample_size),
+      "mc" = sample(unname(design_form_list[[label_info]]), desired_sample_size, replace = TRUE),
+      "sa" =  sample(c(rep(subquestion_text, 4), rep(NA, 6)), desired_sample_size, replace = TRUE),
+      "FUNC_short_text" = stringr::str_extract(stringi::stri_rand_lipsum(desired_sample_size), "^.{25}"),
+      "FUNC_long_text" = stringi::stri_rand_lipsum(desired_sample_size),
+      "ml" = {
+        list_of_dataframes[[var_name]]
+      },
+      "ranking" = {
+        list_of_dataframes[[var_name]]
+      },
+      rep(NA, desired_sample_size)
+    )
+
+    # Create the vector that will be used for the column
+    column_to_add <- c(question_text, subquestion_text, simulated_responses)
+
+    # Put the data together as a df, which the map_dfc function will use to create the df
+    column_df <- tibble::tibble({{item_number}} := column_to_add)
+
+    column_df
+    # return that data
+    return(column_df)
   })
 
 
-  sample(100000000000:999999999999, desired_sample_size)
 
 
+
+
+
+
+  # Obtain the form that contains the logic
+  logic_form <- design_form_list[[name_of_logic]]
+
+  # Loop through each piece of logic
+  for(i in seq_along(logic_form$IF_VAR)) {
+    # Set the number that will be used in the iteration
+    iteration <- i
+print(iteration)
+    # Extract all of the needed information from the logic form
+    IF_VAR <- logic_form$IF_VAR[iteration]
+    IS_or_IS_NOT <- logic_form$IS_or_IS_NOT[iteration]
+    IS_THIS <- logic_form$IS_THIS[iteration]
+    THEN <- logic_form$THEN[iteration]
+    THIS_VAR <- logic_form$THIS_VAR[iteration]
+    var_to_search <- tidyr::replace_na(simulated_data[[IF_VAR]], "NA")
+    var_to_adjust <- tidyr::replace_na(simulated_data[[THIS_VAR]], "NA")
+
+
+    if(THEN %in% c("REMOVE", "Remove") ){
+    # Use the inputs to select which responses should be NA
+      if(IS_or_IS_NOT == "IS") {
+        vector_for_replacement <- ifelse(
+          var_to_search == {{IS_THIS}},
+          "NA",
+          var_to_adjust
+        )
+      } else if(IS_or_IS_NOT == "IS NOT") {
+
+        vector_for_replacement <- ifelse(
+          var_to_search != {{IS_THIS}},
+          "NA",
+          var_to_adjust
+        )
+      }
+      # Replace the df column with this new vector
+      simulated_data[[THIS_VAR]] <- vector_for_replacement
+    } else if(THEN == "REMOVE MULTIPLE") {
+      # THIS_VAR_SPLIT <- stringr::str_split(THIS_VAR, ", ")[[1]]
+
+      columns_to_exclude <- stringr::str_split(THIS_VAR, ", ")[[1]]
+      # columns_to_exclude <- design_form_df$item_number[seq(which(design_form_df$item_number == THIS_VAR), length(design_form_df$item_number))]
+
+      # paste0(columns_to_exclude, collapse = ", ") %>% clipr::write_clip()
+      columns_to_exclude_num <- purrr::map_int(columns_to_exclude, ~ which(design_form_df$item_number == .x))
+      rows_to_exclude <- var_to_search == {{IS_THIS}}
+      rows_to_exclude[1:2] <- FALSE
+
+      simulated_data <- simulated_data %>%
+        dplyr::mutate(
+          dplyr::across(
+            tidyselect::all_of(columns_to_exclude), ~{
+              ifelse(rows_to_exclude == TRUE, NA, .x)
+            }
+          )
+        )
+
+
+    # simulated_data <<- simulated_data
+
+    }
+
+     # Replace any "NA" responses with actual NAs
+    simulated_data <- simulated_data %>%
+      dplyr::mutate(dplyr::across(tidyselect::everything(), ~ dplyr::na_if(.x, "NA")))
+  }
+
+  # Return the simulated data
+  return(simulated_data)
 }
 
-# ################################################################################
-# # Set up helper functions -------------------------------------------------
-#
-# # Import the package that contains the functions this doc will be explaining.
-# library(datacollectiontools)
-#
-#
-# if_cond_na_else_potential <- function(var, cond_string, potential) {
-#   ifelse(var == {{cond_string}}, potential, NA)
-# }
-#
-#
-# if_not_cond_na_else_potential <- function(var, cond_string, potential) {
-#   ifelse(var != {{cond_string}}, potential, NA)
-# }
-#
-#
-# # Create a function that will create random data for select all variables.
-# create_fake_data_select_all_columns <- function(df, n_respondents, col_names, other_text_col = NULL, filter_var = NULL, filter_label_options = NULL) {
-#   # Create random data for each column
-#   response_options <- purrr::map_dfc(col_names, ~{
-#     sample(0:1, n_respondents, replace = TRUE)
-#   }) %>% purrr::set_names(col_names)
-#   # If a text column is added, randomly create text when the text column indicates text should be there
-#   if(!is.null(other_text_col)){
-#     potential_strings <- stringi::stri_rand_lipsum(n_respondents)
-#     new_name <- paste0("text_", {{other_text_col}})
-#     response_options[new_name] <- ifelse(
-#       response_options[[{{other_text_col}}]] == 1,
-#       potential_strings,
-#       NA
-#     )
-#   }
-#   # If indicated, changed rows that match the condition to NAs
-#   if(!is.null(filter_var) & !is.null(filter_label_options)){
-#     should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
-#     response_options[should_loose ,] <- NA
-#   }
-#   # Add the new columns to the df
-#   df <- df %>% cbind(response_options)
-#   # Return the df
-#   return(df)
-# }
-#
-#
-# create_fake_data_multiple_choice <- function(df, n_respondents, var_name, response_options_named_list, other_text_col = NULL, other_text_cond = NULL, filter_var = NULL, filter_label_options = NULL) {
-#   # Create random data for each column
-#   response_options <- purrr::map_dfc({{var_name}}, ~{
-#     sample(names({{response_options_named_list}}), n_respondents, replace = TRUE)
-#   }) %>% purrr::set_names({{var_name}})
-#
-#   # If a text column is added, randomly create text when the text column indicates text should be there
-#   if(!is.null(other_text_col)){
-#     potential_strings <- stringi::stri_rand_lipsum(n_respondents)
-#     response_options[[{{other_text_col}}]] <- ifelse(
-#       response_options[[{{var_name}}]] == {{other_text_cond}},
-#       potential_strings,
-#       NA
-#     )
-#   }
-#   # If indicated, changed rows that match the condition to NAs
-#   if(!is.null(filter_var) & !is.null(filter_label_options)){
-#     should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
-#     response_options[should_loose ,] <- NA
-#   }
-#   # Add the new columns to the df
-#   df <- df %>% cbind(response_options)
-#   # Return the df
-#   return(df)
-# }
-# ################################################################################
-#
-# ################################################################################
-# # Create function that creates fake data for the sdwza member surv --------
-#
-# create_fake_data_for_sdwza_members <- function(n_respondents) {
-#
-#   respondent_id <- sample(100000000000:999999999999, n_respondents)
-#
-#   collector_id <- rep(123456789, n_respondents)
-#
-#   random_numbers_for_date <- seq(n_respondents + 499, 500)
-#
-#   random_dates <- Sys.time() - random_numbers_for_date
-#
-#   random_time_var <- sample(2:60, n_respondents, replace = TRUE)
-#
-#   random_dates_plus_time <- random_dates + (random_time_var * 60)
-#
-#   start_date <- format(random_dates, "%m/%d/%Y %H:%M")
-#
-#   end_date <- format(random_dates_plus_time, "%m/%d/%Y %H:%M")
-#
-#   ip_address <- rep("000.00.000.00", n_respondents)
-#
-#   email_address <- rep(NA, n_respondents)
-#   first_name <- rep(NA, n_respondents)
-#   last_name <- rep(NA, n_respondents)
-#   custom_data_1 <- rep(NA, n_respondents)
-#
-#   dataframe <- tibble::tibble(
-#     respondent_id,
-#     collector_id,
-#     start_date,
-#     end_date,
-#     ip_address,
-#     email_address,
-#     first_name,
-#     last_name,
-#     custom_data_1
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_length_of_membership <- name_vector(
-#     vector_of_factor_levels = c("Less than one year", "One to three years", "Three to five years", "More than five years"),
-#     names_of_factor_levels = c("Less than one year", "One to three years", "Three to five years", "More than five years")
-#   )
-#
-#   dataframe$length_of_membership <- sample(names(named_vector_length_of_membership), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   named_vector_number_of_visits_last_year <- name_vector(
-#     vector_of_factor_levels = c("I did not visit the San Diego Zoo and San Diego Zoo Safari Park in the last 12 months", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times"),
-#     names_of_factor_levels = c("None", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times")
-#   )
-#
-#   potential_number_of_visits_last_year <- sample(names(named_vector_number_of_visits_last_year), n_respondents, replace = TRUE)
-#
-#   dataframe$number_of_visits_last_year <- ifelse(
-#     dataframe$length_of_membership == "Less than one year",
-#     NA,
-#     potential_number_of_visits_last_year
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_number_of_planned_visits <- name_vector(
-#     vector_of_factor_levels = c("I do not plan to visit the San Diego Zoo and San Diego Zoo Safari Park in the coming 12 months", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times"),
-#     names_of_factor_levels = c("None", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times")
-#   )
-#
-#   dataframe$number_of_planned_visits <- sample(names(named_vector_number_of_planned_visits), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   named_vector_why_originally_became_member <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Great value (e.g., admission to two parks, membership level benefits, etc.)",
-#       "Safe activity during COVID",
-#       "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
-#       "I was looking for a family-friendly activity",
-#       "I wanted to see animals from around the world",
-#       "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
-#       "None of the above: (Please provide your top reason)"
-#     ),
-#     names_of_factor_levels = c(
-#       "Great value (e.g., admission to two parks, membership level benefits, etc.)",
-#       "Safe activity during COVID",
-#       "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
-#       "I was looking for a family-friendly activity",
-#       "I wanted to see animals from around the world",
-#       "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
-#       "None of the above: (Please provide your top reason)"
-#     )
-#   )
-#
-#
-#   # named_vector_why_originally_became_member <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "Great value (e.g., admission to two parks, membership level benefits, etc.)",
-#   #     "Safe activity during COVID",
-#   #     "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
-#   #     "I was looking for a family-friendly activity",
-#   #     "I wanted to see animals from around the world",
-#   #     "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
-#   #     "None of the above: (Please provide your top reason)"
-#   #   ),
-#   #   names_of_factor_levels = c(
-#   #     "Great value",
-#   #     "Safe activity during COVID",
-#   #     "To support the parks",
-#   #     "Family-friendly activity",
-#   #     "Wanted to see animals",
-#   #     "To support animal conservation efforts",
-#   #     "Other"
-#   #   )
-#   # )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "why_originally_became_member",
-#     response_options_named_list = named_vector_why_originally_became_member,
-#     other_text_col = "text_originally_became_member",
-#     other_text_cond = "Other",
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_frequency_of_use <- name_vector(
-#     vector_of_factor_levels = c(
-#       "1 – Never Used",
-#       "2 - Rarely Used",
-#       "3 - Infrequently Used",
-#       "4 - Occasionally Used",
-#       "5 - Sometimes Used",
-#       "6 - Frequently Used",
-#       "7 – Very Frequently Used"
-#     ),
-#     names_of_factor_levels = c(
-#       "1 – Never Used",
-#       "2 - Rarely Used",
-#       "3 - Infrequently Used",
-#       "4 - Occasionally Used",
-#       "5 - Sometimes Used",
-#       "6 - Frequently Used",
-#       "7 – Very Frequently Used"
-#     )
-#   )
-#
-#   # named_vector_frequency_of_use <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "1 – Never Used",
-#   #     "2 - Rarely Used",
-#   #     "3 - Infrequently Used",
-#   #     "4 - Occasionally Used",
-#   #     "5 - Sometimes Used",
-#   #     "6 - Frequently Used",
-#   #     "7 – Very Frequently Used"
-#   #   ),
-#   #   names_of_factor_levels = c(
-#   #     "Never Used",
-#   #     "Rarely Used",
-#   #     "Infrequently Used",
-#   #     "Occasionally Used",
-#   #     "Sometimes Used",
-#   #     "Frequently Used",
-#   #     "Very Frequently Used"
-#   #   )
-#   # )
-#
-#   frequency_use_of_benefits_items <- c(
-#     "frequency_use_of_benefits__tour_or_tram",
-#     "frequency_use_of_benefits__support_global_conservation_efforts",
-#     "frequency_use_of_benefits__wild_perks_discounts",
-#     "frequency_use_of_benefits__50_perc_admission_discount",
-#     "frequency_use_of_benefits__sdzwa_journal_subscription"
-#   )
-#
-#   for(variable in frequency_use_of_benefits_items) {
-#     dataframe <- create_fake_data_multiple_choice(
-#       df = dataframe,
-#       n_respondents = n_respondents,
-#       var_name = variable,
-#       response_options_named_list = named_vector_frequency_of_use
-#     )
-#   }
-#
-#   ##############################################################################
-#
-#   named_vector_level_of_value <- name_vector(
-#     vector_of_factor_levels = c(
-#       "1 – I do not value it at all",
-#       "2 - I value it very little",
-#       "3 – I value it somewhat",
-#       "4 – I value it moderately",
-#       "5 – I value it considerably",
-#       "6 – I value it significantly",
-#       "7 – I value it completely"
-#     ),
-#     names_of_factor_levels = c(
-#       "1 – I do not value it at all",
-#       "2 - I value it very little",
-#       "3 – I value it somewhat",
-#       "4 – I value it moderately",
-#       "5 – I value it considerably",
-#       "6 – I value it significantly",
-#       "7 – I value it completely"
-#     )
-#   )
-#
-#   # named_vector_level_of_value <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "1 – I do not value it at all",
-#   #     "2 - I value it very little",
-#   #     "3 – I value it somewhat",
-#   #     "4 – I value it moderately",
-#   #     "5 – I value it considerably",
-#   #     "6 – I value it significantly",
-#   #     "7 – I value it completely"
-#   #   ),
-#   #   names_of_factor_levels = c(
-#   #     "I do not value it at all",
-#   #     "I value it very little",
-#   #     "I value it somewhat",
-#   #     "I value it moderately",
-#   #     "I value it considerably",
-#   #     "I value it significantly",
-#   #     "I value it completely"
-#   #   )
-#   # )
-#
-#   create_fake_data_multiple_choice_2 <- function(df, n_respondents, var_name, response_options_named_list, other_text_col = NULL, other_text_cond = NULL, filter_var = NULL, filter_label_options = NULL) {
-#     # Create random data for each column
-#     rand_levels <- sample(names({{response_options_named_list}}), n_respondents, replace = TRUE)
-#
-#     # If a text column is added, randomly create text when the text column indicates text should be there
-#     if(!is.null(other_text_col)){
-#       potential_strings <- stringi::stri_rand_lipsum(n_respondents)
-#       response_options[[{{other_text_col}}]] <- ifelse(
-#         response_options[[{{var_name}}]] == {{other_text_cond}},
-#         potential_strings,
-#         NA
-#       )
-#     }
-#     # If indicated, changed rows that match the condition to NAs
-#     if(!is.null(filter_var) & !is.null(filter_label_options)){
-#       should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
-#       rand_levels[should_loose] <- NA
-#     }
-#
-#     df[[var_name]] <- rand_levels
-#     # Add the new columns to the df
-#     # df <- df %>% cbind(response_options)
-#     # Return the df
-#     return(df)
-#   }
-#
-#   for(variable in c("value_of_benefits__tour_or_tram", "value_of_benefits__support_global_conservation_efforts", "value_of_benefits__wild_perks_discounts", "value_of_benefits__50_perc_admission_discount", "value_of_benefits__sdzwa_journal_subscription")) {
-#     dataframe <- create_fake_data_multiple_choice_2(
-#       df = dataframe,
-#       n_respondents = n_respondents,
-#       var_name = variable,
-#       response_options_named_list = named_vector_level_of_value,
-#       filter_var = stringr::str_replace(variable, "^value_of", "frequency_use_of"),
-#       filter_label_options = c("2 - Rarely Used", "3 - Infrequently Used", "4 - Occasionally Used", "5 - Sometimes Used", "6 - Frequently Used", "7 – Very Frequently Used")
-#     )
-#   }
-#
-#
-#   ##############################################################################
-#
-#   dataframe$text_most_enjoyed_from_membership <- stringi::stri_rand_lipsum(n_respondents)
-#
-#   ##############################################################################
-#
-#   named_vector_ad_most_influenced_you_to_join_or_renew <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Information from the website",
-#       "Email offer",
-#       "Mail offer",
-#       "Online advertisement",
-#       "Information provided on-site at the park",
-#       "None of the above: Please provide the advertisement/opportunity that influenced your decision"
-#     ),
-#     names_of_factor_levels = c(
-#       "Information from the website",
-#       "Email offer",
-#       "Mail offer",
-#       "Online advertisement",
-#       "Information provided on-site at the park",
-#       "None of the above: Please provide the advertisement/opportunity that influenced your decision"
-#     )
-#   )
-#
-#   # named_vector_ad_most_influenced_you_to_join_or_renew <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "Information from the website",
-#   #     "Email offer",
-#   #     "Mail offer",
-#   #     "Online advertisement",
-#   #     "Information provided on-site at the park",
-#   #     "None of the above: Please provide the advertisement/opportunity that influenced your decision"
-#   #   ),
-#   #   names_of_factor_levels = c(
-#   #     "Information from the website",
-#   #     "Email offer",
-#   #     "Mail offer",
-#   #     "Online advertisement",
-#   #     "Information provided on-site at the park",
-#   #     "Other"
-#   #   )
-#   # )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "ad_most_influenced_you_to_join_or_renew",
-#     response_options_named_list = named_vector_ad_most_influenced_you_to_join_or_renew,
-#     other_text_col = "text_ad_most_influenced_you_to_join_or_renew",
-#     other_text_cond = "Other",
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_likelihood_of_renewing_membership <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Very unlikely",
-#       "Not Likely",
-#       "Unsure",
-#       "Likely",
-#       "Very likely"
-#     ),
-#     names_of_factor_levels = c(
-#       "Very unlikely",
-#       "Not Likely",
-#       "Unsure",
-#       "Likely",
-#       "Very likely"
-#     )
-#   )
-#
-#   dataframe$likelihood_of_renewing_membership <- sample(names(named_vector_likelihood_of_renewing_membership), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "why_hesitant_to_renew_membership__too_busy",
-#       "why_hesitant_to_renew_membership__family_visits_less_than_expected",
-#       "why_hesitant_to_renew_membership__too_expensive",
-#       "why_hesitant_to_renew_membership__benefits_have_poor_value",
-#       "why_hesitant_to_renew_membership__no_new_exhibits",
-#       "why_hesitant_to_renew_membership__joined_another_venue",
-#       "why_hesitant_to_renew_membership__it_was_a_gift",
-#       "why_hesitant_to_renew_membership__relocation",
-#       "why_hesitant_to_renew_membership__other"
-#     ),
-#     other_text_col = "why_hesitant_to_renew_membership__other",
-#     filter_var = "likelihood_of_renewing_membership",
-#     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
-#   )
-#
-#   ##############################################################################
-#
-#   potential_text_what_other_organization_did_you_join <- stringi::stri_rand_lipsum(n_respondents)
-#
-#   dataframe$text_what_other_organization_did_you_join <- ifelse(dataframe$why_hesitant_to_renew_membership__joined_another_venue %in% c(1), potential_text_what_other_organization_did_you_join, NA)
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "what_could_convince_to_renew__nothing_could_convince_me",
-#       "what_could_convince_to_renew__lower_membership_costs",
-#       "what_could_convince_to_renew__different_benefits",
-#       "what_could_convince_to_renew__more_member_activities",
-#       "what_could_convince_to_renew__improve_zoo_exhibits",
-#       "what_could_convince_to_renew__other"
-#     ),
-#     other_text_col = "what_could_convince_to_renew__other",
-#     filter_var = "likelihood_of_renewing_membership",
-#     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
-#   )
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "why_you_intend_to_renew__there_are_large_number_of_benefits",
-#       "why_you_intend_to_renew__benefits_are_useful",
-#       "why_you_intend_to_renew__support_expansion",
-#       "why_you_intend_to_renew__see_animals_from_around_the_world",
-#       "why_you_intend_to_renew__support_global_conservation_efforts",
-#       "why_you_intend_to_renew__other"
-#     ),
-#     other_text_col = "why_you_intend_to_renew__other",
-#     filter_var = "likelihood_of_renewing_membership",
-#     filter_label_options = c("Likely", "Very Likely")
-#   )
-#
-#   ##############################################################################
-#
-#   # named_vector_preferred_method_of_renewal <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "Send check/credit card info via mail",
-#   #     "Renew online",
-#   #     "On site at the parks",
-#   #     "Phone",
-#   #     "None of the above: Please provide how you would prefer to renew your membership"
-#   #   ),
-#   #   names_of_factor_levels = c(
-#   #     "Send via mail",
-#   #     "Renew online",
-#   #     "On site at the parks",
-#   #     "Phone",
-#   #     "Other"
-#   #   )
-#   # )
-#
-#   named_vector_preferred_method_of_renewal <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Send check/credit card info via mail",
-#       "Renew online",
-#       "On site at the parks",
-#       "Phone",
-#       "None of the above: Please provide how you would prefer to renew your membership"
-#     ),
-#     names_of_factor_levels = c(
-#       "Send check/credit card info via mail",
-#       "Renew online",
-#       "On site at the parks",
-#       "Phone",
-#       "None of the above: Please provide how you would prefer to renew your membership"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "preferred_method_of_renewal",
-#     response_options_named_list = named_vector_preferred_method_of_renewal,
-#     other_text_col = "text_preferred_method_of_renewal",
-#     other_text_cond = "Other",
-#     filter_var = "likelihood_of_renewing_membership",
-#     filter_label_options = c("Likely", "Very Likely")
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_familiarity <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Not at all familiar",
-#       "Slightly familiar",
-#       "Somewhat familiar",
-#       "Moderately familiar",
-#       "Extremely familiar"
-#     ),
-#     names_of_factor_levels = c(
-#       "Not at all familiar",
-#       "Slightly familiar",
-#       "Somewhat familiar",
-#       "Moderately familiar",
-#       "Extremely familiar"
-#     )
-#   )
-#
-#   dataframe$familiarity_of_conservation_efforts <- sample(names(named_vector_familiarity), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   named_vector_confidence <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Not at all confident",
-#       "Slightly confident",
-#       "Somewhat confident",
-#       "Moderately confident",
-#       "Extremely confident"
-#     ),
-#     names_of_factor_levels = c(
-#       "Not at all confident",
-#       "Slightly confident",
-#       "Somewhat confident",
-#       "Moderately confident",
-#       "Extremely confident"
-#     )
-#   )
-#
-#   dataframe$confidence_in_saving_species <- sample(names(named_vector_confidence), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   # named_vector_preferred_habitats <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "Amazonia: Jaguar, Andean bear, and giant otter",
-#   #     "Australian Forest: Koala, platypus, and Tasmanian devil",
-#   #     "Oceans: Polar bear and African penguin",
-#   #     "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
-#   #     "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
-#   #     "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
-#   #     "Savanna: Elephant, rhino, lion, and giraffe",
-#   #     "Asian Rainforest: Tiger, orangutan, and sun bear"
-#   #   ),
-#   #   names_of_factor_levels = c(
-#   #     "Amazonia",
-#   #     "Australian Forest",
-#   #     "Oceans",
-#   #     "Southwest",
-#   #     "Pacific Islands",
-#   #     "African Forest",
-#   #     "Savanna",
-#   #     "Asian Rainforest"
-#   #   )
-#   # )
-#
-#
-#   named_vector_preferred_habitats <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Amazonia: Jaguar, Andean bear, and giant otter",
-#       "Australian Forest: Koala, platypus, and Tasmanian devil",
-#       "Oceans: Polar bear and African penguin",
-#       "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
-#       "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
-#       "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
-#       "Savanna: Elephant, rhino, lion, and giraffe",
-#       "Asian Rainforest: Tiger, orangutan, and sun bear"
-#     ),
-#     names_of_factor_levels = c(
-#       "Amazonia: Jaguar, Andean bear, and giant otter",
-#       "Australian Forest: Koala, platypus, and Tasmanian devil",
-#       "Oceans: Polar bear and African penguin",
-#       "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
-#       "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
-#       "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
-#       "Savanna: Elephant, rhino, lion, and giraffe",
-#       "Asian Rainforest: Tiger, orangutan, and sun bear"
-#     )
-#   )
-#
-#   dataframe$preferred_habitats <- sample(names(named_vector_preferred_habitats), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "preferred_method_to_receive_conservation_news__at_zoo_or_safari_park",
-#       "preferred_method_to_receive_conservation_news__social_media",
-#       "preferred_method_to_receive_conservation_news__email",
-#       "preferred_method_to_receive_conservation_news__mail",
-#       "preferred_method_to_receive_conservation_news__website"
-#     ),
-#     other_text_col = NULL,
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_donated_to_sdzwa_in_past_too_years <- name_vector(
-#     vector_of_factor_levels = c(
-#       "No, I’m not interested in giving additional money",
-#       "No, but I am interested in doing so",
-#       "Yes"
-#     ),
-#     names_of_factor_levels = c(
-#       "No, I’m not interested in giving additional money",
-#       "No, but I am interested in doing so",
-#       "Yes"
-#     )
-#   )
-#
-#   dataframe$donated_to_sdzwa_in_past_too_years <- sample(names(named_vector_donated_to_sdzwa_in_past_too_years), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   named_vector_considering_upgrading_membership <- name_vector(
-#     vector_of_factor_levels = c(
-#       "No, I have already upgraded recently",
-#       "No, I have no desire to upgrade my membership",
-#       "I am unsure about upgrading/what the membership levels are",
-#       "Yes, I am planning to upgrade soon",
-#       "Yes, but I am hesitant to upgrade"
-#     ),
-#     names_of_factor_levels = c(
-#       "No, I have already upgraded recently",
-#       "No, I have no desire to upgrade my membership",
-#       "I am unsure about upgrading/what the membership levels are",
-#       "Yes, I am planning to upgrade soon",
-#       "Yes, but I am hesitant to upgrade"
-#     )
-#   )
-#
-#   dataframe$considering_upgrading_membership <- sample(names(named_vector_considering_upgrading_membership), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "factors_influenced_decision_to_upgrade__more_benefits",
-#       "factors_influenced_decision_to_upgrade__help_conservation_efforts",
-#       "factors_influenced_decision_to_upgrade__financially_able_to",
-#       "factors_influenced_decision_to_upgrade__other"
-#     ),
-#     other_text_col = "factors_influenced_decision_to_upgrade__other",
-#     filter_var = "considering_upgrading_membership",
-#     filter_label_options = c("No, I have already upgraded recently", "Yes, I am planning to upgrade soon")
-#   )
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "factors_made_hesitant_to_upgrade__not_financial_able_to",
-#       "factors_made_hesitant_to_upgrade__do_not_want_benefits",
-#       "factors_made_hesitant_to_upgrade__benefits_not_good_value",
-#       "factors_made_hesitant_to_upgrade__do_not_know_enough_about_benefits",
-#       "factors_made_hesitant_to_upgrade__other"
-#     ),
-#     other_text_col = "factors_made_hesitant_to_upgrade__other",
-#     filter_var = "considering_upgrading_membership",
-#     filter_label_options = c("No, I have no desire to upgrade my membership", "I am unsure about upgrading/what the membership levels are", "Yes, I am planning to upgrade soon")
-#   )
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "what_would_convince_to_upgrade__nothing_would_convince_me",
-#       "what_would_convince_to_upgrade__lower_membership_costs",
-#       "what_would_convince_to_upgrade__different_membership_benefits",
-#       "what_would_convince_to_upgrade__more_member_activities",
-#       "what_would_convince_to_upgrade__improvements_to_zoo_exhibits",
-#       "what_would_convince_to_upgrade__other"
-#     ),
-#     other_text_col = "what_would_convince_to_upgrade__other",
-#     filter_var = "considering_upgrading_membership",
-#     filter_label_options = c("No, I have no desire to upgrade my membership", "I am unsure about upgrading/what the membership levels are", "Yes, I am planning to upgrade soon")
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_net_promoter <- name_vector(
-#     vector_of_factor_levels = as.character(0:10),
-#     names_of_factor_levels = as.character(0:10)
-#   )
-#
-#   dataframe$net_promoter <- sample(names(named_vector_net_promoter), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$why_net_promoter_text <- stringi::stri_rand_lipsum(n_respondents)
-#
-#   ##############################################################################
-#
-#   dataframe$any_other_feedback <- stringi::stri_rand_lipsum(n_respondents)
-#
-#   ##############################################################################
-#
-#   # named_vector_gender <- name_vector(
-#   #   vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
-#   #   names_of_factor_levels = c("Female", "Male", "Other", "Other")
-#   # )
-#
-#   named_vector_gender <- name_vector(
-#     vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
-#     names_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer")
-#   )
-#
-#   dataframe$gender <- sample(names(named_vector_gender), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$age <- sample(18:100, n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$age_group <- dplyr::case_when(
-#     dataframe$age >= 18 & dataframe$age < 40 ~ "18 - 39",
-#     dataframe$age >= 40 & dataframe$age < 60 ~ "40 - 59",
-#     dataframe$age >= 60 & dataframe$age < 101 ~ "60 - 100"
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_ethnicity <- name_vector(
-#     vector_of_factor_levels = c(
-#       "White", "Hispanic, Latino, or Spanish origin",
-#       "Black or African American", "Asian", "American Indian or Alaska Native",
-#       "Middle Eastern or North African",
-#       "Native Hawaiian or other pacific islander", "Other (please specify)"),
-#     names_of_factor_levels = c(
-#       "White", "Hispanic, Latino, or Spanish origin",
-#       "Black or African American", "Asian", "American Indian or Alaska Native",
-#       "Middle Eastern or North African",
-#       "Native Hawaiian or other pacific islander", "Other (please specify)")
-#   )
-#
-#   # named_vector_ethnicity <- name_vector(
-#   #   vector_of_factor_levels = c(
-#   #     "White", "Hispanic, Latino, or Spanish origin",
-#   #     "Black or African American", "Asian", "American Indian or Alaska Native",
-#   #     "Middle Eastern or North African",
-#   #     "Native Hawaiian or other pacific islander", "Other (please specify)"),
-#   #   names_of_factor_levels = c(
-#   #     "White", "Hispanic", "African American", "Asian",
-#   #     "Other", "Other", "Other", "Other")
-#   # )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "ethnicity",
-#     response_options_named_list = named_vector_ethnicity,
-#     other_text_col = "text_ethnicity_other",
-#     other_text_cond = "Other",
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_marital_status <- name_vector(
-#     vector_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged"),
-#     names_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged")
-#   )
-#
-#   dataframe$marital_status <- sample(names(named_vector_marital_status), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "housebold_composition__no_children ",
-#       "housebold_composition__under_12",
-#       "housebold_composition__12_to_17",
-#       "housebold_composition__18_to_65",
-#       "housebold_composition__65_and_up"
-#     ),
-#     other_text_col = NULL,
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_annual_household_income <- name_vector(
-#     vector_of_factor_levels = c(
-#       "$0 - $29,999",
-#       "$30,000 - $59,999",
-#       "$60,000 - $89,999",
-#       "$90,000 - $119,999",
-#       "$120,000 - $149,999",
-#       "$150,000+"
-#     ),
-#     names_of_factor_levels = c(
-#       "$0 - $29,999",
-#       "$30,000 - $59,999",
-#       "$60,000 - $89,999",
-#       "$90,000 - $119,999",
-#       "$120,000 - $149,999",
-#       "$150,000+"
-#     )
-#   )
-#
-#   dataframe$annual_household_income <- sample(names(named_vector_annual_household_income), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$zip_code <- sample(11111:99999, n_respondents)
-#
-#   ##############################################################################
-#
-#   named_vector_agreement <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Strongly Disagree",
-#       "Disagree",
-#       "Neutral",
-#       "Agree",
-#       "Strongly Agree"
-#     ),
-#     names_of_factor_levels = c(
-#       "Strongly Disagree",
-#       "Disagree",
-#       "Neutral",
-#       "Agree",
-#       "Strongly Agree"
-#     )
-#   )
-#
-#   emotional_connection_items <- c(
-#     "emotional_connection__relates_to_me_personally",
-#     "emotional_connection__relates_to_close_friends_and_family",
-#     "emotional_connection__deserves_my_financial_support",
-#     "emotional_connection__made_substantial_progress",
-#     "emotional_connection__is_trustworthy",
-#     "emotional_connection__uses_donations_responsibly",
-#     "emotional_connection__is_compassionate_and_caring",
-#     "emotional_connection__is_innovative_and_a_leader",
-#     "emotional_connection__is_doing_enough",
-#     "emotional_connection__does_work_to_improve_lives_like_mine",
-#     "emotional_connection__does_unique_important_work",
-#     "emotional_connection__heard_positive_things_from_media",
-#     "emotional_connection__heard_positive_things_from_friends",
-#     "emotional_connection__heard_negative_things_from_media",
-#     "emotional_connection__heard_negative_things_from_friends",
-#     "emotional_connection__is_a_good_organization",
-#     "emotional_connection__strong_positive_feelings_about_org",
-#     "emotional_connection__is_transparent_and_clear",
-#     "emotional_connection__one_of_the_best_non_profit_orgs",
-#     "emotional_connection__addresses_problems_important_to_me"
-#   )
-#
-#   for(variable in emotional_connection_items) {
-#     dataframe <- create_fake_data_multiple_choice(
-#       df = dataframe,
-#       n_respondents = n_respondents,
-#       var_name = variable,
-#       response_options_named_list = named_vector_agreement
-#     )
-#   }
-#
-#   ##############################################################################
-#
-#   return(dataframe)
-#
-#   ##############################################################################
-# }
-#
-#
-# # Obtain fake data for the sdwza member survey ----------------------------
-#
-# wave_1_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1001)
-# wave_1_sdwza_member_fake$waves <- "Wave 1"
-#
-# wave_2_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 2222)
-# wave_2_sdwza_member_fake$waves <- "Wave 2"
-#
-# wave_3_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1003)
-# wave_3_sdwza_member_fake$waves <- "Wave 3"
-#
-# wave_4_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1045)
-# wave_4_sdwza_member_fake$waves <- "Wave 4"
-#
-# all_sdwza_fake_member_data <- wave_1_sdwza_member_fake %>%
-#   rbind(wave_2_sdwza_member_fake) %>%
-#   rbind(wave_3_sdwza_member_fake) %>%
-#   rbind(wave_4_sdwza_member_fake)
-#
-#
-# # paste0(colnames(all_sdwza_fake_member_data), collapse = "', '")
-#
-# # c(
-# #   'length_of_membership',
-# #   'number_of_visits_last_year',
-# #   'number_of_planned_visits',
-# #   'why_originally_became_member',
-# #   'frequency_use_of_benefits__tour_or_tram',
-# #   'frequency_use_of_benefits__support_global_conservation_efforts',
-# #   'frequency_use_of_benefits__wild_perks_discounts',
-# #   'frequency_use_of_benefits__50_perc_admission_discount',
-# #   'frequency_use_of_benefits__sdzwa_journal_subscription',
-# #   'value_of_benefits__tour_or_tram',
-# #   'value_of_benefits__support_global_conservation_efforts',
-# #   'value_of_benefits__wild_perks_discounts',
-# #   'value_of_benefits__50_perc_admission_discount',
-# #   'value_of_benefits__sdzwa_journal_subscription',
-# #   'ad_most_influenced_you_to_join_or_renew',
-# #   'likelihood_of_renewing_membership',
-# #   'preferred_method_of_renewal',
-# #   'familiarity_of_conservation_efforts', 'confidence_in_saving_species', 'preferred_habitats', 'preferred_method_to_receive_conservation_news__at_zoo_or_safari_park', 'preferred_method_to_receive_conservation_news__social_media', 'preferred_method_to_receive_conservation_news__email', 'preferred_method_to_receive_conservation_news__mail', 'preferred_method_to_receive_conservation_news__website', 'donated_to_sdzwa_in_past_too_years', 'considering_upgrading_membership', 'factors_influenced_decision_to_upgrade__more_benefits', 'factors_influenced_decision_to_upgrade__help_conservation_efforts', 'factors_influenced_decision_to_upgrade__financially_able_to', 'factors_influenced_decision_to_upgrade__other', 'text_factors_influenced_decision_to_upgrade__other', 'factors_made_hesitant_to_upgrade__not_financial_able_to', 'factors_made_hesitant_to_upgrade__do_not_want_benefits', 'factors_made_hesitant_to_upgrade__benefits_not_good_value', 'factors_made_hesitant_to_upgrade__do_not_know_enough_about_benefits', 'factors_made_hesitant_to_upgrade__other', 'text_factors_made_hesitant_to_upgrade__other', 'what_would_convince_to_upgrade__nothing_would_convince_me', 'what_would_convince_to_upgrade__lower_membership_costs', 'what_would_convince_to_upgrade__different_membership_benefits', 'what_would_convince_to_upgrade__more_member_activities', 'what_would_convince_to_upgrade__improvements_to_zoo_exhibits', 'what_would_convince_to_upgrade__other', 'text_what_would_convince_to_upgrade__other', 'net_promoter', 'why_net_promoter_text', 'any_other_feedback', 'gender', 'age', 'age_group', 'ethnicity', 'text_ethnicity_other', 'marital_status', 'housebold_composition__no_children ', 'housebold_composition__under_12', 'housebold_composition__12_to_17', 'housebold_composition__18_to_65', 'housebold_composition__65_and_up', 'annual_household_income', 'zip_code', 'emotional_connection__relates_to_me_personally', 'emotional_connection__relates_to_close_friends_and_family', 'emotional_connection__deserves_my_financial_support', 'emotional_connection__made_substantial_progress', 'emotional_connection__is_trustworthy', 'emotional_connection__uses_donations_responsibly', 'emotional_connection__is_compassionate_and_caring', 'emotional_connection__is_innovative_and_a_leader', 'emotional_connection__is_doing_enough', 'emotional_connection__does_work_to_improve_lives_like_mine', 'emotional_connection__does_unique_important_work', 'emotional_connection__heard_positive_things_from_media', 'emotional_connection__heard_positive_things_from_friends', 'emotional_connection__heard_negative_things_from_media', 'emotional_connection__heard_negative_things_from_friends', 'emotional_connection__is_a_good_organization', 'emotional_connection__strong_positive_feelings_about_org', 'emotional_connection__is_transparent_and_clear', 'emotional_connection__one_of_the_best_non_profit_orgs', 'emotional_connection__addresses_problems_important_to_me', 'waves')
-#
-#
-# all_sdwza_fake_member_data <- all_sdwza_fake_member_data %>%
-#   mutate(dplyr::across(where(is.factor), as.numeric, .names = "VAR_ORDER__{.col}"))
-#
-# clipr::write_clip(all_sdwza_fake_member_data)
-# ################################################################################
-#
-# ################################################################################
-# # Create function that creates fake data for the sdwza donor survey -------
-#
-# create_fake_data_for_sdwza_donors <- function(n_respondents) {
-#
-#   ##############################################################################
-#
-#   respondent_id <- sample(100000000000:999999999999, n_respondents)
-#
-#   collector_id <- rep(123456789, n_respondents)
-#
-#   random_numbers_for_date <- seq(n_respondents + 499, 500)
-#
-#   random_dates <- Sys.time() - random_numbers_for_date
-#
-#   random_time_var <- sample(2:60, n_respondents, replace = TRUE)
-#
-#   random_dates_plus_time <- random_dates + (random_time_var * 60)
-#
-#   start_date <- format(random_dates, "%m/%d/%Y %H:%M")
-#
-#   end_date <- format(random_dates_plus_time, "%m/%d/%Y %H:%M")
-#
-#   ip_address <- rep("000.00.000.00", n_respondents)
-#
-#   email_address <- rep(NA, n_respondents)
-#   first_name <- rep(NA, n_respondents)
-#   last_name <- rep(NA, n_respondents)
-#   custom_data_1 <- rep(NA, n_respondents)
-#
-#   dataframe <- tibble::tibble(
-#     respondent_id,
-#     collector_id,
-#     start_date,
-#     end_date,
-#     ip_address,
-#     email_address,
-#     first_name,
-#     last_name,
-#     custom_data_1
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_first_donation_why <- name_vector(
-#     vector_of_factor_levels = c(
-#       "I trust San Diego Zoo Wildlife Alliance’s history of impactful conservation efforts",
-#       "I am passionate about saving wildlife and protecting endangered species in San Diego and around the world",
-#       "I want to support the San Diego Zoo and San Diego Zoo Safari Park and ensure they remain open for future generations",
-#       "I was invited to make a donation",
-#       "I want to give back to my community",
-#       "Giving back is the right thing to do",
-#       "None of the above: (Please provide your top reason)"
-#     ),
-#     names_of_factor_levels = c(
-#       "History of conservation efforts",
-#       "Passionate about saving wildlife",
-#       "Support the parks",
-#       "I was invited to donate",
-#       "To give back to my community",
-#       "It is the right thing to do",
-#       "Other"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "first_donation_why",
-#     response_options_named_list = named_vector_first_donation_why,
-#     other_text_col = "text_first_donation_why",
-#     other_text_cond = "Other",
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_confidence <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Not at all confident",
-#       "Slightly confident",
-#       "Somewhat confident",
-#       "Moderately confident",
-#       "Extremely confident"
-#     ),
-#     names_of_factor_levels = c(
-#       "Not at all confident",
-#       "Slightly confident",
-#       "Somewhat confident",
-#       "Moderately confident",
-#       "Extremely confident"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "confident_donation_will_help_acheive_goal",
-#     response_options_named_list = named_vector_confidence
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_yes_no <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Yes",
-#       "No"
-#     ),
-#     names_of_factor_levels = c(
-#       "Yes",
-#       "No"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "monthly_donor",
-#     response_options_named_list = named_vector_yes_no
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_familiarity <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Not at all familiar",
-#       "Slightly familiar",
-#       "Somewhat familiar",
-#       "Moderately familiar",
-#       "Extremely familiar"
-#     ),
-#     names_of_factor_levels = c(
-#       "Not at all familiar",
-#       "Slightly familiar",
-#       "Somewhat familiar",
-#       "Moderately familiar",
-#       "Extremely familiar"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "familiarity_with_sdzwa_monthly_donor_program",
-#     response_options_named_list = named_vector_familiarity,
-#     other_text_col = NULL,
-#     other_text_cond = NULL,
-#     filter_var = "monthly_donor",
-#     filter_label_options = "No"
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_likelihood_2 <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Very unlikely",
-#       "Not Likely",
-#       "Unsure",
-#       "Likely",
-#       "Very likely",
-#       "I would need to learn more before deciding"
-#     ),
-#     names_of_factor_levels = c(
-#       "Very unlikely",
-#       "Not Likely",
-#       "Unsure",
-#       "Likely",
-#       "Very likely",
-#       "Other"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "considering_becoming_monthly_donor",
-#     response_options_named_list = named_vector_likelihood_2,
-#     other_text_col = NULL,
-#     other_text_cond = NULL,
-#     filter_var = "monthly_donor",
-#     filter_label_options = "No"
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_why_not_monthly_donor <- name_vector(
-#     vector_of_factor_levels = c(
-#       "I prefer to give a single lump sum donation",
-#       "I don’t like subscription/monthly commitments",
-#       "Monthly donations are not affordable for me right now",
-#       "I already give monthly to another organization(s)",
-#       "Need more information first",
-#       "Other (please specify)"
-#     ),
-#     names_of_factor_levels = c(
-#       "Prefer lump-sum",
-#       "Do not want monthly commitments",
-#       "Not affordable",
-#       "Already give monthly to others",
-#       "Need more information",
-#       "Other"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "why_not_monthly_donor",
-#     response_options_named_list = named_vector_why_not_monthly_donor,
-#     other_text_col = "text_why_not_monthly_donor_other",
-#     other_text_cond = "Other",
-#     filter_var = "considering_becoming_monthly_donor",
-#     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_last_donation_how <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Online",
-#       "In person at the Zoo or Safari Park",
-#       "By mail",
-#       "By phone",
-#       "At an event",
-#       "Other (please specify)"
-#     ),
-#     names_of_factor_levels = c(
-#       "Online",
-#       "In person at the Zoo or Safari Park",
-#       "By mail",
-#       "By phone",
-#       "At an event",
-#       "Other"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "last_donation_how",
-#     response_options_named_list = named_vector_last_donation_how,
-#     other_text_col = "text_last_donation_how_other",
-#     other_text_cond = "Other",
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_last_online_donation_how <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Going to the website",
-#       "Through an email",
-#       "Through a social media ad",
-#       "Through an online ad",
-#       "None of the above: (Please indicate where you donated online)"
-#     ),
-#     names_of_factor_levels = c(
-#       "Going to the website",
-#       "Through an email",
-#       "Through a social media ad",
-#       "Through an online ad",
-#       "Other"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "last_online_donation_how",
-#     response_options_named_list = named_vector_last_online_donation_how,
-#     other_text_col = "text_last_online_donation_how_other",
-#     other_text_cond = "Other",
-#     filter_var = "last_donation_how",
-#     filter_label_options = "Online"
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_frequency_of_info <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Unsure",
-#       "Never",
-#       "Rarely",
-#       "Occasionally",
-#       "Frequently"
-#     ),
-#     names_of_factor_levels = c(
-#       "Unsure",
-#       "Never",
-#       "Rarely",
-#       "Occasionally",
-#       "Frequently"
-#     )
-#   )
-#
-#   how_often_receive_conservation_information_variables <- c(
-#     "how_often_receive_conservation_information__email",
-#     "how_often_receive_conservation_information__mail",
-#     "how_often_receive_conservation_information__website",
-#     "how_often_receive_conservation_information__at_park",
-#     "how_often_receive_conservation_information__social_media",
-#     "how_often_receive_conservation_information__word_of_mouth"
-#   )
-#
-#   for(variable in how_often_receive_conservation_information_variables) {
-#     dataframe <- create_fake_data_multiple_choice(
-#       df = dataframe,
-#       n_respondents = n_respondents,
-#       var_name = variable,
-#       response_options_named_list = named_vector_frequency_of_info
-#     )
-#   }
-#
-#   ##############################################################################
-#
-#   named_vector_likelihood <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Very unlikely",
-#       "Not Likely",
-#       "Unsure",
-#       "Likely",
-#       "Very likely"
-#     ),
-#     names_of_factor_levels = c(
-#       "Very unlikely",
-#       "Not Likely",
-#       "Unsure",
-#       "Likely",
-#       "Very likely"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "support_sdzwa_again",
-#     response_options_named_list = named_vector_likelihood
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_will_change_donation <- name_vector(
-#     vector_of_factor_levels = c(
-#       "No, I will continue donating the same amount just as frequently",
-#       "Yes, I will decrease the amount or frequency of my donation",
-#       "Yes, I will increase the amount or frequency of my donation",
-#       "I am unsure if the amount or frequency of my donation will change"
-#     ),
-#     names_of_factor_levels = c(
-#       "No, I will continue donating the same amount just as frequently",
-#       "Yes, I will decrease the amount or frequency of my donation",
-#       "Yes, I will increase the amount or frequency of my donation",
-#       "I am unsure if the amount or frequency of my donation will change"
-#     )
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "will_change_donation",
-#     response_options_named_list = named_vector_will_change_donation,
-#     other_text_col = NULL,
-#     other_text_cond = NULL,
-#     filter_var = "support_sdzwa_again",
-#     filter_label_options = c("Likely", "Very likely")
-#   )
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "why_will_change_support__conservation_work",
-#       "why_will_change_support__use_funds_appropriately",
-#       "why_will_change_support__expand_parks",
-#       "why_will_change_support__value_giving_back",
-#       "why_will_change_support__enjoy_donor_benefits",
-#       "why_will_change_support__other"
-#     ),
-#     other_text_col = "why_will_change_support__other",
-#     filter_var = "support_sdzwa_again",
-#     filter_label_options = c("Likely", "Very likely")
-#   )
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "why_not_support__current_budget",
-#       "why_not_support__other_priorities",
-#       "why_not_support__not_convinced_on_their_conservation_efforts",
-#       "why_not_support__do_not_use_funds_appropriately",
-#       "why_not_support__do_not_like_benefits",
-#       "why_not_support__other"
-#     ),
-#     other_text_col = "why_not_support__other",
-#     filter_var = "support_sdzwa_again",
-#     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
-#   )
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "what_would_convince_to_support_again__information",
-#       "what_would_convince_to_support_again__benefits",
-#       "what_would_convince_to_support_again__info_on_conservation_efforts",
-#       "what_would_convince_to_support_again__donor_appreciation",
-#       "what_would_convince_to_support_again__other"
-#     ),
-#     other_text_col = "what_would_convince_to_support_again__other",
-#     filter_var = "support_sdzwa_again",
-#     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_net_promoter <- name_vector(
-#     vector_of_factor_levels = as.character(0:10),
-#     names_of_factor_levels = as.character(0:10)
-#   )
-#
-#   dataframe$net_promoter <- sample(names(named_vector_net_promoter), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$why_net_promoter_text <- stringi::stri_rand_lipsum(n_respondents)
-#
-#   ##############################################################################
-#
-#   dataframe$any_other_feedback <- stringi::stri_rand_lipsum(n_respondents)
-#
-#   ##############################################################################
-#
-#   named_vector_gender <- name_vector(
-#     vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
-#     names_of_factor_levels = c("Female", "Male", "Other", "Other")
-#   )
-#
-#   dataframe$gender <- sample(names(named_vector_gender), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$age <- sample(18:100, n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$age_group <- dplyr::case_when(
-#     dataframe$age >= 18 & dataframe$age < 40 ~ "18 - 39",
-#     dataframe$age >= 40 & dataframe$age < 60 ~ "40 - 59",
-#     dataframe$age >= 60 & dataframe$age < 101 ~ "60 - 100"
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_ethnicity <- name_vector(
-#     vector_of_factor_levels = c(
-#       "White", "Hispanic, Latino, or Spanish origin",
-#       "Black or African American", "Asian", "American Indian or Alaska Native",
-#       "Middle Eastern or North African",
-#       "Native Hawaiian or other pacific islander", "Other (please specify)"),
-#     names_of_factor_levels = c(
-#       "White", "Hispanic", "African American", "Asian",
-#       "Other", "Other", "Other", "Other")
-#   )
-#
-#   dataframe <- create_fake_data_multiple_choice(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     var_name = "ethnicity",
-#     response_options_named_list = named_vector_ethnicity,
-#     other_text_col = "text_ethnicity_other",
-#     other_text_cond = "Other",
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_marital_status <- name_vector(
-#     vector_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged"),
-#     names_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged")
-#   )
-#
-#   dataframe$marital_status <- sample(names(named_vector_marital_status), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe <- create_fake_data_select_all_columns(
-#     df = dataframe,
-#     n_respondents = n_respondents,
-#     col_names = c(
-#       "housebold_composition__no_children ",
-#       "housebold_composition__under_12",
-#       "housebold_composition__12_to_17",
-#       "housebold_composition__18_to_65",
-#       "housebold_composition__65_and_up"
-#     ),
-#     other_text_col = NULL,
-#     filter_var = NULL,
-#     filter_label_options = NULL
-#   )
-#
-#   ##############################################################################
-#
-#   named_vector_annual_household_income <- name_vector(
-#     vector_of_factor_levels = c(
-#       "$0 - $29,999",
-#       "$30,000 - $59,999",
-#       "$60,000 - $89,999",
-#       "$90,000 - $119,999",
-#       "$120,000 - $149,999",
-#       "$150,000+"
-#     ),
-#     names_of_factor_levels = c(
-#       "$0 - $29,999",
-#       "$30,000 - $59,999",
-#       "$60,000 - $89,999",
-#       "$90,000 - $119,999",
-#       "$120,000 - $149,999",
-#       "$150,000+"
-#     )
-#   )
-#
-#   dataframe$annual_household_income <- sample(names(named_vector_annual_household_income), n_respondents, replace = TRUE)
-#
-#   ##############################################################################
-#
-#   dataframe$zip_code <- sample(11111:99999, n_respondents)
-#
-#   ##############################################################################
-#
-#   named_vector_agreement <- name_vector(
-#     vector_of_factor_levels = c(
-#       "Strongly Disagree",
-#       "Disagree",
-#       "Neutral",
-#       "Agree",
-#       "Strongly Agree"
-#     ),
-#     names_of_factor_levels = c(
-#       "Strongly Disagree",
-#       "Disagree",
-#       "Neutral",
-#       "Agree",
-#       "Strongly Agree"
-#     )
-#   )
-#
-#   emotional_connection_items <- c(
-#     "emotional_connection__relates_to_me_personally",
-#     "emotional_connection__relates_to_close_friends_and_family",
-#     "emotional_connection__deserves_my_financial_support",
-#     "emotional_connection__made_substantial_progress",
-#     "emotional_connection__is_trustworthy",
-#     "emotional_connection__uses_donations_responsibly",
-#     "emotional_connection__is_compassionate_and_caring",
-#     "emotional_connection__is_innovative_and_a_leader",
-#     "emotional_connection__is_doing_enough",
-#     "emotional_connection__does_work_to_improve_lives_like_mine",
-#     "emotional_connection__does_unique_important_work",
-#     "emotional_connection__heard_positive_things_from_media",
-#     "emotional_connection__heard_positive_things_from_friends",
-#     "emotional_connection__heard_negative_things_from_media",
-#     "emotional_connection__heard_negative_things_from_friends",
-#     "emotional_connection__is_a_good_organization",
-#     "emotional_connection__strong_positive_feelings_about_org",
-#     "emotional_connection__is_transparent_and_clear",
-#     "emotional_connection__one_of_the_best_non_profit_orgs",
-#     "emotional_connection__addresses_problems_important_to_me"
-#   )
-#
-#   for(variable in emotional_connection_items) {
-#     dataframe <- create_fake_data_multiple_choice(
-#       df = dataframe,
-#       n_respondents = n_respondents,
-#       var_name = variable,
-#       response_options_named_list = named_vector_agreement
-#     )
-#   }
-#
-#   ##############################################################################
-#
-#   return(dataframe)
-#
-#   ##############################################################################
-# }
-#
-#
-# # Obtain fake data for the sdwza donor survey -----------------------------
-#
-# wave_1_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1001)
-# wave_1_sdwza_donors_fake$waves <- "Wave 1"
-#
-# wave_2_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1005)
-# wave_2_sdwza_donors_fake$waves <- "Wave 2"
-#
-# wave_3_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1003)
-# wave_3_sdwza_donors_fake$waves <- "Wave 3"
-#
-# wave_4_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1045)
-# wave_4_sdwza_donors_fake$waves <- "Wave 4"
-#
-# all_sdwza_fake_donors_data <- wave_1_sdwza_donors_fake %>%
-#   rbind(wave_2_sdwza_donors_fake) %>%
-#   rbind(wave_3_sdwza_donors_fake) %>%
-#   rbind(wave_4_sdwza_donors_fake)
-#
-# clipr::write_clip(all_sdwza_fake_donors_data)
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-# ################################################################################
 #
+# #
+# #
+# # clipr::write_clip(simulated_data)
+# #
+# #
+# #
+#
+#
+#
+# #
+# # design_form_df_ml_rank <- design_form_df_ml_rank %>%
+# #   dplyr::group_by(q_number) %>%
+# #   dplyr::mutate(n_options = n())
+# #
+# #
+# # randomized_selection_for_4_options <- purrr::map(seq(1, desired_sample_size), ~sample(1:4, 4))
+# # selected_var_name <- design_form_df$var_name[[iteration]]
+# # var_name_clean <- design_form_df$var_name_clean[[iteration]]
+# # var_name_options <- design_form_df$var_name[design_form_df$var_name_clean == design_form_df$var_name_clean[[iteration]]]
+# # which_column <- which(var_name_options == selected_var_name)
+# #
+# #
+# #
+# # design_form_list[[label_info]]
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+# #
+#
+# # Create the path to the survey monkey design form
+# sm_design_form_path <- file.path(
+#   "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
+#   "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
+#   "SDZ_BC__Quarterly Survey_Wave_2", "Data Collection", "survey_monkey_data",
+#   "Member", "w02_02_2024", "simulated_data", "w02_02_2024_survey_monkey_design_form.xlsx"
+# )
+#
+# # Create the simulated data
+# simulated_data_df <- simulate_data_from_sm_design_form(
+#     sm_design_form_path,
+#     desired_sample_size = 2000,
+#     name_of_form = "Design Form",
+#     name_of_logic = "Logic",
+#     names_of_others_to_ignore = c("IGNORE")
+# )
+#
+# # Write it to the clipboard
+# clipr::write_clip(unname(as.matrix(simulated_data_df)))
+#
+# #
+# #
+# #
+# #
+# #
+#
+#
+# desired_sample_size = 2000
+# name_of_form = "Design Form"
+# name_of_logic = "Logic"
+# names_of_others_to_ignore = c("IGNORE")
+# # Create the path to the survey monkey design form
+# motivates_sm_design_form_path <- file.path(
+#   "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
+#   "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
+#   "240046_CHP_BC__Website Content Testing_OID1876", "Data Collection", "survey_monkey_data",
+#   "Motivates", "motivates_survey_monkey_design_form.xlsx"
+# )
+#
+# # Create the simulated data
+# motivates_simulated_data_df <- simulate_data_from_sm_design_form(
+#   sm_design_form_path,
+#   desired_sample_size = 2000,
+#   name_of_form = "Design Form",
+#   name_of_logic = "Logic",
+#   names_of_others_to_ignore = c("IGNORE")
+# )
+#
+# # Write it to the clipboard
+# clipr::write_clip(unname(as.matrix(motivates_simulated_data_df)))
+#
+#
+# # Create the path to the survey monkey design form
+# impact_sm_design_form_path <- file.path(
+#   "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
+#   "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
+#   "240046_CHP_BC__Website Content Testing_OID1876", "Data Collection", "survey_monkey_data",
+#   "Impact", "impact_survey_monkey_design_form.xlsx"
+# )
+#
+# # Create the simulated data
+# impact_simulated_data_df <- simulate_data_from_sm_design_form(
+#   impact_sm_design_form_path,
+#   desired_sample_size = 2000,
+#   name_of_form = "Design Form",
+#   name_of_logic = "Logic",
+#   names_of_others_to_ignore = c("IGNORE")
+# )
+#
+# # Write it to the clipboard
+# clipr::write_clip(unname(as.matrix(impact_simulated_data_df)))
+#
+# # Create the path to the survey monkey design form
+# inpired_sm_design_form_path <- file.path(
+#   "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
+#   "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
+#   "240046_CHP_BC__Website Content Testing_OID1876", "Data Collection", "survey_monkey_data",
+#   "Inspired", "inspired_survey_monkey_design_form.xlsx"
+# )
+#
+# # Create the simulated data
+# inpired_simulated_data_df <- simulate_data_from_sm_design_form(
+#   inpired_sm_design_form_path,
+#   desired_sample_size = 2000,
+#   name_of_form = "Design Form",
+#   name_of_logic = "Logic",
+#   names_of_others_to_ignore = c("IGNORE")
+# )
+#
+# # Write it to the clipboard
+# clipr::write_clip(unname(as.matrix(inpired_simulated_data_df)))
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+# #
+# #
+# #
+# #
+# # ################################################################################
+# # # Set up helper functions -------------------------------------------------
+# #
+# # # Import the package that contains the functions this doc will be explaining.
+# # library(datacollectiontools)
+# #
+# #
+# # if_cond_na_else_potential <- function(var, cond_string, potential) {
+# #   ifelse(var == {{cond_string}}, potential, NA)
+# # }
+# #
+# #
+# # if_not_cond_na_else_potential <- function(var, cond_string, potential) {
+# #   ifelse(var != {{cond_string}}, potential, NA)
+# # }
+# #
+# #
+# # # Create a function that will create random data for select all variables.
+# # create_fake_data_select_all_columns <- function(df, n_respondents, col_names, other_text_col = NULL, filter_var = NULL, filter_label_options = NULL) {
+# #   # Create random data for each column
+# #   response_options <- purrr::map_dfc(col_names, ~{
+# #     sample(0:1, n_respondents, replace = TRUE)
+# #   }) %>% purrr::set_names(col_names)
+# #   # If a text column is added, randomly create text when the text column indicates text should be there
+# #   if(!is.null(other_text_col)){
+# #     potential_strings <- stringi::stri_rand_lipsum(n_respondents)
+# #     new_name <- paste0("text_", {{other_text_col}})
+# #     response_options[new_name] <- ifelse(
+# #       response_options[[{{other_text_col}}]] == 1,
+# #       potential_strings,
+# #       NA
+# #     )
+# #   }
+# #   # If indicated, changed rows that match the condition to NAs
+# #   if(!is.null(filter_var) & !is.null(filter_label_options)){
+# #     should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
+# #     response_options[should_loose ,] <- NA
+# #   }
+# #   # Add the new columns to the df
+# #   df <- df %>% cbind(response_options)
+# #   # Return the df
+# #   return(df)
+# # }
+# #
+# #
+# # create_fake_data_multiple_choice <- function(df, n_respondents, var_name, response_options_named_list, other_text_col = NULL, other_text_cond = NULL, filter_var = NULL, filter_label_options = NULL) {
+# #   # Create random data for each column
+# #   response_options <- purrr::map_dfc({{var_name}}, ~{
+# #     sample(names({{response_options_named_list}}), n_respondents, replace = TRUE)
+# #   }) %>% purrr::set_names({{var_name}})
+# #
+# #   # If a text column is added, randomly create text when the text column indicates text should be there
+# #   if(!is.null(other_text_col)){
+# #     potential_strings <- stringi::stri_rand_lipsum(n_respondents)
+# #     response_options[[{{other_text_col}}]] <- ifelse(
+# #       response_options[[{{var_name}}]] == {{other_text_cond}},
+# #       potential_strings,
+# #       NA
+# #     )
+# #   }
+# #   # If indicated, changed rows that match the condition to NAs
+# #   if(!is.null(filter_var) & !is.null(filter_label_options)){
+# #     should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
+# #     response_options[should_loose ,] <- NA
+# #   }
+# #   # Add the new columns to the df
+# #   df <- df %>% cbind(response_options)
+# #   # Return the df
+# #   return(df)
+# # }
+# # ################################################################################
+# #
+# # ################################################################################
+# # # Create function that creates fake data for the sdwza member surv --------
+# #
+# # create_fake_data_for_sdwza_members <- function(n_respondents) {
+# #
+# #   respondent_id <- sample(100000000000:999999999999, n_respondents)
+# #
+# #   collector_id <- rep(123456789, n_respondents)
+# #
+# #   random_numbers_for_date <- seq(n_respondents + 499, 500)
+# #
+# #   random_dates <- Sys.time() - random_numbers_for_date
+# #
+# #   random_time_var <- sample(2:60, n_respondents, replace = TRUE)
+# #
+# #   random_dates_plus_time <- random_dates + (random_time_var * 60)
+# #
+# #   start_date <- format(random_dates, "%m/%d/%Y %H:%M")
+# #
+# #   end_date <- format(random_dates_plus_time, "%m/%d/%Y %H:%M")
+# #
+# #   ip_address <- rep("000.00.000.00", n_respondents)
+# #
+# #   email_address <- rep(NA, n_respondents)
+# #   first_name <- rep(NA, n_respondents)
+# #   last_name <- rep(NA, n_respondents)
+# #   custom_data_1 <- rep(NA, n_respondents)
+# #
+# #   dataframe <- tibble::tibble(
+# #     respondent_id,
+# #     collector_id,
+# #     start_date,
+# #     end_date,
+# #     ip_address,
+# #     email_address,
+# #     first_name,
+# #     last_name,
+# #     custom_data_1
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_length_of_membership <- name_vector(
+# #     vector_of_factor_levels = c("Less than one year", "One to three years", "Three to five years", "More than five years"),
+# #     names_of_factor_levels = c("Less than one year", "One to three years", "Three to five years", "More than five years")
+# #   )
+# #
+# #   dataframe$length_of_membership <- sample(names(named_vector_length_of_membership), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_number_of_visits_last_year <- name_vector(
+# #     vector_of_factor_levels = c("I did not visit the San Diego Zoo and San Diego Zoo Safari Park in the last 12 months", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times"),
+# #     names_of_factor_levels = c("None", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times")
+# #   )
+# #
+# #   potential_number_of_visits_last_year <- sample(names(named_vector_number_of_visits_last_year), n_respondents, replace = TRUE)
+# #
+# #   dataframe$number_of_visits_last_year <- ifelse(
+# #     dataframe$length_of_membership == "Less than one year",
+# #     NA,
+# #     potential_number_of_visits_last_year
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_number_of_planned_visits <- name_vector(
+# #     vector_of_factor_levels = c("I do not plan to visit the San Diego Zoo and San Diego Zoo Safari Park in the coming 12 months", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times"),
+# #     names_of_factor_levels = c("None", "1 - 3 times", "4 - 6 times", "7 - 9 times", "10+ times")
+# #   )
+# #
+# #   dataframe$number_of_planned_visits <- sample(names(named_vector_number_of_planned_visits), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_why_originally_became_member <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Great value (e.g., admission to two parks, membership level benefits, etc.)",
+# #       "Safe activity during COVID",
+# #       "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
+# #       "I was looking for a family-friendly activity",
+# #       "I wanted to see animals from around the world",
+# #       "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
+# #       "None of the above: (Please provide your top reason)"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Great value (e.g., admission to two parks, membership level benefits, etc.)",
+# #       "Safe activity during COVID",
+# #       "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
+# #       "I was looking for a family-friendly activity",
+# #       "I wanted to see animals from around the world",
+# #       "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
+# #       "None of the above: (Please provide your top reason)"
+# #     )
+# #   )
+# #
+# #
+# #   # named_vector_why_originally_became_member <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "Great value (e.g., admission to two parks, membership level benefits, etc.)",
+# #   #     "Safe activity during COVID",
+# #   #     "To support San Diego Zoo and San Diego Zoo Safari Park and ensure that future generations can enjoy them",
+# #   #     "I was looking for a family-friendly activity",
+# #   #     "I wanted to see animals from around the world",
+# #   #     "I wanted to support animal conservation efforts that are funded through the Zoo and Safari Park",
+# #   #     "None of the above: (Please provide your top reason)"
+# #   #   ),
+# #   #   names_of_factor_levels = c(
+# #   #     "Great value",
+# #   #     "Safe activity during COVID",
+# #   #     "To support the parks",
+# #   #     "Family-friendly activity",
+# #   #     "Wanted to see animals",
+# #   #     "To support animal conservation efforts",
+# #   #     "Other"
+# #   #   )
+# #   # )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "why_originally_became_member",
+# #     response_options_named_list = named_vector_why_originally_became_member,
+# #     other_text_col = "text_originally_became_member",
+# #     other_text_cond = "Other",
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_frequency_of_use <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "1 – Never Used",
+# #       "2 - Rarely Used",
+# #       "3 - Infrequently Used",
+# #       "4 - Occasionally Used",
+# #       "5 - Sometimes Used",
+# #       "6 - Frequently Used",
+# #       "7 – Very Frequently Used"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "1 – Never Used",
+# #       "2 - Rarely Used",
+# #       "3 - Infrequently Used",
+# #       "4 - Occasionally Used",
+# #       "5 - Sometimes Used",
+# #       "6 - Frequently Used",
+# #       "7 – Very Frequently Used"
+# #     )
+# #   )
+# #
+# #   # named_vector_frequency_of_use <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "1 – Never Used",
+# #   #     "2 - Rarely Used",
+# #   #     "3 - Infrequently Used",
+# #   #     "4 - Occasionally Used",
+# #   #     "5 - Sometimes Used",
+# #   #     "6 - Frequently Used",
+# #   #     "7 – Very Frequently Used"
+# #   #   ),
+# #   #   names_of_factor_levels = c(
+# #   #     "Never Used",
+# #   #     "Rarely Used",
+# #   #     "Infrequently Used",
+# #   #     "Occasionally Used",
+# #   #     "Sometimes Used",
+# #   #     "Frequently Used",
+# #   #     "Very Frequently Used"
+# #   #   )
+# #   # )
+# #
+# #   frequency_use_of_benefits_items <- c(
+# #     "frequency_use_of_benefits__tour_or_tram",
+# #     "frequency_use_of_benefits__support_global_conservation_efforts",
+# #     "frequency_use_of_benefits__wild_perks_discounts",
+# #     "frequency_use_of_benefits__50_perc_admission_discount",
+# #     "frequency_use_of_benefits__sdzwa_journal_subscription"
+# #   )
+# #
+# #   for(variable in frequency_use_of_benefits_items) {
+# #     dataframe <- create_fake_data_multiple_choice(
+# #       df = dataframe,
+# #       n_respondents = n_respondents,
+# #       var_name = variable,
+# #       response_options_named_list = named_vector_frequency_of_use
+# #     )
+# #   }
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_level_of_value <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "1 – I do not value it at all",
+# #       "2 - I value it very little",
+# #       "3 – I value it somewhat",
+# #       "4 – I value it moderately",
+# #       "5 – I value it considerably",
+# #       "6 – I value it significantly",
+# #       "7 – I value it completely"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "1 – I do not value it at all",
+# #       "2 - I value it very little",
+# #       "3 – I value it somewhat",
+# #       "4 – I value it moderately",
+# #       "5 – I value it considerably",
+# #       "6 – I value it significantly",
+# #       "7 – I value it completely"
+# #     )
+# #   )
+# #
+# #   # named_vector_level_of_value <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "1 – I do not value it at all",
+# #   #     "2 - I value it very little",
+# #   #     "3 – I value it somewhat",
+# #   #     "4 – I value it moderately",
+# #   #     "5 – I value it considerably",
+# #   #     "6 – I value it significantly",
+# #   #     "7 – I value it completely"
+# #   #   ),
+# #   #   names_of_factor_levels = c(
+# #   #     "I do not value it at all",
+# #   #     "I value it very little",
+# #   #     "I value it somewhat",
+# #   #     "I value it moderately",
+# #   #     "I value it considerably",
+# #   #     "I value it significantly",
+# #   #     "I value it completely"
+# #   #   )
+# #   # )
+# #
+# #   create_fake_data_multiple_choice_2 <- function(df, n_respondents, var_name, response_options_named_list, other_text_col = NULL, other_text_cond = NULL, filter_var = NULL, filter_label_options = NULL) {
+# #     # Create random data for each column
+# #     rand_levels <- sample(names({{response_options_named_list}}), n_respondents, replace = TRUE)
+# #
+# #     # If a text column is added, randomly create text when the text column indicates text should be there
+# #     if(!is.null(other_text_col)){
+# #       potential_strings <- stringi::stri_rand_lipsum(n_respondents)
+# #       response_options[[{{other_text_col}}]] <- ifelse(
+# #         response_options[[{{var_name}}]] == {{other_text_cond}},
+# #         potential_strings,
+# #         NA
+# #       )
+# #     }
+# #     # If indicated, changed rows that match the condition to NAs
+# #     if(!is.null(filter_var) & !is.null(filter_label_options)){
+# #       should_loose <- !(df[[{{filter_var}}]] %in% c({{filter_label_options}}))
+# #       rand_levels[should_loose] <- NA
+# #     }
+# #
+# #     df[[var_name]] <- rand_levels
+# #     # Add the new columns to the df
+# #     # df <- df %>% cbind(response_options)
+# #     # Return the df
+# #     return(df)
+# #   }
+# #
+# #   for(variable in c("value_of_benefits__tour_or_tram", "value_of_benefits__support_global_conservation_efforts", "value_of_benefits__wild_perks_discounts", "value_of_benefits__50_perc_admission_discount", "value_of_benefits__sdzwa_journal_subscription")) {
+# #     dataframe <- create_fake_data_multiple_choice_2(
+# #       df = dataframe,
+# #       n_respondents = n_respondents,
+# #       var_name = variable,
+# #       response_options_named_list = named_vector_level_of_value,
+# #       filter_var = stringr::str_replace(variable, "^value_of", "frequency_use_of"),
+# #       filter_label_options = c("2 - Rarely Used", "3 - Infrequently Used", "4 - Occasionally Used", "5 - Sometimes Used", "6 - Frequently Used", "7 – Very Frequently Used")
+# #     )
+# #   }
+# #
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$text_most_enjoyed_from_membership <- stringi::stri_rand_lipsum(n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_ad_most_influenced_you_to_join_or_renew <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Information from the website",
+# #       "Email offer",
+# #       "Mail offer",
+# #       "Online advertisement",
+# #       "Information provided on-site at the park",
+# #       "None of the above: Please provide the advertisement/opportunity that influenced your decision"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Information from the website",
+# #       "Email offer",
+# #       "Mail offer",
+# #       "Online advertisement",
+# #       "Information provided on-site at the park",
+# #       "None of the above: Please provide the advertisement/opportunity that influenced your decision"
+# #     )
+# #   )
+# #
+# #   # named_vector_ad_most_influenced_you_to_join_or_renew <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "Information from the website",
+# #   #     "Email offer",
+# #   #     "Mail offer",
+# #   #     "Online advertisement",
+# #   #     "Information provided on-site at the park",
+# #   #     "None of the above: Please provide the advertisement/opportunity that influenced your decision"
+# #   #   ),
+# #   #   names_of_factor_levels = c(
+# #   #     "Information from the website",
+# #   #     "Email offer",
+# #   #     "Mail offer",
+# #   #     "Online advertisement",
+# #   #     "Information provided on-site at the park",
+# #   #     "Other"
+# #   #   )
+# #   # )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "ad_most_influenced_you_to_join_or_renew",
+# #     response_options_named_list = named_vector_ad_most_influenced_you_to_join_or_renew,
+# #     other_text_col = "text_ad_most_influenced_you_to_join_or_renew",
+# #     other_text_cond = "Other",
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_likelihood_of_renewing_membership <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Very unlikely",
+# #       "Not Likely",
+# #       "Unsure",
+# #       "Likely",
+# #       "Very likely"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Very unlikely",
+# #       "Not Likely",
+# #       "Unsure",
+# #       "Likely",
+# #       "Very likely"
+# #     )
+# #   )
+# #
+# #   dataframe$likelihood_of_renewing_membership <- sample(names(named_vector_likelihood_of_renewing_membership), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "why_hesitant_to_renew_membership__too_busy",
+# #       "why_hesitant_to_renew_membership__family_visits_less_than_expected",
+# #       "why_hesitant_to_renew_membership__too_expensive",
+# #       "why_hesitant_to_renew_membership__benefits_have_poor_value",
+# #       "why_hesitant_to_renew_membership__no_new_exhibits",
+# #       "why_hesitant_to_renew_membership__joined_another_venue",
+# #       "why_hesitant_to_renew_membership__it_was_a_gift",
+# #       "why_hesitant_to_renew_membership__relocation",
+# #       "why_hesitant_to_renew_membership__other"
+# #     ),
+# #     other_text_col = "why_hesitant_to_renew_membership__other",
+# #     filter_var = "likelihood_of_renewing_membership",
+# #     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   potential_text_what_other_organization_did_you_join <- stringi::stri_rand_lipsum(n_respondents)
+# #
+# #   dataframe$text_what_other_organization_did_you_join <- ifelse(dataframe$why_hesitant_to_renew_membership__joined_another_venue %in% c(1), potential_text_what_other_organization_did_you_join, NA)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "what_could_convince_to_renew__nothing_could_convince_me",
+# #       "what_could_convince_to_renew__lower_membership_costs",
+# #       "what_could_convince_to_renew__different_benefits",
+# #       "what_could_convince_to_renew__more_member_activities",
+# #       "what_could_convince_to_renew__improve_zoo_exhibits",
+# #       "what_could_convince_to_renew__other"
+# #     ),
+# #     other_text_col = "what_could_convince_to_renew__other",
+# #     filter_var = "likelihood_of_renewing_membership",
+# #     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "why_you_intend_to_renew__there_are_large_number_of_benefits",
+# #       "why_you_intend_to_renew__benefits_are_useful",
+# #       "why_you_intend_to_renew__support_expansion",
+# #       "why_you_intend_to_renew__see_animals_from_around_the_world",
+# #       "why_you_intend_to_renew__support_global_conservation_efforts",
+# #       "why_you_intend_to_renew__other"
+# #     ),
+# #     other_text_col = "why_you_intend_to_renew__other",
+# #     filter_var = "likelihood_of_renewing_membership",
+# #     filter_label_options = c("Likely", "Very Likely")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   # named_vector_preferred_method_of_renewal <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "Send check/credit card info via mail",
+# #   #     "Renew online",
+# #   #     "On site at the parks",
+# #   #     "Phone",
+# #   #     "None of the above: Please provide how you would prefer to renew your membership"
+# #   #   ),
+# #   #   names_of_factor_levels = c(
+# #   #     "Send via mail",
+# #   #     "Renew online",
+# #   #     "On site at the parks",
+# #   #     "Phone",
+# #   #     "Other"
+# #   #   )
+# #   # )
+# #
+# #   named_vector_preferred_method_of_renewal <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Send check/credit card info via mail",
+# #       "Renew online",
+# #       "On site at the parks",
+# #       "Phone",
+# #       "None of the above: Please provide how you would prefer to renew your membership"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Send check/credit card info via mail",
+# #       "Renew online",
+# #       "On site at the parks",
+# #       "Phone",
+# #       "None of the above: Please provide how you would prefer to renew your membership"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "preferred_method_of_renewal",
+# #     response_options_named_list = named_vector_preferred_method_of_renewal,
+# #     other_text_col = "text_preferred_method_of_renewal",
+# #     other_text_cond = "Other",
+# #     filter_var = "likelihood_of_renewing_membership",
+# #     filter_label_options = c("Likely", "Very Likely")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_familiarity <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Not at all familiar",
+# #       "Slightly familiar",
+# #       "Somewhat familiar",
+# #       "Moderately familiar",
+# #       "Extremely familiar"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Not at all familiar",
+# #       "Slightly familiar",
+# #       "Somewhat familiar",
+# #       "Moderately familiar",
+# #       "Extremely familiar"
+# #     )
+# #   )
+# #
+# #   dataframe$familiarity_of_conservation_efforts <- sample(names(named_vector_familiarity), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_confidence <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Not at all confident",
+# #       "Slightly confident",
+# #       "Somewhat confident",
+# #       "Moderately confident",
+# #       "Extremely confident"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Not at all confident",
+# #       "Slightly confident",
+# #       "Somewhat confident",
+# #       "Moderately confident",
+# #       "Extremely confident"
+# #     )
+# #   )
+# #
+# #   dataframe$confidence_in_saving_species <- sample(names(named_vector_confidence), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   # named_vector_preferred_habitats <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "Amazonia: Jaguar, Andean bear, and giant otter",
+# #   #     "Australian Forest: Koala, platypus, and Tasmanian devil",
+# #   #     "Oceans: Polar bear and African penguin",
+# #   #     "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
+# #   #     "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
+# #   #     "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
+# #   #     "Savanna: Elephant, rhino, lion, and giraffe",
+# #   #     "Asian Rainforest: Tiger, orangutan, and sun bear"
+# #   #   ),
+# #   #   names_of_factor_levels = c(
+# #   #     "Amazonia",
+# #   #     "Australian Forest",
+# #   #     "Oceans",
+# #   #     "Southwest",
+# #   #     "Pacific Islands",
+# #   #     "African Forest",
+# #   #     "Savanna",
+# #   #     "Asian Rainforest"
+# #   #   )
+# #   # )
+# #
+# #
+# #   named_vector_preferred_habitats <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Amazonia: Jaguar, Andean bear, and giant otter",
+# #       "Australian Forest: Koala, platypus, and Tasmanian devil",
+# #       "Oceans: Polar bear and African penguin",
+# #       "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
+# #       "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
+# #       "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
+# #       "Savanna: Elephant, rhino, lion, and giraffe",
+# #       "Asian Rainforest: Tiger, orangutan, and sun bear"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Amazonia: Jaguar, Andean bear, and giant otter",
+# #       "Australian Forest: Koala, platypus, and Tasmanian devil",
+# #       "Oceans: Polar bear and African penguin",
+# #       "Southwest: Burrowing owl, desert tortoise, and Pacific pocket mouse",
+# #       "Pacific Islands: ʻAlalā, akikiki, and Galápagos pink iguana",
+# #       "African Forest: Gorilla, chimpanzee, red colobus monkey, and coral tree",
+# #       "Savanna: Elephant, rhino, lion, and giraffe",
+# #       "Asian Rainforest: Tiger, orangutan, and sun bear"
+# #     )
+# #   )
+# #
+# #   dataframe$preferred_habitats <- sample(names(named_vector_preferred_habitats), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "preferred_method_to_receive_conservation_news__at_zoo_or_safari_park",
+# #       "preferred_method_to_receive_conservation_news__social_media",
+# #       "preferred_method_to_receive_conservation_news__email",
+# #       "preferred_method_to_receive_conservation_news__mail",
+# #       "preferred_method_to_receive_conservation_news__website"
+# #     ),
+# #     other_text_col = NULL,
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_donated_to_sdzwa_in_past_too_years <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "No, I’m not interested in giving additional money",
+# #       "No, but I am interested in doing so",
+# #       "Yes"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "No, I’m not interested in giving additional money",
+# #       "No, but I am interested in doing so",
+# #       "Yes"
+# #     )
+# #   )
+# #
+# #   dataframe$donated_to_sdzwa_in_past_too_years <- sample(names(named_vector_donated_to_sdzwa_in_past_too_years), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_considering_upgrading_membership <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "No, I have already upgraded recently",
+# #       "No, I have no desire to upgrade my membership",
+# #       "I am unsure about upgrading/what the membership levels are",
+# #       "Yes, I am planning to upgrade soon",
+# #       "Yes, but I am hesitant to upgrade"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "No, I have already upgraded recently",
+# #       "No, I have no desire to upgrade my membership",
+# #       "I am unsure about upgrading/what the membership levels are",
+# #       "Yes, I am planning to upgrade soon",
+# #       "Yes, but I am hesitant to upgrade"
+# #     )
+# #   )
+# #
+# #   dataframe$considering_upgrading_membership <- sample(names(named_vector_considering_upgrading_membership), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "factors_influenced_decision_to_upgrade__more_benefits",
+# #       "factors_influenced_decision_to_upgrade__help_conservation_efforts",
+# #       "factors_influenced_decision_to_upgrade__financially_able_to",
+# #       "factors_influenced_decision_to_upgrade__other"
+# #     ),
+# #     other_text_col = "factors_influenced_decision_to_upgrade__other",
+# #     filter_var = "considering_upgrading_membership",
+# #     filter_label_options = c("No, I have already upgraded recently", "Yes, I am planning to upgrade soon")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "factors_made_hesitant_to_upgrade__not_financial_able_to",
+# #       "factors_made_hesitant_to_upgrade__do_not_want_benefits",
+# #       "factors_made_hesitant_to_upgrade__benefits_not_good_value",
+# #       "factors_made_hesitant_to_upgrade__do_not_know_enough_about_benefits",
+# #       "factors_made_hesitant_to_upgrade__other"
+# #     ),
+# #     other_text_col = "factors_made_hesitant_to_upgrade__other",
+# #     filter_var = "considering_upgrading_membership",
+# #     filter_label_options = c("No, I have no desire to upgrade my membership", "I am unsure about upgrading/what the membership levels are", "Yes, I am planning to upgrade soon")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "what_would_convince_to_upgrade__nothing_would_convince_me",
+# #       "what_would_convince_to_upgrade__lower_membership_costs",
+# #       "what_would_convince_to_upgrade__different_membership_benefits",
+# #       "what_would_convince_to_upgrade__more_member_activities",
+# #       "what_would_convince_to_upgrade__improvements_to_zoo_exhibits",
+# #       "what_would_convince_to_upgrade__other"
+# #     ),
+# #     other_text_col = "what_would_convince_to_upgrade__other",
+# #     filter_var = "considering_upgrading_membership",
+# #     filter_label_options = c("No, I have no desire to upgrade my membership", "I am unsure about upgrading/what the membership levels are", "Yes, I am planning to upgrade soon")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_net_promoter <- name_vector(
+# #     vector_of_factor_levels = as.character(0:10),
+# #     names_of_factor_levels = as.character(0:10)
+# #   )
+# #
+# #   dataframe$net_promoter <- sample(names(named_vector_net_promoter), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$why_net_promoter_text <- stringi::stri_rand_lipsum(n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$any_other_feedback <- stringi::stri_rand_lipsum(n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   # named_vector_gender <- name_vector(
+# #   #   vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
+# #   #   names_of_factor_levels = c("Female", "Male", "Other", "Other")
+# #   # )
+# #
+# #   named_vector_gender <- name_vector(
+# #     vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
+# #     names_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer")
+# #   )
+# #
+# #   dataframe$gender <- sample(names(named_vector_gender), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$age <- sample(18:100, n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$age_group <- dplyr::case_when(
+# #     dataframe$age >= 18 & dataframe$age < 40 ~ "18 - 39",
+# #     dataframe$age >= 40 & dataframe$age < 60 ~ "40 - 59",
+# #     dataframe$age >= 60 & dataframe$age < 101 ~ "60 - 100"
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_ethnicity <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "White", "Hispanic, Latino, or Spanish origin",
+# #       "Black or African American", "Asian", "American Indian or Alaska Native",
+# #       "Middle Eastern or North African",
+# #       "Native Hawaiian or other pacific islander", "Other (please specify)"),
+# #     names_of_factor_levels = c(
+# #       "White", "Hispanic, Latino, or Spanish origin",
+# #       "Black or African American", "Asian", "American Indian or Alaska Native",
+# #       "Middle Eastern or North African",
+# #       "Native Hawaiian or other pacific islander", "Other (please specify)")
+# #   )
+# #
+# #   # named_vector_ethnicity <- name_vector(
+# #   #   vector_of_factor_levels = c(
+# #   #     "White", "Hispanic, Latino, or Spanish origin",
+# #   #     "Black or African American", "Asian", "American Indian or Alaska Native",
+# #   #     "Middle Eastern or North African",
+# #   #     "Native Hawaiian or other pacific islander", "Other (please specify)"),
+# #   #   names_of_factor_levels = c(
+# #   #     "White", "Hispanic", "African American", "Asian",
+# #   #     "Other", "Other", "Other", "Other")
+# #   # )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "ethnicity",
+# #     response_options_named_list = named_vector_ethnicity,
+# #     other_text_col = "text_ethnicity_other",
+# #     other_text_cond = "Other",
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_marital_status <- name_vector(
+# #     vector_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged"),
+# #     names_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged")
+# #   )
+# #
+# #   dataframe$marital_status <- sample(names(named_vector_marital_status), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "housebold_composition__no_children ",
+# #       "housebold_composition__under_12",
+# #       "housebold_composition__12_to_17",
+# #       "housebold_composition__18_to_65",
+# #       "housebold_composition__65_and_up"
+# #     ),
+# #     other_text_col = NULL,
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_annual_household_income <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "$0 - $29,999",
+# #       "$30,000 - $59,999",
+# #       "$60,000 - $89,999",
+# #       "$90,000 - $119,999",
+# #       "$120,000 - $149,999",
+# #       "$150,000+"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "$0 - $29,999",
+# #       "$30,000 - $59,999",
+# #       "$60,000 - $89,999",
+# #       "$90,000 - $119,999",
+# #       "$120,000 - $149,999",
+# #       "$150,000+"
+# #     )
+# #   )
+# #
+# #   dataframe$annual_household_income <- sample(names(named_vector_annual_household_income), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$zip_code <- sample(11111:99999, n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_agreement <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Strongly Disagree",
+# #       "Disagree",
+# #       "Neutral",
+# #       "Agree",
+# #       "Strongly Agree"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Strongly Disagree",
+# #       "Disagree",
+# #       "Neutral",
+# #       "Agree",
+# #       "Strongly Agree"
+# #     )
+# #   )
+# #
+# #   emotional_connection_items <- c(
+# #     "emotional_connection__relates_to_me_personally",
+# #     "emotional_connection__relates_to_close_friends_and_family",
+# #     "emotional_connection__deserves_my_financial_support",
+# #     "emotional_connection__made_substantial_progress",
+# #     "emotional_connection__is_trustworthy",
+# #     "emotional_connection__uses_donations_responsibly",
+# #     "emotional_connection__is_compassionate_and_caring",
+# #     "emotional_connection__is_innovative_and_a_leader",
+# #     "emotional_connection__is_doing_enough",
+# #     "emotional_connection__does_work_to_improve_lives_like_mine",
+# #     "emotional_connection__does_unique_important_work",
+# #     "emotional_connection__heard_positive_things_from_media",
+# #     "emotional_connection__heard_positive_things_from_friends",
+# #     "emotional_connection__heard_negative_things_from_media",
+# #     "emotional_connection__heard_negative_things_from_friends",
+# #     "emotional_connection__is_a_good_organization",
+# #     "emotional_connection__strong_positive_feelings_about_org",
+# #     "emotional_connection__is_transparent_and_clear",
+# #     "emotional_connection__one_of_the_best_non_profit_orgs",
+# #     "emotional_connection__addresses_problems_important_to_me"
+# #   )
+# #
+# #   for(variable in emotional_connection_items) {
+# #     dataframe <- create_fake_data_multiple_choice(
+# #       df = dataframe,
+# #       n_respondents = n_respondents,
+# #       var_name = variable,
+# #       response_options_named_list = named_vector_agreement
+# #     )
+# #   }
+# #
+# #   ##############################################################################
+# #
+# #   return(dataframe)
+# #
+# #   ##############################################################################
+# # }
+# #
+# #
+# # # Obtain fake data for the sdwza member survey ----------------------------
+# #
+# # wave_1_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1001)
+# # wave_1_sdwza_member_fake$waves <- "Wave 1"
+# #
+# # wave_2_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 2222)
+# # wave_2_sdwza_member_fake$waves <- "Wave 2"
+# #
+# # wave_3_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1003)
+# # wave_3_sdwza_member_fake$waves <- "Wave 3"
+# #
+# # wave_4_sdwza_member_fake <- create_fake_data_for_sdwza_members(n_respondents = 1045)
+# # wave_4_sdwza_member_fake$waves <- "Wave 4"
+# #
+# # all_sdwza_fake_member_data <- wave_1_sdwza_member_fake %>%
+# #   rbind(wave_2_sdwza_member_fake) %>%
+# #   rbind(wave_3_sdwza_member_fake) %>%
+# #   rbind(wave_4_sdwza_member_fake)
+# #
+# #
+# # # paste0(colnames(all_sdwza_fake_member_data), collapse = "', '")
+# #
+# # # c(
+# # #   'length_of_membership',
+# # #   'number_of_visits_last_year',
+# # #   'number_of_planned_visits',
+# # #   'why_originally_became_member',
+# # #   'frequency_use_of_benefits__tour_or_tram',
+# # #   'frequency_use_of_benefits__support_global_conservation_efforts',
+# # #   'frequency_use_of_benefits__wild_perks_discounts',
+# # #   'frequency_use_of_benefits__50_perc_admission_discount',
+# # #   'frequency_use_of_benefits__sdzwa_journal_subscription',
+# # #   'value_of_benefits__tour_or_tram',
+# # #   'value_of_benefits__support_global_conservation_efforts',
+# # #   'value_of_benefits__wild_perks_discounts',
+# # #   'value_of_benefits__50_perc_admission_discount',
+# # #   'value_of_benefits__sdzwa_journal_subscription',
+# # #   'ad_most_influenced_you_to_join_or_renew',
+# # #   'likelihood_of_renewing_membership',
+# # #   'preferred_method_of_renewal',
+# # #   'familiarity_of_conservation_efforts', 'confidence_in_saving_species', 'preferred_habitats', 'preferred_method_to_receive_conservation_news__at_zoo_or_safari_park', 'preferred_method_to_receive_conservation_news__social_media', 'preferred_method_to_receive_conservation_news__email', 'preferred_method_to_receive_conservation_news__mail', 'preferred_method_to_receive_conservation_news__website', 'donated_to_sdzwa_in_past_too_years', 'considering_upgrading_membership', 'factors_influenced_decision_to_upgrade__more_benefits', 'factors_influenced_decision_to_upgrade__help_conservation_efforts', 'factors_influenced_decision_to_upgrade__financially_able_to', 'factors_influenced_decision_to_upgrade__other', 'text_factors_influenced_decision_to_upgrade__other', 'factors_made_hesitant_to_upgrade__not_financial_able_to', 'factors_made_hesitant_to_upgrade__do_not_want_benefits', 'factors_made_hesitant_to_upgrade__benefits_not_good_value', 'factors_made_hesitant_to_upgrade__do_not_know_enough_about_benefits', 'factors_made_hesitant_to_upgrade__other', 'text_factors_made_hesitant_to_upgrade__other', 'what_would_convince_to_upgrade__nothing_would_convince_me', 'what_would_convince_to_upgrade__lower_membership_costs', 'what_would_convince_to_upgrade__different_membership_benefits', 'what_would_convince_to_upgrade__more_member_activities', 'what_would_convince_to_upgrade__improvements_to_zoo_exhibits', 'what_would_convince_to_upgrade__other', 'text_what_would_convince_to_upgrade__other', 'net_promoter', 'why_net_promoter_text', 'any_other_feedback', 'gender', 'age', 'age_group', 'ethnicity', 'text_ethnicity_other', 'marital_status', 'housebold_composition__no_children ', 'housebold_composition__under_12', 'housebold_composition__12_to_17', 'housebold_composition__18_to_65', 'housebold_composition__65_and_up', 'annual_household_income', 'zip_code', 'emotional_connection__relates_to_me_personally', 'emotional_connection__relates_to_close_friends_and_family', 'emotional_connection__deserves_my_financial_support', 'emotional_connection__made_substantial_progress', 'emotional_connection__is_trustworthy', 'emotional_connection__uses_donations_responsibly', 'emotional_connection__is_compassionate_and_caring', 'emotional_connection__is_innovative_and_a_leader', 'emotional_connection__is_doing_enough', 'emotional_connection__does_work_to_improve_lives_like_mine', 'emotional_connection__does_unique_important_work', 'emotional_connection__heard_positive_things_from_media', 'emotional_connection__heard_positive_things_from_friends', 'emotional_connection__heard_negative_things_from_media', 'emotional_connection__heard_negative_things_from_friends', 'emotional_connection__is_a_good_organization', 'emotional_connection__strong_positive_feelings_about_org', 'emotional_connection__is_transparent_and_clear', 'emotional_connection__one_of_the_best_non_profit_orgs', 'emotional_connection__addresses_problems_important_to_me', 'waves')
+# #
+# #
+# # all_sdwza_fake_member_data <- all_sdwza_fake_member_data %>%
+# #   mutate(dplyr::across(where(is.factor), as.numeric, .names = "VAR_ORDER__{.col}"))
+# #
+# # clipr::write_clip(all_sdwza_fake_member_data)
+# # ################################################################################
+# #
+# # ################################################################################
+# # # Create function that creates fake data for the sdwza donor survey -------
+# #
+# # create_fake_data_for_sdwza_donors <- function(n_respondents) {
+# #
+# #   ##############################################################################
+# #
+# #   respondent_id <- sample(100000000000:999999999999, n_respondents)
+# #
+# #   collector_id <- rep(123456789, n_respondents)
+# #
+# #   random_numbers_for_date <- seq(n_respondents + 499, 500)
+# #
+# #   random_dates <- Sys.time() - random_numbers_for_date
+# #
+# #   random_time_var <- sample(2:60, n_respondents, replace = TRUE)
+# #
+# #   random_dates_plus_time <- random_dates + (random_time_var * 60)
+# #
+# #   start_date <- format(random_dates, "%m/%d/%Y %H:%M")
+# #
+# #   end_date <- format(random_dates_plus_time, "%m/%d/%Y %H:%M")
+# #
+# #   ip_address <- rep("000.00.000.00", n_respondents)
+# #
+# #   email_address <- rep(NA, n_respondents)
+# #   first_name <- rep(NA, n_respondents)
+# #   last_name <- rep(NA, n_respondents)
+# #   custom_data_1 <- rep(NA, n_respondents)
+# #
+# #   dataframe <- tibble::tibble(
+# #     respondent_id,
+# #     collector_id,
+# #     start_date,
+# #     end_date,
+# #     ip_address,
+# #     email_address,
+# #     first_name,
+# #     last_name,
+# #     custom_data_1
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_first_donation_why <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "I trust San Diego Zoo Wildlife Alliance’s history of impactful conservation efforts",
+# #       "I am passionate about saving wildlife and protecting endangered species in San Diego and around the world",
+# #       "I want to support the San Diego Zoo and San Diego Zoo Safari Park and ensure they remain open for future generations",
+# #       "I was invited to make a donation",
+# #       "I want to give back to my community",
+# #       "Giving back is the right thing to do",
+# #       "None of the above: (Please provide your top reason)"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "History of conservation efforts",
+# #       "Passionate about saving wildlife",
+# #       "Support the parks",
+# #       "I was invited to donate",
+# #       "To give back to my community",
+# #       "It is the right thing to do",
+# #       "Other"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "first_donation_why",
+# #     response_options_named_list = named_vector_first_donation_why,
+# #     other_text_col = "text_first_donation_why",
+# #     other_text_cond = "Other",
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_confidence <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Not at all confident",
+# #       "Slightly confident",
+# #       "Somewhat confident",
+# #       "Moderately confident",
+# #       "Extremely confident"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Not at all confident",
+# #       "Slightly confident",
+# #       "Somewhat confident",
+# #       "Moderately confident",
+# #       "Extremely confident"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "confident_donation_will_help_acheive_goal",
+# #     response_options_named_list = named_vector_confidence
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_yes_no <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Yes",
+# #       "No"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Yes",
+# #       "No"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "monthly_donor",
+# #     response_options_named_list = named_vector_yes_no
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_familiarity <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Not at all familiar",
+# #       "Slightly familiar",
+# #       "Somewhat familiar",
+# #       "Moderately familiar",
+# #       "Extremely familiar"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Not at all familiar",
+# #       "Slightly familiar",
+# #       "Somewhat familiar",
+# #       "Moderately familiar",
+# #       "Extremely familiar"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "familiarity_with_sdzwa_monthly_donor_program",
+# #     response_options_named_list = named_vector_familiarity,
+# #     other_text_col = NULL,
+# #     other_text_cond = NULL,
+# #     filter_var = "monthly_donor",
+# #     filter_label_options = "No"
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_likelihood_2 <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Very unlikely",
+# #       "Not Likely",
+# #       "Unsure",
+# #       "Likely",
+# #       "Very likely",
+# #       "I would need to learn more before deciding"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Very unlikely",
+# #       "Not Likely",
+# #       "Unsure",
+# #       "Likely",
+# #       "Very likely",
+# #       "Other"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "considering_becoming_monthly_donor",
+# #     response_options_named_list = named_vector_likelihood_2,
+# #     other_text_col = NULL,
+# #     other_text_cond = NULL,
+# #     filter_var = "monthly_donor",
+# #     filter_label_options = "No"
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_why_not_monthly_donor <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "I prefer to give a single lump sum donation",
+# #       "I don’t like subscription/monthly commitments",
+# #       "Monthly donations are not affordable for me right now",
+# #       "I already give monthly to another organization(s)",
+# #       "Need more information first",
+# #       "Other (please specify)"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Prefer lump-sum",
+# #       "Do not want monthly commitments",
+# #       "Not affordable",
+# #       "Already give monthly to others",
+# #       "Need more information",
+# #       "Other"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "why_not_monthly_donor",
+# #     response_options_named_list = named_vector_why_not_monthly_donor,
+# #     other_text_col = "text_why_not_monthly_donor_other",
+# #     other_text_cond = "Other",
+# #     filter_var = "considering_becoming_monthly_donor",
+# #     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_last_donation_how <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Online",
+# #       "In person at the Zoo or Safari Park",
+# #       "By mail",
+# #       "By phone",
+# #       "At an event",
+# #       "Other (please specify)"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Online",
+# #       "In person at the Zoo or Safari Park",
+# #       "By mail",
+# #       "By phone",
+# #       "At an event",
+# #       "Other"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "last_donation_how",
+# #     response_options_named_list = named_vector_last_donation_how,
+# #     other_text_col = "text_last_donation_how_other",
+# #     other_text_cond = "Other",
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_last_online_donation_how <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Going to the website",
+# #       "Through an email",
+# #       "Through a social media ad",
+# #       "Through an online ad",
+# #       "None of the above: (Please indicate where you donated online)"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Going to the website",
+# #       "Through an email",
+# #       "Through a social media ad",
+# #       "Through an online ad",
+# #       "Other"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "last_online_donation_how",
+# #     response_options_named_list = named_vector_last_online_donation_how,
+# #     other_text_col = "text_last_online_donation_how_other",
+# #     other_text_cond = "Other",
+# #     filter_var = "last_donation_how",
+# #     filter_label_options = "Online"
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_frequency_of_info <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Unsure",
+# #       "Never",
+# #       "Rarely",
+# #       "Occasionally",
+# #       "Frequently"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Unsure",
+# #       "Never",
+# #       "Rarely",
+# #       "Occasionally",
+# #       "Frequently"
+# #     )
+# #   )
+# #
+# #   how_often_receive_conservation_information_variables <- c(
+# #     "how_often_receive_conservation_information__email",
+# #     "how_often_receive_conservation_information__mail",
+# #     "how_often_receive_conservation_information__website",
+# #     "how_often_receive_conservation_information__at_park",
+# #     "how_often_receive_conservation_information__social_media",
+# #     "how_often_receive_conservation_information__word_of_mouth"
+# #   )
+# #
+# #   for(variable in how_often_receive_conservation_information_variables) {
+# #     dataframe <- create_fake_data_multiple_choice(
+# #       df = dataframe,
+# #       n_respondents = n_respondents,
+# #       var_name = variable,
+# #       response_options_named_list = named_vector_frequency_of_info
+# #     )
+# #   }
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_likelihood <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Very unlikely",
+# #       "Not Likely",
+# #       "Unsure",
+# #       "Likely",
+# #       "Very likely"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Very unlikely",
+# #       "Not Likely",
+# #       "Unsure",
+# #       "Likely",
+# #       "Very likely"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "support_sdzwa_again",
+# #     response_options_named_list = named_vector_likelihood
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_will_change_donation <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "No, I will continue donating the same amount just as frequently",
+# #       "Yes, I will decrease the amount or frequency of my donation",
+# #       "Yes, I will increase the amount or frequency of my donation",
+# #       "I am unsure if the amount or frequency of my donation will change"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "No, I will continue donating the same amount just as frequently",
+# #       "Yes, I will decrease the amount or frequency of my donation",
+# #       "Yes, I will increase the amount or frequency of my donation",
+# #       "I am unsure if the amount or frequency of my donation will change"
+# #     )
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "will_change_donation",
+# #     response_options_named_list = named_vector_will_change_donation,
+# #     other_text_col = NULL,
+# #     other_text_cond = NULL,
+# #     filter_var = "support_sdzwa_again",
+# #     filter_label_options = c("Likely", "Very likely")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "why_will_change_support__conservation_work",
+# #       "why_will_change_support__use_funds_appropriately",
+# #       "why_will_change_support__expand_parks",
+# #       "why_will_change_support__value_giving_back",
+# #       "why_will_change_support__enjoy_donor_benefits",
+# #       "why_will_change_support__other"
+# #     ),
+# #     other_text_col = "why_will_change_support__other",
+# #     filter_var = "support_sdzwa_again",
+# #     filter_label_options = c("Likely", "Very likely")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "why_not_support__current_budget",
+# #       "why_not_support__other_priorities",
+# #       "why_not_support__not_convinced_on_their_conservation_efforts",
+# #       "why_not_support__do_not_use_funds_appropriately",
+# #       "why_not_support__do_not_like_benefits",
+# #       "why_not_support__other"
+# #     ),
+# #     other_text_col = "why_not_support__other",
+# #     filter_var = "support_sdzwa_again",
+# #     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "what_would_convince_to_support_again__information",
+# #       "what_would_convince_to_support_again__benefits",
+# #       "what_would_convince_to_support_again__info_on_conservation_efforts",
+# #       "what_would_convince_to_support_again__donor_appreciation",
+# #       "what_would_convince_to_support_again__other"
+# #     ),
+# #     other_text_col = "what_would_convince_to_support_again__other",
+# #     filter_var = "support_sdzwa_again",
+# #     filter_label_options = c("Very unlikely", "Not Likely", "Unsure")
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_net_promoter <- name_vector(
+# #     vector_of_factor_levels = as.character(0:10),
+# #     names_of_factor_levels = as.character(0:10)
+# #   )
+# #
+# #   dataframe$net_promoter <- sample(names(named_vector_net_promoter), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$why_net_promoter_text <- stringi::stri_rand_lipsum(n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$any_other_feedback <- stringi::stri_rand_lipsum(n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_gender <- name_vector(
+# #     vector_of_factor_levels = c("Female", "Male", "Non-binary", "Prefer not to answer"),
+# #     names_of_factor_levels = c("Female", "Male", "Other", "Other")
+# #   )
+# #
+# #   dataframe$gender <- sample(names(named_vector_gender), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$age <- sample(18:100, n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$age_group <- dplyr::case_when(
+# #     dataframe$age >= 18 & dataframe$age < 40 ~ "18 - 39",
+# #     dataframe$age >= 40 & dataframe$age < 60 ~ "40 - 59",
+# #     dataframe$age >= 60 & dataframe$age < 101 ~ "60 - 100"
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_ethnicity <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "White", "Hispanic, Latino, or Spanish origin",
+# #       "Black or African American", "Asian", "American Indian or Alaska Native",
+# #       "Middle Eastern or North African",
+# #       "Native Hawaiian or other pacific islander", "Other (please specify)"),
+# #     names_of_factor_levels = c(
+# #       "White", "Hispanic", "African American", "Asian",
+# #       "Other", "Other", "Other", "Other")
+# #   )
+# #
+# #   dataframe <- create_fake_data_multiple_choice(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     var_name = "ethnicity",
+# #     response_options_named_list = named_vector_ethnicity,
+# #     other_text_col = "text_ethnicity_other",
+# #     other_text_cond = "Other",
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_marital_status <- name_vector(
+# #     vector_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged"),
+# #     names_of_factor_levels = c("Married", "Single, never married", "Single, divorced/separated/widowed", "Living with significant other/engaged")
+# #   )
+# #
+# #   dataframe$marital_status <- sample(names(named_vector_marital_status), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe <- create_fake_data_select_all_columns(
+# #     df = dataframe,
+# #     n_respondents = n_respondents,
+# #     col_names = c(
+# #       "housebold_composition__no_children ",
+# #       "housebold_composition__under_12",
+# #       "housebold_composition__12_to_17",
+# #       "housebold_composition__18_to_65",
+# #       "housebold_composition__65_and_up"
+# #     ),
+# #     other_text_col = NULL,
+# #     filter_var = NULL,
+# #     filter_label_options = NULL
+# #   )
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_annual_household_income <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "$0 - $29,999",
+# #       "$30,000 - $59,999",
+# #       "$60,000 - $89,999",
+# #       "$90,000 - $119,999",
+# #       "$120,000 - $149,999",
+# #       "$150,000+"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "$0 - $29,999",
+# #       "$30,000 - $59,999",
+# #       "$60,000 - $89,999",
+# #       "$90,000 - $119,999",
+# #       "$120,000 - $149,999",
+# #       "$150,000+"
+# #     )
+# #   )
+# #
+# #   dataframe$annual_household_income <- sample(names(named_vector_annual_household_income), n_respondents, replace = TRUE)
+# #
+# #   ##############################################################################
+# #
+# #   dataframe$zip_code <- sample(11111:99999, n_respondents)
+# #
+# #   ##############################################################################
+# #
+# #   named_vector_agreement <- name_vector(
+# #     vector_of_factor_levels = c(
+# #       "Strongly Disagree",
+# #       "Disagree",
+# #       "Neutral",
+# #       "Agree",
+# #       "Strongly Agree"
+# #     ),
+# #     names_of_factor_levels = c(
+# #       "Strongly Disagree",
+# #       "Disagree",
+# #       "Neutral",
+# #       "Agree",
+# #       "Strongly Agree"
+# #     )
+# #   )
+# #
+# #   emotional_connection_items <- c(
+# #     "emotional_connection__relates_to_me_personally",
+# #     "emotional_connection__relates_to_close_friends_and_family",
+# #     "emotional_connection__deserves_my_financial_support",
+# #     "emotional_connection__made_substantial_progress",
+# #     "emotional_connection__is_trustworthy",
+# #     "emotional_connection__uses_donations_responsibly",
+# #     "emotional_connection__is_compassionate_and_caring",
+# #     "emotional_connection__is_innovative_and_a_leader",
+# #     "emotional_connection__is_doing_enough",
+# #     "emotional_connection__does_work_to_improve_lives_like_mine",
+# #     "emotional_connection__does_unique_important_work",
+# #     "emotional_connection__heard_positive_things_from_media",
+# #     "emotional_connection__heard_positive_things_from_friends",
+# #     "emotional_connection__heard_negative_things_from_media",
+# #     "emotional_connection__heard_negative_things_from_friends",
+# #     "emotional_connection__is_a_good_organization",
+# #     "emotional_connection__strong_positive_feelings_about_org",
+# #     "emotional_connection__is_transparent_and_clear",
+# #     "emotional_connection__one_of_the_best_non_profit_orgs",
+# #     "emotional_connection__addresses_problems_important_to_me"
+# #   )
+# #
+# #   for(variable in emotional_connection_items) {
+# #     dataframe <- create_fake_data_multiple_choice(
+# #       df = dataframe,
+# #       n_respondents = n_respondents,
+# #       var_name = variable,
+# #       response_options_named_list = named_vector_agreement
+# #     )
+# #   }
+# #
+# #   ##############################################################################
+# #
+# #   return(dataframe)
+# #
+# #   ##############################################################################
+# # }
+# #
+# #
+# # # Obtain fake data for the sdwza donor survey -----------------------------
+# #
+# # wave_1_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1001)
+# # wave_1_sdwza_donors_fake$waves <- "Wave 1"
+# #
+# # wave_2_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1005)
+# # wave_2_sdwza_donors_fake$waves <- "Wave 2"
+# #
+# # wave_3_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1003)
+# # wave_3_sdwza_donors_fake$waves <- "Wave 3"
+# #
+# # wave_4_sdwza_donors_fake <- create_fake_data_for_sdwza_donors(1045)
+# # wave_4_sdwza_donors_fake$waves <- "Wave 4"
+# #
+# # all_sdwza_fake_donors_data <- wave_1_sdwza_donors_fake %>%
+# #   rbind(wave_2_sdwza_donors_fake) %>%
+# #   rbind(wave_3_sdwza_donors_fake) %>%
+# #   rbind(wave_4_sdwza_donors_fake)
+# #
+# # clipr::write_clip(all_sdwza_fake_donors_data)
+# #
+# #
+# #
+# #
+# #
+# #
+# #
+# #
+# #
+# #
+# # #
+# # #
+# # # ################################################################################
+# # #
 # ################################################################################

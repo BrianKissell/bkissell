@@ -485,8 +485,8 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
     if(file.exists(.x)){
       power_bi_overall_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
         df = survey_data_for_power_bi_df,
-        column_workbook_list,
-        grouping_vars,
+        column_workbook_list = column_workbook_lists_single,
+        grouping_vars = grouping_vars,
         name_of_column_details,
         path_to_qual_coding_data = .x,
         qualitative_type = "overall_coding",
@@ -494,7 +494,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
       power_bi_overall_qualitative <- power_bi_overall_qualitative[[1]]
 
-      order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+      order_information_lookup_table <- create_order_information_lookup_table(column_workbook_lists_single, name_of_column_details)
 
       power_bi_overall_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_overall_qualitative$grouping_var_used)
 
@@ -503,7 +503,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
         dplyr::filter(!is.na(grouping_var_levels))
 
 
-      power_bi_overall_qualitative$Wave <- basename(dirname(.x))
+      power_bi_overall_qualitative$wave <- basename(dirname(.x))
 
       power_bi_overall_qualitative
     } else {
@@ -522,8 +522,8 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
       power_bi_break_down_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
         df = survey_data_for_power_bi_df,
-        column_workbook_list,
-        grouping_vars,
+        column_workbook_list = column_workbook_lists_single,
+        grouping_vars = grouping_vars,
         name_of_column_details,
         path_to_qual_coding_data = .x,
         qualitative_type = "break_down_coding",
@@ -531,7 +531,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
       power_bi_break_down_qualitative <- power_bi_break_down_qualitative[[1]]
 
-      order_information_lookup_table <- create_order_information_lookup_table(column_workbook_list, name_of_column_details)
+      order_information_lookup_table <- create_order_information_lookup_table(column_workbook_lists_single, name_of_column_details)
 
       power_bi_break_down_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_break_down_qualitative$grouping_var_used)
 
@@ -539,7 +539,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
       power_bi_break_down_qualitative <- power_bi_break_down_qualitative %>%
         dplyr::filter(!is.na(grouping_var_levels))
 
-      power_bi_break_down_qualitative$Wave <- basename(dirname(.x))
+      power_bi_break_down_qualitative$wave <- basename(dirname(.x))
 
       power_bi_break_down_qualitative
     } else {
@@ -558,7 +558,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 }
 
 
-#
+
 #
 #
 #
