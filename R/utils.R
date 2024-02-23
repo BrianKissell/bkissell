@@ -3888,12 +3888,14 @@ process_numeric_vars_power_bi <- function(data, column_workbook_list, name_of_co
     for(i in variables_needs_to_be_reverse_coded) {
       label_for_revers_coded_var <- paste0("NUM__REVERSE_CODED__", i)
       label_for_original_numeric <- paste0("NUM__", i)
+      fix_label_for_orig <- paste0 <- paste0("ORIG_NUM__", i)
       length_levels_for_factor <- length(levels(data_used[[i]]))
 
       numeric_variable <- as.numeric(data_used[[i]])
 
       reordered_numeric_variable <- (length_levels_for_factor + 1) - numeric_variable
 
+      data_used[fix_label_for_orig] <- data_used[label_for_original_numeric]
       data_used <- data_used %>% dplyr::select(-c(all_of(label_for_original_numeric)))
       data_used[label_for_revers_coded_var] <- reordered_numeric_variable
     }
@@ -3919,6 +3921,22 @@ process_numeric_vars_power_bi <- function(data, column_workbook_list, name_of_co
         select(starts_with(final_scale_variable_names)) %>%
         rowMeans()
     }
+
+    orig_num_var_names <- data_used %>%
+      dplyr::select(
+        starts_with("ORIG_NUM")
+      ) %>% colnames()
+
+    if(length(orig_num_var_names) > 0) {
+      for(i in seq_along(orig_num_var_names)){
+        iteration <- i
+        converted_label <- orig_num_var_names[[iteration]]
+        add_label <- stringr::str_replace(converted_label, "ORIG_", "")
+        data_used[[add_label]] <- data_used[[converted_label]]
+        data_used <- data_used %>% dplyr::select(-all_of(converted_label))
+      }
+    }
+
 
     return(data_used)
   }
