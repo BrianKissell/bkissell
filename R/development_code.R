@@ -56,8 +56,16 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   ,
   write_data = TRUE
   ,
-  variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type")
-  ,
+  variables_to_include_with_text = c(
+    "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
+    "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
+    "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
+    "annual_household_income",	"zip_code", "audience_type", "net_promoter",
+    "length_of_membership",	"number_of_visits_last_year",
+    "number_of_planned_visits",	"likelihood_of_renewing",
+    "donated_to_sdzwa_in_past", "confident_donation_will_help",
+    "monthly_donor",	"support_sdzwa_again")
+,
   grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
   ) {
 
@@ -100,7 +108,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
 
 
-  text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+  power_bi_text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
 
   power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
 
@@ -352,7 +360,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   text_survey_data <-  survey_data_for_power_bi_df %>%
     dplyr::select(
       "RID",
-      tidyselect::all_of(variables_to_include_with_text),
+      tidyselect::any_of(variables_to_include_with_text),
       starts_with("text_")
     )
 
@@ -365,7 +373,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   # Shape and filter the textual data
   power_bi_text <- text_survey_data %>%
     tidyr::pivot_longer(
-      cols = -c("RID", tidyselect::all_of(variables_to_include_with_text)),
+      cols = -c("RID", tidyselect::any_of(variables_to_include_with_text)),
       names_to = "response_var_used",
       names_prefix = "text_",
       values_to = "textual_responses"
@@ -386,13 +394,14 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
     read_and_add_param_to_column <- purrr::as_mapper(
       function(param_df) {
         purrr::map_df(seq_along(param_df$Var1), ~{
-          selected_examples_df <- readxl::read_excel(param_df$Var2[[.x]], param_df$Var1[[.x]])
-          selected_examples_df$response_var_used <- param_df$Var1[[.x]]
+          iteration <- .x
+          selected_examples_df <- readxl::read_excel(param_df$Var2[[iteration]], param_df$Var1[[iteration]])
+          selected_examples_df$response_var_used <- param_df$Var1[[iteration]]
           selected_examples_df
         }, param_df)
       })
 
-    selected_examples_text_df <- read_and_add_param_to_column(parameters_for_example_read)
+    selected_examples_text_df <- read_and_add_param_to_column(param_df = parameters_for_example_read)
     # selected_examples_text_df$RID <- selected_examples_text_df$respondent_id
     selected_examples_text_df$RID <- as.numeric(selected_examples_text_df$RID)
     text_survey_data$RID <- as.numeric(text_survey_data$RID)
@@ -401,12 +410,28 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
         dplyr::left_join(text_survey_data, by = "RID") %>%
         dplyr::select(!tidyselect::starts_with("text_"))
 
+    combined_df_selected_examples_text_df$wave <- combined_df_selected_examples_text_df$wave_info
+
+
+
     selected_examples_text_df$RID <- as.character(selected_examples_text_df$RID)
     text_survey_data$RID <- as.character(text_survey_data$RID)
     combined_df_selected_examples_text_df$RID <- as.character(combined_df_selected_examples_text_df$RID)
 
+    combined_df_selected_examples_text_df <- combined_df_selected_examples_text_df %>%
+      dplyr::select(
+        any_of(c("wave", "RID",	"Text",	"Category",	"response_var_used",	"start_date",
+          "end_date",	"h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",
+          "h_c__18_to_65",	"h_c__65_and_up",	"zip_code",	"gender",	"age_group",
+          "ethnicity",	"marital_status",	"annual_household_income",
+          "net_promoter",	"length_of_membership",	"number_of_visits_last_year",
+          "number_of_planned_visits",	"likelihood_of_renewing",
+          "donated_to_sdzwa_in_past", "confident_donation_will_help",
+          "monthly_donor",	"support_sdzwa_again","study_version")
+      ))
+
     if(write_data){
-      writexl::write_xlsx(combined_df_selected_examples_text_df, text_selected_example_text_survey_data_path)
+      readr::write_csv(combined_df_selected_examples_text_df, power_bi_text_selected_example_text_survey_data_path)
     }
   }
 
@@ -481,14 +506,15 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
   ### Qualitative Coding #######################################################
 # If I end up needing a combined set, I will need to add an optional piece that does those calculations
-  power_bi_overall_qualitative_combined <- purrr::map(qualitative_coding_data_path_list, ~ {
-    if(file.exists(.x)){
+  power_bi_overall_qualitative_combined <- purrr::map(seq_along(qualitative_coding_data_path_list), ~ {
+    iteration <- .x
+    if(file.exists(qualitative_coding_data_path_list[[iteration]])){
       power_bi_overall_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
         df = survey_data_for_power_bi_df,
         column_workbook_list = column_workbook_lists_single,
         grouping_vars = grouping_vars,
         name_of_column_details,
-        path_to_qual_coding_data = .x,
+        path_to_qual_coding_data = qualitative_coding_data_path_list[[iteration]],
         qualitative_type = "overall_coding",
         identifier = "RID")
 
@@ -503,7 +529,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
         dplyr::filter(!is.na(grouping_var_levels))
 
 
-      power_bi_overall_qualitative$wave <- basename(dirname(.x))
+      power_bi_overall_qualitative$wave <- basename(dirname(qualitative_coding_data_path_list[[iteration]]))
 
       power_bi_overall_qualitative
     } else {
@@ -552,17 +578,20 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
     readr::write_csv(power_bi_break_down_qualitative_combined, power_bi_break_down_qualitative_path)
   }
 
-
-
-
 }
 
 
 
+
+
+
 #
 #
-#
-#
+# #
+# # #
+# # #
+# # #
+# # #
 # DASHBOARD_CREATION_PLACEHOLDER(
 #     survey_version_name = "Member",
 #     should_create_nonexistant_dirs = TRUE,
@@ -579,13 +608,21 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 #     survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
 #     name_of_column_details = "column_details",
 #     write_data = TRUE,
-#     variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type"),
+#     variables_to_include_with_text = c(
+#       "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
+#       "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
+#       "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
+#       "annual_household_income",	"zip_code", "audience_type", "net_promoter",
+#       "length_of_membership",	"number_of_visits_last_year",
+#       "number_of_planned_visits",	"likelihood_of_renewing",
+#       "donated_to_sdzwa_in_past", "confident_donation_will_help",
+#       "monthly_donor",	"support_sdzwa_again"),
 #     grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
 # )
-#
-#
-#
-#
+# #
+# #
+# #
+# #
 # DASHBOARD_CREATION_PLACEHOLDER(
 #   survey_version_name = "Donor",
 #   should_create_nonexistant_dirs = TRUE,
@@ -602,6 +639,14 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 #   survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
 #   name_of_column_details = "column_details",
 #   write_data = TRUE,
-#   variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type"),
+#   variables_to_include_with_text = c(
+#     "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
+#     "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
+#     "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
+#     "annual_household_income",	"zip_code", "audience_type", "net_promoter",
+#     "length_of_membership",	"number_of_visits_last_year",
+#     "number_of_planned_visits",	"likelihood_of_renewing",
+#     "donated_to_sdzwa_in_past", "confident_donation_will_help",
+#     "monthly_donor",	"support_sdzwa_again"),
 #   grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
 # )
