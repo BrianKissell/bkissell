@@ -1,4 +1,4 @@
-library(datacollectiontools)
+
 # A -----------------------------------------------------------------------
 
 #' Easily create error messages for when arguments do not meet expectations
@@ -376,7 +376,7 @@ clean_and_process_with_column_workbook_list <- function(
 combine_file_string_with_time <- function(
     file_string,
     specifier = "%m%d%Y_%H%M%S"
-  ){
+){
 
   # Check for the Extension
   ext <- tools::file_ext(file_string)
@@ -473,7 +473,7 @@ convert_specific_column_names_to_data_type <- function(
     logical_names = NULL,
     date_names = NULL,
     list_names = NULL
-    ) {
+) {
 
   # Create named list of parameters
   list_of_paramaters <- list(
@@ -484,7 +484,7 @@ convert_specific_column_names_to_data_type <- function(
     "logical_names" = logical_names,
     "date_names" = date_names,
     "list_names" = list_names
-    )
+  )
 
   # Obtain the possible types as strings
   possible_types <- stringr::str_replace(names(list_of_paramaters), "_names$", "")
@@ -1071,7 +1071,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
   cts_calculate_counts <- function(df) {
     table <- df %>%
       # Get the counts for the grouping variable by the response variables
-      dplyr::summarize(counts = n(), .groups = "drop")
+      dplyr::summarize(counts = dplyr::n(), .groups = "drop")
     return(table)
   }
 
@@ -1173,7 +1173,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
         .data[["grouping_var_order"]],
         .data[["response_var_levels"]]
       ) %>%
-      dplyr::summarize(group_n = n(), .groups = "drop")
+      dplyr::summarize(group_n = dplyr::n(), .groups = "drop")
 
     table_percent <- table_counts %>%
       dplyr::left_join(table_n, by = c("grouping_var_levels", "response_var_levels", "grouping_var_order")) %>%
@@ -1217,7 +1217,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
       dplyr::filter(!is.na(group_n)) %>%
       dplyr::group_by(
         .data[["response_var_levels"]]) %>%
-      dplyr::summarize(group_n = n())
+      dplyr::summarize(group_n = dplyr::n())
 
     all_table_percent <- all_table_count %>%
       dplyr::left_join(all_table_n, by = c("response_var_levels")) %>%
@@ -1279,7 +1279,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
       dplyr::summarize(
         mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
         sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
-        n = n(),
+        n = dplyr::n(),
         se = sd/sqrt(n),
         ci_limit = se * 1.96,
         ci_upper = mean + ci_limit,
@@ -1311,7 +1311,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
       dplyr::summarize(
         mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
         sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
-        n = n(),
+        n = dplyr::n(),
         se = sd/sqrt(n),
         ci_limit = se * 1.96,
         ci_upper = mean + ci_limit,
@@ -1362,7 +1362,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
       # Get the counts for the grouping variable by the response variables
       dplyr::summarize(
         sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
-        n = n(),
+        n = dplyr::n(),
         average = sum / n,
         NPS = average * 100, .groups = "drop")
 
@@ -1391,7 +1391,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
       # Calculate the counts
       dplyr::summarize(
         sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
-        n = n(),
+        n = dplyr::n(),
         average = sum / n,
         NPS = average * 100, .groups = "drop")
 
@@ -1469,7 +1469,7 @@ create_table_single_mc <- function(df, response_var_name, grouping_var_name){
   cts_calculate_counts <- function(df) {
     table <- df %>%
       # Get the counts for the grouping variable by the response variables
-      dplyr::summarize(counts = n(), .groups = "drop")
+      dplyr::summarize(counts = dplyr::n(), .groups = "drop")
     return(table)
   }
 
@@ -1502,45 +1502,45 @@ create_table_single_mc <- function(df, response_var_name, grouping_var_name){
   }
 
 
-    # Make sure the df is not grouped by anything
-    df <- df %>% ungroup()
+  # Make sure the df is not grouped by anything
+  df <- df %>% ungroup()
 
-    # Add VAR_ORDER for both grouping and response vars to the df it is working on
-    df <- prepare_VAR_ORDER_variables_single(df, response_var_name, grouping_var_name)
+  # Add VAR_ORDER for both grouping and response vars to the df it is working on
+  df <- prepare_VAR_ORDER_variables_single(df, response_var_name, grouping_var_name)
 
-    df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
-    df <- cts_create_response_and_order_var(df, response_var_name, order_variable)
+  df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
+  df <- cts_create_response_and_order_var(df, response_var_name, order_variable)
 
-    variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order")
-    for(i in variable_names_to_group) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
-    for(j in variable_names_to_group) {df <- cts_add_group_by(df, var_name = j)}
-    table <- cts_calculate_counts(df)
-    table <- cts_add_group_by(table, var_name = "grouping_var_levels")
-    table <- cts_calculate_group_counts_and_percentages(table)
-    table$grouping_var_used <- {{grouping_var_name}}
-    table$response_var_used <- {{response_var_name}}
-    table <- table %>% dplyr::ungroup()
+  variable_names_to_group <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order")
+  for(i in variable_names_to_group) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+  for(j in variable_names_to_group) {df <- cts_add_group_by(df, var_name = j)}
+  table <- cts_calculate_counts(df)
+  table <- cts_add_group_by(table, var_name = "grouping_var_levels")
+  table <- cts_calculate_group_counts_and_percentages(table)
+  table$grouping_var_used <- {{grouping_var_name}}
+  table$response_var_used <- {{response_var_name}}
+  table <- table %>% dplyr::ungroup()
 
-    # Create Overall Table
-    df <- df %>% ungroup()
-    variable_names_to_group_for_all <- c("response_var_levels", "response_var_order")
-    for(i in variable_names_to_group_for_all) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
-    for(j in variable_names_to_group_for_all) {df <- cts_add_group_by(df, var_name = j)}
-    table_all <- cts_calculate_counts(df)
-    table_all <- cts_calculate_group_counts_and_percentages(table_all)
-    table_all$grouping_var_used <- "All"
-    table_all$response_var_used <- {{response_var_name}}
-    table_all <- table_all %>% dplyr::ungroup()
-    table_all$grouping_var_levels <- "All"
-    table_all$grouping_var_order <- 0
+  # Create Overall Table
+  df <- df %>% ungroup()
+  variable_names_to_group_for_all <- c("response_var_levels", "response_var_order")
+  for(i in variable_names_to_group_for_all) {df <- cts_filter_out_NAs_from_df(df, var_name = i)}
+  for(j in variable_names_to_group_for_all) {df <- cts_add_group_by(df, var_name = j)}
+  table_all <- cts_calculate_counts(df)
+  table_all <- cts_calculate_group_counts_and_percentages(table_all)
+  table_all$grouping_var_used <- "All"
+  table_all$response_var_used <- {{response_var_name}}
+  table_all <- table_all %>% dplyr::ungroup()
+  table_all$grouping_var_levels <- "All"
+  table_all$grouping_var_order <- 0
 
-    # join Tables
-    table_var_order <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order", "counts", "group_n", "percentage", "grouping_var_used", "response_var_used")
-    table <- table %>% dplyr::select(dplyr::all_of(table_var_order))
-    table_all <- table_all %>% dplyr::select(dplyr::all_of(table_var_order))
-    table <- table %>% rbind(table_all)
-    df <- df %>% dplyr::ungroup()
-    table$overall_sample_size_for_response_var <- cts_calculate_overall_sample_size(df, response_var_name)
+  # join Tables
+  table_var_order <- c("grouping_var_levels", "response_var_levels", "grouping_var_order", "response_var_order", "counts", "group_n", "percentage", "grouping_var_used", "response_var_used")
+  table <- table %>% dplyr::select(dplyr::all_of(table_var_order))
+  table_all <- table_all %>% dplyr::select(dplyr::all_of(table_var_order))
+  table <- table %>% rbind(table_all)
+  df <- df %>% dplyr::ungroup()
+  table$overall_sample_size_for_response_var <- cts_calculate_overall_sample_size(df, response_var_name)
 
   return(table)
 }
@@ -1663,7 +1663,7 @@ create_power_bi_data <- function(
 
     unique_select_all_items <- power_bi_select_all$response_var_used %>% unique()
 
-    question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% distinct()
+    question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% dplyr::distinct()
 
     for(i in seq_along(question_text_df$label_info)) {
       power_bi_select_all$response_var_used <- ifelse(
@@ -1836,7 +1836,7 @@ create_power_bi_data_sa <- function(
 
   unique_select_all_items <- table$response_var_used %>% unique()
 
-  question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% distinct()
+  question_text_df <- select_all_df %>% dplyr::filter(label_info %in% unique_select_all_items) %>% dplyr::select(label_info, question) %>% dplyr::distinct()
 
   for(i in seq_along(question_text_df$label_info)) {
     table$response_var_used <- ifelse(
@@ -3918,7 +3918,7 @@ process_numeric_vars_power_bi <- function(data, column_workbook_list, name_of_co
         dplyr::pull(var_names_for_scaling)
 
       data_used[label_for_the_score] <- data_used %>%
-        select(starts_with(final_scale_variable_names)) %>%
+        dplyr::select(starts_with(final_scale_variable_names)) %>%
         rowMeans()
     }
 
@@ -3936,7 +3936,6 @@ process_numeric_vars_power_bi <- function(data, column_workbook_list, name_of_co
         data_used <- data_used %>% dplyr::select(-all_of(converted_label))
       }
     }
-
 
     return(data_used)
   }
@@ -4654,7 +4653,7 @@ set_project_working_directory <- function(
 
   # When dropbox is used, you must include an additional username into the path
   if(storage_platform == "dropbox") {
-    drop_box_user <- list.files(storage_platform_path)[list.files(storage_platform_path) != "desktop.ini"]
+    drop_box_user <- list.files(storage_platform_path)[!list.files(storage_platform_path) %in% c("desktop.ini", "TCM Team Folder")]
     storage_platform_path <- paste0(storage_platform_path, "/", drop_box_user)
   }
 
@@ -4900,7 +4899,7 @@ create_order_information_lookup_table <- function(column_workbook_list, name_of_
   })
 
   # Make sure there are no duplicates
-  lookup_table <- distinct(lookup_table)
+  lookup_table <- dplyr::distinct(lookup_table)
 
   # Create the number for each level
   lookup_table$id_var_order <- factor(lookup_table$var_label_info_levels, unique(lookup_table$var_label_info_levels)) %>% as.numeric()
@@ -4943,7 +4942,7 @@ create_order_information_lookup_table <- function(column_workbook_list, name_of_
 
   # Join these together and make sure there are no duplicates
   full_lookup_table <- full_lookup_table %>%
-    rbind(lookup_table) %>% distinct()
+    rbind(lookup_table) %>% dplyr::distinct()
 
   # Create All versions for the grouping variables
   All_label_table <- data.frame(
@@ -4956,7 +4955,7 @@ create_order_information_lookup_table <- function(column_workbook_list, name_of_
   # Join these together and make sure there are no duplicates
   full_lookup_table <- full_lookup_table %>%
     rbind(All_label_table) %>%
-    distinct()
+    dplyr::distinct()
 
   # Return the table
   return(full_lookup_table)
@@ -5070,7 +5069,7 @@ create_table_single_mc_DEV <- function(df, response_var_name, grouping_var_name)
   cts_calculate_counts <- function(df) {
     table <- df %>%
       # Get the counts for the grouping variable by the response variables
-      dplyr::summarize(counts = n(), .groups = "drop")
+      dplyr::summarize(counts = dplyr::n(), .groups = "drop")
     return(table)
   }
 
@@ -5352,10 +5351,10 @@ create_grouped_percentages_table <- function(df, grouping_var_name, response_var
     rbind(combined_group_level_counts)
 
 
-    # Get the counts for the groups
-    group_n_table_2 <- grouped_count_table |>
-      dplyr::group_by(grouping_var_levels) |>
-      dplyr::summarise(group_n = sum(counts))
+  # Get the counts for the groups
+  group_n_table_2 <- grouped_count_table |>
+    dplyr::group_by(grouping_var_levels) |>
+    dplyr::summarise(group_n = sum(counts))
 
 
   # Convert the grouping_var_levels_to_character
@@ -6255,9 +6254,9 @@ create_power_bi_data_qualitative_CALCULATED_TABLES <- function(
 #' @export
 #'
 create_grouped_des_stats_table <- function(
-  df,
-  grouping_var_name,
-  response_var_name){
+    df,
+    grouping_var_name,
+    response_var_name){
 
   variable_used <- response_var_name
 
@@ -6281,7 +6280,7 @@ create_grouped_des_stats_table <- function(
     dplyr::summarize(
       mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
       sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
-      n = n(),
+      n = dplyr::n(),
       se = sd/sqrt(n),
       ci_limit = se * 1.96,
       ci_upper = mean + ci_limit,
@@ -6309,7 +6308,7 @@ create_grouped_des_stats_table <- function(
     dplyr::summarize(
       mean = mean(.data[[{{variable_used}}]], na.rm = TRUE),
       sd = sd(.data[[{{variable_used}}]], na.rm = TRUE),
-      n = n(),
+      n = dplyr::n(),
       se = sd/sqrt(n),
       ci_limit = se * 1.96,
       ci_upper = mean + ci_limit,
@@ -6368,7 +6367,7 @@ create_grouped_nps_stats_table <- function(
     # Get the counts for the grouping variable by the response variables
     dplyr::summarize(
       sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
-      n = n(),
+      n = dplyr::n(),
       average = sum / n,
       NPS = average * 100, .groups = "drop")
 
@@ -6394,7 +6393,7 @@ create_grouped_nps_stats_table <- function(
     # Calculate the counts
     dplyr::summarize(
       sum = sum(.data[[{{"net_promoter_coded"}}]], na.rm = TRUE),
-      n = n(),
+      n = dplyr::n(),
       average = sum / n,
       NPS = average * 100, .groups = "drop")
 

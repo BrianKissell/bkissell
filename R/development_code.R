@@ -26,51 +26,51 @@ variables_to_include_with_text = c("start_date", "end_date", "wave_info", "versi
 grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
 
 DASHBOARD_CREATION_PLACEHOLDER <- function(
-  survey_version_name = "Member"
-  ,
-  should_create_nonexistant_dirs = TRUE
-  ,
-  survey_monkey_used = TRUE
-  ,
-  wave_names = c("w01_11_2023", "w02_02_2024")
-  ,
-  storage_platform = "dropbox"
-  ,
-  storage_platform_name = "TCM Dropbox"
-  ,
-  group_dir_name = "04 MDM Neuro-Fundraising Lab"
-  ,
-  jobs_folder_name = "00 Jobs"
-  ,
-  project_year = 2024
-  ,
-  project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
-  ,
-  convert_numeric_age_to_age_group = TRUE
-  ,
-  survey_file_ext = ".zip"
-  ,
-  survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
-  ,
-  name_of_column_details = "column_details"
-  ,
-  write_data = TRUE
-  ,
-  variables_to_include_with_text = c(
-    "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
-    "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
-    "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
-    "annual_household_income",	"zip_code", "audience_type", "net_promoter",
-    "length_of_membership",	"number_of_visits_last_year",
-    "number_of_planned_visits",	"likelihood_of_renewing",
-    "donated_to_sdzwa_in_past", "confident_donation_will_help",
-    "monthly_donor",	"support_sdzwa_again")
-,
-  grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
-  ) {
+    survey_version_name = "Member"
+    ,
+    should_create_nonexistant_dirs = TRUE
+    ,
+    survey_monkey_used = TRUE
+    ,
+    wave_names = c("w01_11_2023", "w02_02_2024")
+    ,
+    storage_platform = "dropbox"
+    ,
+    storage_platform_name = "TCM Dropbox"
+    ,
+    group_dir_name = "04 MDM Neuro-Fundraising Lab"
+    ,
+    jobs_folder_name = "00 Jobs"
+    ,
+    project_year = 2024
+    ,
+    project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
+    ,
+    convert_numeric_age_to_age_group = TRUE
+    ,
+    survey_file_ext = ".zip"
+    ,
+    survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
+    ,
+    name_of_column_details = "column_details"
+    ,
+    write_data = TRUE
+    ,
+    variables_to_include_with_text = c(
+      "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
+      "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
+      "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
+      "annual_household_income",	"zip_code", "audience_type", "net_promoter",
+      "length_of_membership",	"number_of_visits_last_year",
+      "number_of_planned_visits",	"likelihood_of_renewing",
+      "donated_to_sdzwa_in_past", "confident_donation_will_help",
+      "monthly_donor",	"support_sdzwa_again")
+    ,
+    grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+) {
 
 
-# Section 1a - Set-up dirs and paths ---------------------------------------
+  # Section 1a - Set-up dirs and paths ---------------------------------------
 
   working_directory_path <- bkissell::set_project_working_directory(
     storage_platform = storage_platform,
@@ -104,9 +104,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
   processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
 
-
   text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
-
 
   power_bi_text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
 
@@ -127,8 +125,6 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
   power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
 
-
-
   qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
 
   # column_workbook_list <- purrr::map(path_to_column_workbook_list, ~{
@@ -148,159 +144,159 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 
 
-#   # Create the paths for the folders that need to exist for the survey project
-#   survey_folder_structure_paths_list <- append(traditional_project_dir_list, survey_related_dir_list)
-#     # bkissell::create_survey_folder_structure_paths_list_power_bi
-#
-#   # Point to where the survey data is located
-#   survey_directory_path <<- survey_folder_structure_paths_list$project_data_collection_survey_monkey_data_folder_location
-#
-#   # Create path for home dir
-#   home_dir <<- survey_folder_structure_paths_list$home_dir
-#
-#   # Read the survey data as a list
-#   survey_data_list <<- read_survey_data_for_power_bi(survey_directory_path = survey_directory_path)
-#
-#   # Obtain the version names
-#   version_names_from_list_data_collection <<- names(survey_data_list)
-#
-#   # Create Version Directories
-#   version_directories_data_collection_path <<- prepare_version_directory_paths(survey_directory_path)
-#
-#   spellcheck_column_paths <<- paste0(version_directories_data_collection_path, "/spellchecked_text_columns.xlsx")
-#
-#   # Create the path where the column information workbook will be located
-#   path_to_column_workbook <<- obtain_column_name_paths_for_all_survey_versions(version_directories_data_collection_path)
-#
-#   path_to_column_workbook_list <<- path_to_column_workbook
-#
-#   version_names_from_list_analysis <<- names(survey_data_list)
-#
-#   rids_to_remove_path <<- paste0(survey_directory_path, "/rids_to_remove.csv")
-#
-#   rids_to_keep_path <<- paste0(survey_directory_path, "/rids_to_keep.csv")
-#
-#
-#
-#   processed_data_clean_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_data/PROCESSED_", snakecase::to_snake_case(.x), "_data_", create_time_chr_string_for_file_names(), ".csv")
-#   }, home_dir)
-#
-#   # Combine other and group variable names
-#   variables_to_include_in_all_tables <<- c(other_vars_to_include, grouping_vars)
-#
-#
-#   survey_data_list <<- process_and_clean_power_bi_survey_data(
-#     survey_directory_path,
-#     spellcheck_replace_columns,
-#     spellcheck_column_paths,
-#     all_versions_in_same_analysis_folder,
-#     path_to_column_workbook,
-#     version_name_style,
-#     likert_indicator = "ec__",
-#     item_everyone_must_complete,
-#     remove_rids,
-#     keep_rids
-#   )
-#
-#
-#   # Filter list to match the variables contained in the df
-#   variables_to_include_list <<- purrr::map(survey_data_list, ~{
-#     data <- .x
-#     #
-#     #     if(!("age_group" %in% colnames(data))) {
-#     #       data$age_group <- NA
-#     #     }
-#     #
-#     #     if(!("study_version" %in% colnames(data))) {
-#     #       data$study_version <- NA
-#     #     }
-#
-#
-#     data %>% dplyr::select(any_of(variables_to_include_in_all_tables)) %>% colnames()
-#   })
-#
-#   # Filter to list only the grouping vars contained in each data frame
-#   grouping_vars_list <<- purrr::map(survey_data_list, ~{
-#     .x %>% dplyr::select(any_of(grouping_vars)) %>% colnames()
-#   })
-#
-#   text_survey_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(.x), "_", create_time_chr_string_for_file_names(), ".csv")
-#   }, home_dir)
-#
-#   # Save it to the powerbi folder
-#   power_bi_text_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_text_survey_data.csv")
-#   }, home_dir)
-#
-#
-#   if(spellcheck_replace_columns == TRUE) {
-#     text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
-#       paste0(home_dir, "/Data Collection/survey_monkey_data/", .x, "/selected_example_text.xlsx")
-#     }, home_dir)
-#
-#     text_selected_example_response_vars_list <<- purrr::map(text_selected_example_text_survey_data_path_list, ~{
-#       readxl::excel_sheets(.x)
-#     })
-#
-#     create_VAR_df_with_single_row <- purrr::as_mapper(
-#       function(path, response_var_to_use) {
-#         data.frame(Var1 = response_var_to_use, Var2 = path)
-#       })
-#
-#     create_VAR_df_with_multiple_rows <- purrr::as_mapper(
-#       function(path, response_vars_to_use) {
-#         path <- path
-#         response_vars_to_use <- response_vars_to_use
-#         purrr::map_df(response_vars_to_use,  ~ {
-#           create_VAR_df_with_single_row(path, .x)
-#         }, path)
-#       })
-#
-#     parameters_for_example_read_list <<- purrr::map2(text_selected_example_text_survey_data_path_list, text_selected_example_response_vars_list, ~ {
-#       create_VAR_df_with_multiple_rows(.x, .y)
-#     })
-#
-#     text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
-#       paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_selected_example_text.csv")
-#     }, home_dir)
-#   }
-#
-#   power_bi_mc_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_multiple_choice.csv")
-#   }, home_dir)
-#
-#   power_bi_sa_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_select_all.csv")
-#   }, home_dir)
-#
-#   power_bi_descr_table_num_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_descr_table_num.csv")
-#   }, home_dir)
-#
-#   power_bi_net_promoter_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_net_promoter.csv")
-#   }, home_dir)
-#
-#   column_workbook_list <<- purrr::map(path_to_column_workbook_list, ~{
-#     create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
-#   })
-#
-#   column_details_list <<- purrr::map(column_workbook_list, ~{
-#     obtain_column_details_table(column_workbook_list = .x, name_of_column_details = "column_details")
-#   })
-#
-#   power_bi_overall_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
-#   }, home_dir)
-#
-#   power_bi_break_down_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
-#     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-#   }, home_dir)
+  #   # Create the paths for the folders that need to exist for the survey project
+  #   survey_folder_structure_paths_list <- append(traditional_project_dir_list, survey_related_dir_list)
+  #     # bkissell::create_survey_folder_structure_paths_list_power_bi
+  #
+  #   # Point to where the survey data is located
+  #   survey_directory_path <<- survey_folder_structure_paths_list$project_data_collection_survey_monkey_data_folder_location
+  #
+  #   # Create path for home dir
+  #   home_dir <<- survey_folder_structure_paths_list$home_dir
+  #
+  #   # Read the survey data as a list
+  #   survey_data_list <<- read_survey_data_for_power_bi(survey_directory_path = survey_directory_path)
+  #
+  #   # Obtain the version names
+  #   version_names_from_list_data_collection <<- names(survey_data_list)
+  #
+  #   # Create Version Directories
+  #   version_directories_data_collection_path <<- prepare_version_directory_paths(survey_directory_path)
+  #
+  #   spellcheck_column_paths <<- paste0(version_directories_data_collection_path, "/spellchecked_text_columns.xlsx")
+  #
+  #   # Create the path where the column information workbook will be located
+  #   path_to_column_workbook <<- obtain_column_name_paths_for_all_survey_versions(version_directories_data_collection_path)
+  #
+  #   path_to_column_workbook_list <<- path_to_column_workbook
+  #
+  #   version_names_from_list_analysis <<- names(survey_data_list)
+  #
+  #   rids_to_remove_path <<- paste0(survey_directory_path, "/rids_to_remove.csv")
+  #
+  #   rids_to_keep_path <<- paste0(survey_directory_path, "/rids_to_keep.csv")
+  #
+  #
+  #
+  #   processed_data_clean_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_data/PROCESSED_", snakecase::to_snake_case(.x), "_data_", create_time_chr_string_for_file_names(), ".csv")
+  #   }, home_dir)
+  #
+  #   # Combine other and group variable names
+  #   variables_to_include_in_all_tables <<- c(other_vars_to_include, grouping_vars)
+  #
+  #
+  #   survey_data_list <<- process_and_clean_power_bi_survey_data(
+  #     survey_directory_path,
+  #     spellcheck_replace_columns,
+  #     spellcheck_column_paths,
+  #     all_versions_in_same_analysis_folder,
+  #     path_to_column_workbook,
+  #     version_name_style,
+  #     likert_indicator = "ec__",
+  #     item_everyone_must_complete,
+  #     remove_rids,
+  #     keep_rids
+  #   )
+  #
+  #
+  #   # Filter list to match the variables contained in the df
+  #   variables_to_include_list <<- purrr::map(survey_data_list, ~{
+  #     data <- .x
+  #     #
+  #     #     if(!("age_group" %in% colnames(data))) {
+  #     #       data$age_group <- NA
+  #     #     }
+  #     #
+  #     #     if(!("study_version" %in% colnames(data))) {
+  #     #       data$study_version <- NA
+  #     #     }
+  #
+  #
+  #     data %>% dplyr::select(any_of(variables_to_include_in_all_tables)) %>% colnames()
+  #   })
+  #
+  #   # Filter to list only the grouping vars contained in each data frame
+  #   grouping_vars_list <<- purrr::map(survey_data_list, ~{
+  #     .x %>% dplyr::select(any_of(grouping_vars)) %>% colnames()
+  #   })
+  #
+  #   text_survey_data_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(.x), "_", create_time_chr_string_for_file_names(), ".csv")
+  #   }, home_dir)
+  #
+  #   # Save it to the powerbi folder
+  #   power_bi_text_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_text_survey_data.csv")
+  #   }, home_dir)
+  #
+  #
+  #   if(spellcheck_replace_columns == TRUE) {
+  #     text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
+  #       paste0(home_dir, "/Data Collection/survey_monkey_data/", .x, "/selected_example_text.xlsx")
+  #     }, home_dir)
+  #
+  #     text_selected_example_response_vars_list <<- purrr::map(text_selected_example_text_survey_data_path_list, ~{
+  #       readxl::excel_sheets(.x)
+  #     })
+  #
+  #     create_VAR_df_with_single_row <- purrr::as_mapper(
+  #       function(path, response_var_to_use) {
+  #         data.frame(Var1 = response_var_to_use, Var2 = path)
+  #       })
+  #
+  #     create_VAR_df_with_multiple_rows <- purrr::as_mapper(
+  #       function(path, response_vars_to_use) {
+  #         path <- path
+  #         response_vars_to_use <- response_vars_to_use
+  #         purrr::map_df(response_vars_to_use,  ~ {
+  #           create_VAR_df_with_single_row(path, .x)
+  #         }, path)
+  #       })
+  #
+  #     parameters_for_example_read_list <<- purrr::map2(text_selected_example_text_survey_data_path_list, text_selected_example_response_vars_list, ~ {
+  #       create_VAR_df_with_multiple_rows(.x, .y)
+  #     })
+  #
+  #     text_selected_example_text_survey_data_path_list <<- purrr::map_chr(version_names_from_list_analysis, ~{
+  #       paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+  #     }, home_dir)
+  #   }
+  #
+  #   power_bi_mc_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_multiple_choice.csv")
+  #   }, home_dir)
+  #
+  #   power_bi_sa_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_select_all.csv")
+  #   }, home_dir)
+  #
+  #   power_bi_descr_table_num_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_member_descr_table_num.csv")
+  #   }, home_dir)
+  #
+  #   power_bi_net_promoter_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_net_promoter.csv")
+  #   }, home_dir)
+  #
+  #   column_workbook_list <<- purrr::map(path_to_column_workbook_list, ~{
+  #     create_column_details_and_named_vectors_list(path_to_column_workbook = .x, name_of_column_details = "column_details")
+  #   })
+  #
+  #   column_details_list <<- purrr::map(column_workbook_list, ~{
+  #     obtain_column_details_table(column_workbook_list = .x, name_of_column_details = "column_details")
+  #   })
+  #
+  #   power_bi_overall_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+  #   }, home_dir)
+  #
+  #   power_bi_break_down_qualitative_path_list <<- purrr::map(version_names_from_list_analysis, ~{
+  #     paste0(home_dir, "/Analysis/Respondent Investigation/", .x, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  #   }, home_dir)
 
 
-# Section 1b - Set-up Column Workbook Lists --------------------------------------------
+  # Section 1b - Set-up Column Workbook Lists --------------------------------------------
 
   # Create the column details list
   column_workbook_lists <- purrr::map(column_names_paths, ~{
@@ -309,10 +305,10 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
       name_of_column_details = name_of_column_details)}, , silent = TRUE)
 
     if(class(column_workbook_list_attempt) != "try-error") return(column_workbook_list_attempt)
-    })
+  })
 
 
-# Section 2 - Read and process survey data --------------------------------
+  # Section 2 - Read and process survey data --------------------------------
 
   survey_data_for_power_bi_df <- purrr::map(seq_along(survey_directory_paths), ~{
     iteration <- .x
@@ -355,7 +351,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
   # # run this to just read in an old version of the cleaned data
   # survey_data_for_power_bi_df <- readr::read_csv("Analysis/Respondent Investigation/Member/processed_data/PROCESSED_member_data_20240212_0910.csv")
 
-## Text
+  ## Text
   # Filter for needed variables
   text_survey_data <-  survey_data_for_power_bi_df %>%
     dplyr::select(
@@ -407,8 +403,8 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
     text_survey_data$RID <- as.numeric(text_survey_data$RID)
 
     combined_df_selected_examples_text_df <- selected_examples_text_df %>%
-        dplyr::left_join(text_survey_data, by = "RID") %>%
-        dplyr::select(!tidyselect::starts_with("text_"))
+      dplyr::left_join(text_survey_data, by = "RID") %>%
+      dplyr::select(!tidyselect::starts_with("text_"))
 
     combined_df_selected_examples_text_df$wave <- combined_df_selected_examples_text_df$wave_info
 
@@ -421,21 +417,21 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
     combined_df_selected_examples_text_df <- combined_df_selected_examples_text_df %>%
       dplyr::select(
         any_of(c("wave", "RID",	"Text",	"Category",	"response_var_used",	"start_date",
-          "end_date",	"h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",
-          "h_c__18_to_65",	"h_c__65_and_up",	"zip_code",	"gender",	"age_group",
-          "ethnicity",	"marital_status",	"annual_household_income",
-          "net_promoter",	"length_of_membership",	"number_of_visits_last_year",
-          "number_of_planned_visits",	"likelihood_of_renewing",
-          "donated_to_sdzwa_in_past", "confident_donation_will_help",
-          "monthly_donor",	"support_sdzwa_again","study_version")
-      ))
+                 "end_date",	"h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",
+                 "h_c__18_to_65",	"h_c__65_and_up",	"zip_code",	"gender",	"age_group",
+                 "ethnicity",	"marital_status",	"annual_household_income",
+                 "net_promoter",	"length_of_membership",	"number_of_visits_last_year",
+                 "number_of_planned_visits",	"likelihood_of_renewing",
+                 "donated_to_sdzwa_in_past", "confident_donation_will_help",
+                 "monthly_donor",	"support_sdzwa_again","study_version")
+        ))
 
     if(write_data){
       readr::write_csv(combined_df_selected_examples_text_df, power_bi_text_selected_example_text_survey_data_path)
     }
   }
 
-## There is a chance that I need to make a column workbook list specifically for the combined files. At this point, I will just take the first one.
+  ## There is a chance that I need to make a column workbook list specifically for the combined files. At this point, I will just take the first one.
   column_workbook_lists_single <- column_workbook_lists[[1]]
 
   ## Multiple Choice
@@ -505,7 +501,7 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 
   ### Qualitative Coding #######################################################
-# If I end up needing a combined set, I will need to add an optional piece that does those calculations
+  # If I end up needing a combined set, I will need to add an optional piece that does those calculations
   power_bi_overall_qualitative_combined <- purrr::map(seq_along(qualitative_coding_data_path_list), ~ {
     iteration <- .x
     if(file.exists(qualitative_coding_data_path_list[[iteration]])){
@@ -585,39 +581,39 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 
 
 
+
+
+
 #
 #
-# #
-# # #
-# # #
-# # #
-# # #
+#
+#
 # DASHBOARD_CREATION_PLACEHOLDER(
-#     survey_version_name = "Member",
-#     should_create_nonexistant_dirs = TRUE,
-#     survey_monkey_used = TRUE,
-#     wave_names = c("w01_11_2023", "w02_02_2024"),
-#     storage_platform = "dropbox",
-#     storage_platform_name = "TCM Dropbox",
-#     group_dir_name = "04 MDM Neuro-Fundraising Lab",
-#     jobs_folder_name = "00 Jobs",
-#     project_year = 2024,
-#     project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2",
-#     convert_numeric_age_to_age_group = TRUE,
-#     survey_file_ext = ".zip",
-#     survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
-#     name_of_column_details = "column_details",
-#     write_data = TRUE,
-#     variables_to_include_with_text = c(
-#       "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
-#       "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
-#       "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
-#       "annual_household_income",	"zip_code", "audience_type", "net_promoter",
-#       "length_of_membership",	"number_of_visits_last_year",
-#       "number_of_planned_visits",	"likelihood_of_renewing",
-#       "donated_to_sdzwa_in_past", "confident_donation_will_help",
-#       "monthly_donor",	"support_sdzwa_again"),
-#     grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+#   survey_version_name = "Member",
+#   should_create_nonexistant_dirs = TRUE,
+#   survey_monkey_used = TRUE,
+#   wave_names = c("w01_11_2023", "w02_02_2024"),
+#   storage_platform = "dropbox",
+#   storage_platform_name = "TCM Dropbox",
+#   group_dir_name = "04 MDM Neuro-Fundraising Lab",
+#   jobs_folder_name = "00 Jobs",
+#   project_year = 2024,
+#   project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2",
+#   convert_numeric_age_to_age_group = TRUE,
+#   survey_file_ext = ".zip",
+#   survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}",
+#   name_of_column_details = "column_details",
+#   write_data = TRUE,
+#   variables_to_include_with_text = c(
+#     "start_date", "end_date", "wave_info", "version_name",  "gender", "age",
+#     "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",
+#     "h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up",
+#     "annual_household_income",	"zip_code", "audience_type", "net_promoter",
+#     "length_of_membership",	"number_of_visits_last_year",
+#     "number_of_planned_visits",	"likelihood_of_renewing",
+#     "donated_to_sdzwa_in_past", "confident_donation_will_help",
+#     "monthly_donor",	"support_sdzwa_again"),
+#   grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
 # )
 # #
 # #
