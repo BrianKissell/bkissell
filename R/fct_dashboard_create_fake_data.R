@@ -117,13 +117,6 @@ print(iteration)
     return(column_df)
   })
 
-
-
-
-
-
-
-
   # Obtain the form that contains the logic
   logic_form <- design_form_list[[name_of_logic]]
 
@@ -140,7 +133,6 @@ print(iteration)
     THIS_VAR <- logic_form$THIS_VAR[iteration]
     var_to_search <- tidyr::replace_na(simulated_data[[IF_VAR]], "NA")
     var_to_adjust <- tidyr::replace_na(simulated_data[[THIS_VAR]], "NA")
-
 
     if(THEN %in% c("REMOVE", "Remove") ){
     # Use the inputs to select which responses should be NA
@@ -180,9 +172,7 @@ print(iteration)
           )
         )
 
-
     # simulated_data <<- simulated_data
-
     }
 
      # Replace any "NA" responses with actual NAs
@@ -219,40 +209,49 @@ print(iteration)
 #
 #
 # design_form_list[[label_info]]
+#
+#   # Create the path to the survey monkey design form
+#   sm_design_form_path <- file.path(
+#     "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
+#     "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
+#     "SDZ_BC__Quarterly Survey_Wave_2", "Data Collection", "survey_monkey_data",
+#     "Member", "w02_02_2024", "simulated_data", "w02_02_2024_survey_monkey_design_form.xlsx"
+#   )
+#
+#   # Create the simulated data
+#   simulated_data_df <- simulate_data_from_sm_design_form(
+#       sm_design_form_path,
+#       desired_sample_size = 2000,
+#       name_of_form = "Design Form",
+#       name_of_logic = "Logic",
+#       names_of_others_to_ignore = c("IGNORE")
+#   )
+#
+#   # Write it to the clipboard
+#   clipr::write_clip(unname(as.matrix(simulated_data_df)))
+#
+#
+#   # Create the path to the survey monkey design form
+#   sm_design_form_path <- file.path(
+#     "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
+#     "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
+#     "SDZ_BC__Quarterly Survey_Wave_2", "Data Collection", "survey_monkey_data",
+#     "Member", "w03_04_2024", "simulated_data", "w03_04_2024_survey_monkey_design_form.xlsx"
+#   )
+#
+#   # Create the simulated data
+#   simulated_data_df <- simulate_data_from_sm_design_form(
+#     sm_design_form_path,
+#     desired_sample_size = 2000,
+#     name_of_form = "Design Form",
+#     name_of_logic = "Logic",
+#     names_of_others_to_ignore = c("IGNORE")
+#   )
+#
+#   # Write it to the clipboard
+#   clipr::write_clip(unname(as.matrix(simulated_data_df)))
 
 
-
-
-
-
-
-
-
-  #
-  #
-  #
-  # #
-  #
-  # # Create the path to the survey monkey design form
-  # sm_design_form_path <- file.path(
-  #   "C:","Users","Brian", "TCM Dropbox", "Brian Kissell",
-  #   "04 MDM Neuro-Fundraising Lab", "00 Jobs", "2024",
-  #   "SDZ_BC__Quarterly Survey_Wave_2", "Data Collection", "survey_monkey_data",
-  #   "Member", "w02_02_2024", "simulated_data", "w02_02_2024_survey_monkey_design_form.xlsx"
-  # )
-  #
-  # # Create the simulated data
-  # simulated_data_df <- simulate_data_from_sm_design_form(
-  #     sm_design_form_path,
-  #     desired_sample_size = 2000,
-  #     name_of_form = "Design Form",
-  #     name_of_logic = "Logic",
-  #     names_of_others_to_ignore = c("IGNORE")
-  # )
-  #
-  # # Write it to the clipboard
-  # clipr::write_clip(unname(as.matrix(simulated_data_df)))
-  #
   #
   # # Create the path to the survey monkey design form
   # donor_sm_design_form_path <- file.path(

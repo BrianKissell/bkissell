@@ -4671,6 +4671,7 @@ set_project_working_directory <- function(
     stop(paste0("File directory was not found: ", working_directory_path))
   }
 
+
   # Return the path that will be used
   return(working_directory_path)
 }
@@ -6513,3 +6514,557 @@ create_survey_monkey_design_form_list <- function(
   # Return the list with all of this information
   return(named_vectors_list)
 }
+
+
+
+
+#' set_up_project_environment
+#'
+#' @param storage_platform storage_platform
+#' @param storage_platform_name storage_platform_name
+#' @param group_dir_name group_dir_name
+#' @param jobs_folder_name jobs_folder_name
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
+#' @param should_create_nonexistant_dirs should_create_nonexistant_dirs
+#' @param survey_version_name survey_version_name
+#' @param survey_monkey_used survey_monkey_used
+#' @param wave_names wave_names
+#'
+#' @return my_current_env
+#' @export
+#'
+set_up_project_environment <- function(
+    storage_platform,
+    storage_platform_name,
+    group_dir_name,
+    jobs_folder_name,
+    project_year,
+    project_folder_name,
+    should_create_nonexistant_dirs,
+    survey_version_name,
+    survey_monkey_used,
+    wave_names
+
+) {
+  # Set the initial environment
+  my_current_env <<- rlang::current_env()
+
+  # Use the computer information to create the working directory according to
+  # the information included as a parameter. This will be used instead of using
+  # projects.
+  working_directory_path <- bkissell::set_project_working_directory(
+    storage_platform = storage_platform,
+    storage_platform_name = storage_platform_name,
+    group_dir_name = group_dir_name,
+    jobs_folder_name = jobs_folder_name,
+    project_year = project_year,
+    project_folder_name = project_folder_name
+  )
+
+  rlang::env_poke(env = my_current_env, "working_directory_path", working_directory_path)
+
+  # Check that the traditional project directories exist.
+  # There is an option to create them if they do not exist
+  traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
+
+  for(iteration in seq_along(traditional_project_dir_list)){
+    value_to_add <- traditional_project_dir_list[[iteration]]
+    name_to_add <- names(traditional_project_dir_list)[[iteration]]
+    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  }
+
+  # Check that the directories related to surveys exist according to the
+  # included parameters. There is an option to create them if they do not exist
+  survey_related_dir_list <- create_survey_related_dir_list(
+    survey_version_name = survey_version_name,
+    survey_monkey_used = survey_monkey_used,
+    wave_names = wave_names,
+    should_create_nonexistant_dirs = should_create_nonexistant_dirs
+  )
+
+  for(iteration in seq_along(survey_related_dir_list)){
+    value_to_add <- survey_related_dir_list[[iteration]]
+    name_to_add <- names(survey_related_dir_list)[[iteration]]
+    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  }
+
+  # Obtain the names where the directories for the different survey versions
+  survey_directory_path_names <- names(survey_related_dir_list)[stringr::str_detect(names(survey_related_dir_list), "^p_path_dc_sm_svn_wave_names_")]
+
+  # Obtain the actual paths for the survey version directories
+  survey_directory_paths <- survey_related_dir_list[survey_directory_path_names]
+
+  rlang::env_poke(env = my_current_env, "survey_directory_paths", survey_directory_paths)
+
+  # Obtain the paths where the column names documents should be
+  column_names_paths <- purrr::map(survey_directory_paths, ~{
+    file.path(.x, paste0(basename(.x), "_column_names.xlsx"))
+  })
+
+  rlang::env_poke(env = my_current_env, "column_names_paths", column_names_paths)
+
+  for(iteration in seq_along(column_names_paths)){
+    value_to_add <- column_names_paths[[iteration]]
+    name_to_add <- names(column_names_paths)[[iteration]]
+    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  }
+
+  # Obtain the paths that contain the data where the text has gone through custom spell check process
+  spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
+
+  for(iteration in seq_along(spellcheck_column_paths)){
+    value_to_add <- spellcheck_column_paths[[iteration]]
+    name_to_add <- names(spellcheck_column_paths)[[iteration]]
+    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  }
+
+  # Create the path for the cleaned survey data that will be stored in the power bi directory
+  power_bi_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/power_bi_deck/clean_data.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_clean_data_path", power_bi_clean_data_path)
+
+  # Create the path for the cleaned survey data that will be stored in the processed clean data folder
+  processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+  rlang::env_poke(env = my_current_env, "processed_data_clean_data_path", processed_data_clean_data_path)
+
+  # Create path for the text data from the survey
+  text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+  rlang::env_poke(env = my_current_env, "text_survey_data_path", text_survey_data_path)
+
+  # Create the path for the text of the selected responses that we are wanting to highlight, which will be stored in the power bi folder
+  power_bi_text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_text_selected_example_text_survey_data_path", power_bi_text_selected_example_text_survey_data_path)
+
+  # Create the path for the text data that will be stored in the power bi folder
+  power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_text_path", power_bi_text_path)
+
+  # Create the path for the selected example text survey data
+  text_selected_example_text_survey_data_path <- paste0("Data Collection/survey_monkey_data/", survey_version_name, "/selected_example_text.xlsx")
+  rlang::env_poke(env = my_current_env, "text_selected_example_text_survey_data_path", text_selected_example_text_survey_data_path)
+
+  # Create the path for the mc power bi
+  power_bi_mc_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_multiple_choice.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_mc_path", power_bi_mc_path)
+
+  # Create the path for the power bi sa
+  power_bi_sa_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_select_all.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_sa_path", power_bi_sa_path)
+
+  # Create the path for the power bi desc table
+  power_bi_descr_table_num_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_descr_table_num.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_descr_table_num_path", power_bi_descr_table_num_path)
+
+  # Create the path for the net promoter
+  power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_net_promoter_path", power_bi_net_promoter_path)
+
+  # Create the path for the quality coding
+  qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
+  rlang::env_poke(env = my_current_env, "qualitative_coding_data_path_list", qualitative_coding_data_path_list)
+
+  # Create the path for the power bi overall qual
+  power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_overall_qualitative_path", power_bi_overall_qualitative_path)
+
+  # Create the path for the power bi breakdown qual
+  power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_path", power_bi_break_down_qualitative_path)
+
+  # Create the path for the power bi breakdown list qual
+  power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_path_list", power_bi_break_down_qualitative_path_list)
+
+  # Get the example text repsonse sheets and put them together as a df in the env
+  text_selected_example_response_vars <- readxl::excel_sheets(text_selected_example_text_survey_data_path)
+  parameters_for_example_read <- data.frame(Var1 = text_selected_example_response_vars)
+  parameters_for_example_read$Var2 <- text_selected_example_text_survey_data_path
+  rlang::env_poke(env = my_current_env, "parameters_for_example_read", parameters_for_example_read)
+
+  # Invisibly return the environment
+  return(invisible(my_current_env))
+}
+
+
+#' create_multiple_column_workbook_lists
+#'
+#' @param my_env my_env
+#'
+#' @return column_workbook_lists
+#' @export
+#'
+create_multiple_column_workbook_lists <- function(my_env = my_current_env) {
+  column_workbook_lists <- purrr::map(my_env$column_names_paths, ~{
+    column_workbook_list_attempt <- try({bkissell::create_column_details_and_named_vectors_list(
+      path_to_column_workbook = .x,
+      name_of_column_details = name_of_column_details)}, silent = TRUE)
+
+    if(class(column_workbook_list_attempt) != "try-error") return(column_workbook_list_attempt)
+  })
+
+  rlang::env_poke(env = my_env, "column_workbook_lists", column_workbook_lists)
+
+  return(invisible(column_workbook_lists))
+}
+
+
+#' create_survey_data_for_power_bi_df
+#'
+#' @param my_env my_env
+#'
+#' @return survey_data_for_power_bi_df
+#' @export
+#'
+create_survey_data_for_power_bi_df <- function(my_env = my_current_env) {
+
+  survey_data_for_power_bi_df <- purrr::map(seq_along(my_env$survey_directory_paths), ~{
+    iteration <- .x
+
+    survey_data_for_power_bi_single <- try({
+      bkissell::process_survey_data_for_single_power_bi(
+        survey_directory_path_pb = my_env$survey_directory_paths[[iteration]],
+        column_workbook_list_pb = my_env$column_workbook_lists[[iteration]],
+        survey_file_ext = survey_file_ext,
+        survey_datetime_format_pattern = survey_datetime_format_pattern,
+        survey_version_name = survey_version_name,
+        convert_numeric_age_to_age_group = convert_numeric_age_to_age_group,
+        spellcheck_column_path_pb = my_env$spellcheck_column_paths[[iteration]],
+        name_of_column_details = name_of_column_details
+      )
+    }, silent = TRUE)
+
+    if(any(class(survey_data_for_power_bi_single) == "try-error") ){
+      warning("data could not be processed")
+      return(data.frame())
+    } else {
+      return(survey_data_for_power_bi_single)
+    }
+  }) %>%
+    suppressWarnings() %>%
+    purrr::reduce(dplyr::bind_rows)
+
+  rlang::env_poke(env = my_env, "survey_data_for_power_bi_df", survey_data_for_power_bi_df)
+
+  # Save the cleaned data to the power bi folder
+  if(write_data){
+    readr::write_csv(my_env$survey_data_for_power_bi_df, my_env$power_bi_clean_data_path)
+    Sys.sleep(1)
+    readr::write_csv(my_env$survey_data_for_power_bi_df, my_env$processed_data_clean_data_path)
+  }
+
+  return(invisible(survey_data_for_power_bi_df))
+}
+
+
+#' process_all_of_the_text_stuff_for_power_bi
+#'
+#' @param my_env my_env
+#'
+#' @return combined_df_selected_examples_text_df
+#' @export
+#'
+process_all_of_the_text_stuff_for_power_bi <- function(my_env = my_current_env) {
+
+  # Filter for needed variables
+  text_survey_data <-  my_env$survey_data_for_power_bi_df %>%
+    dplyr::select(
+      "RID",
+      tidyselect::any_of(variables_to_include_with_text),
+      starts_with("text_")
+    )
+
+  rlang::env_poke(env = my_env, "text_survey_data", text_survey_data)
+
+  if(write_data){
+    # Save a copy of the text data as a backup
+    readr::write_csv(my_env$text_survey_data, my_env$text_survey_data_path)
+  }
+
+  # Shape and filter the textual data
+  power_bi_text <- my_env$text_survey_data %>%
+    tidyr::pivot_longer(
+      cols = -c("RID", tidyselect::any_of(variables_to_include_with_text)),
+      names_to = "response_var_used",
+      names_prefix = "text_",
+      values_to = "textual_responses"
+    ) %>%
+    dplyr::filter(!is.na(.data[["textual_responses"]]))
+
+  # Remove the "'" as the symbol is entered incorrectly in excel
+  power_bi_text$textual_responses <- stringr::str_replace_all(power_bi_text$textual_responses, "'", "")
+
+  rlang::env_poke(env = my_env, "power_bi_text", power_bi_text)
+
+  if(write_data){
+    # Save it to the powerbi folder
+    readr::write_csv(my_env$power_bi_text, my_env$power_bi_text_path)
+  }
+
+  if(file.exists(my_env$text_selected_example_text_survey_data_path)){
+
+    read_and_add_param_to_column <- purrr::as_mapper(
+      function(param_df) {
+        purrr::map_df(seq_along(param_df$Var1), ~{
+          iteration <- .x
+          selected_examples_df <- readxl::read_excel(param_df$Var2[[iteration]], param_df$Var1[[iteration]])
+          selected_examples_df$response_var_used <- param_df$Var1[[iteration]]
+          selected_examples_df
+        }, param_df)
+      })
+
+    selected_examples_text_df <- read_and_add_param_to_column(param_df = my_env$parameters_for_example_read)
+    selected_examples_text_df$RID <- as.numeric(selected_examples_text_df$RID)
+
+    text_survey_data <- my_env$text_survey_data
+    text_survey_data$RID <- as.numeric(text_survey_data$RID)
+
+    combined_df_selected_examples_text_df <- selected_examples_text_df %>%
+      dplyr::left_join(text_survey_data, by = "RID") %>%
+      dplyr::select(!tidyselect::starts_with("text_"))
+
+    combined_df_selected_examples_text_df$wave <- combined_df_selected_examples_text_df$wave_info
+
+    selected_examples_text_df$RID <- as.character(selected_examples_text_df$RID)
+    text_survey_data$RID <- as.character(text_survey_data$RID)
+    combined_df_selected_examples_text_df$RID <- as.character(combined_df_selected_examples_text_df$RID)
+
+    combined_df_selected_examples_text_df <- combined_df_selected_examples_text_df %>%
+      dplyr::select(
+        dplyr::any_of(
+          c("wave", "RID",	"Text",	"Category",	"response_var_used",	"start_date",
+            "end_date",	"h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",
+            "h_c__18_to_65",	"h_c__65_and_up",	"zip_code",	"gender",	"age_group",
+            "ethnicity",	"marital_status",	"annual_household_income",
+            "net_promoter",	"length_of_membership",	"number_of_visits_last_year",
+            "number_of_planned_visits",	"likelihood_of_renewing",
+            "donated_to_sdzwa_in_past", "confident_donation_will_help",
+            "monthly_donor",	"support_sdzwa_again","study_version"
+          )
+        )
+      )
+
+    rlang::env_poke(env = my_env, "combined_df_selected_examples_text_df", combined_df_selected_examples_text_df)
+
+    if(write_data){
+      readr::write_csv(my_env$combined_df_selected_examples_text_df, my_env$power_bi_text_selected_example_text_survey_data_path)
+    }
+  }
+
+  return(invisible(combined_df_selected_examples_text_df))
+}
+
+
+#' create_power_bi_multiple_choice
+#'
+#' @param my_env my_env
+#'
+#' @return power_bi_multiple_choice
+#' @export
+#'
+create_power_bi_multiple_choice <- function(my_env = my_current_env) {
+
+  if(any(my_env$column_workbook_lists_single[[name_of_column_details]]$type == "mc")) {
+
+    power_bi_multiple_choice <- create_power_bi_data_mc_CALCULATED_TABLES(
+      df = my_env$survey_data_for_power_bi_df,
+      column_workbook_list = my_env$column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+
+    rlang::env_poke(env = my_env, "power_bi_multiple_choice", power_bi_multiple_choice)
+
+    if(write_data){
+      readr::write_csv(my_env$power_bi_multiple_choice, my_env$power_bi_mc_path)
+    }
+
+    return(invisible(power_bi_multiple_choice))
+  }
+}
+
+
+
+#' create_power_bi_select_all
+#'
+#' @param my_env my_env
+#'
+#' @return power_bi_select_all
+#' @export
+#'
+create_power_bi_select_all <- function(my_env = my_current_env) {
+  check_for_select_all_vars <- stringr::str_detect(my_env$column_workbook_lists_single[[name_of_column_details]]$type, "^sa")
+
+  if(any(check_for_select_all_vars)){
+    power_bi_select_all <- create_power_bi_data_sa_CALCULATED_TABLES(
+      df = my_env$survey_data_for_power_bi_df,
+      column_workbook_list = my_env$column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+
+    rlang::env_poke(env = my_env, "power_bi_select_all", power_bi_select_all)
+
+    if(write_data){
+      readr::write_csv(my_env$power_bi_select_all, my_env$power_bi_sa_path)
+    }
+    return(invisible(power_bi_select_all))
+  }
+}
+
+
+#' create_power_bi_descr_table_num
+#'
+#' @param my_env my_env
+#'
+#' @return power_bi_descr_table_num
+#' @export
+#'
+create_power_bi_descr_table_num <- function(my_env = my_current_env) {
+  check_for_numeric_vars <- column_workbook_lists_single[[name_of_column_details]]$type == "numeric"
+
+  check_for_scale_vars <- !is.na(column_workbook_lists_single[[name_of_column_details]]$scale_names)
+
+  if(any(check_for_numeric_vars) | any(check_for_scale_vars)){
+    power_bi_descr_table_num <- create_power_bi_data_num_CALCULATED_TABLES(
+      df = survey_data_for_power_bi_df,
+      column_workbook_list = column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+
+    rlang::env_poke(env = my_env, "power_bi_descr_table_num", power_bi_descr_table_num)
+
+    if(write_data){
+      readr::write_csv(my_env$power_bi_descr_table_num, my_env$power_bi_descr_table_num_path)
+    }
+
+    return(power_bi_descr_table_num)
+  }
+}
+
+
+#' create_power_bi_net_promoter
+#'
+#' @param my_env my_env
+#'
+#' @return power_bi_net_promoter
+#' @export
+#'
+create_power_bi_net_promoter <- function(my_env = my_current_env) {
+  check_for_net_promoter_vars <- my_env$column_workbook_lists_single[[name_of_column_details]]$type == "numeric"
+
+  if(any(check_for_net_promoter_vars)){
+    power_bi_net_promoter <- create_power_bi_data_nps_CALCULATED_TABLES(
+      df = my_env$survey_data_for_power_bi_df,
+      column_workbook_list = my_env$column_workbook_lists_single,
+      grouping_vars = grouping_vars,
+      name_of_column_details = name_of_column_details)
+
+    rlang::env_poke(env = my_env, "power_bi_net_promoter", power_bi_net_promoter)
+
+    if(write_data){
+      readr::write_csv(my_env$power_bi_net_promoter, my_env$power_bi_net_promoter_path)
+    }
+
+    return(invisible(power_bi_net_promoter))
+  }
+}
+
+#' create_power_bi_overall_qualitative
+#'
+#' @param my_env my_env
+#'
+#' @return power_bi_overall_qualitative_combined
+#' @export
+#'
+create_power_bi_overall_qualitative <- function(my_env = my_current_env) {
+
+  # If I end up needing a combined set, I will need to add an optional piece that does those calculations
+  power_bi_overall_qualitative_combined <- purrr::map(seq_along(my_env$qualitative_coding_data_path_list), ~ {
+    iteration <- .x
+    if(file.exists(my_env$qualitative_coding_data_path_list[[iteration]])){
+      power_bi_overall_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
+        df = my_env$survey_data_for_power_bi_df,
+        column_workbook_list = my_env$column_workbook_lists_single,
+        grouping_vars = grouping_vars,
+        name_of_column_details,
+        path_to_qual_coding_data = my_env$qualitative_coding_data_path_list[[iteration]],
+        qualitative_type = "overall_coding",
+        identifier = "RID")
+
+      power_bi_overall_qualitative <- power_bi_overall_qualitative[[1]]
+
+      order_information_lookup_table <- bkissell::create_order_information_lookup_table(my_env$column_workbook_lists_single, name_of_column_details)
+
+      power_bi_overall_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_overall_qualitative$grouping_var_used)
+
+      power_bi_overall_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_overall_qualitative, order_information_lookup_table, type = "grouping_var_")
+      power_bi_overall_qualitative <- power_bi_overall_qualitative %>%
+        dplyr::filter(!is.na(grouping_var_levels))
+
+      power_bi_overall_qualitative$wave <- basename(dirname(my_env$qualitative_coding_data_path_list[[iteration]]))
+
+      return(power_bi_overall_qualitative)
+    } else {
+      return(data.frame())
+    }
+  }) %>% purrr::reduce(dplyr::bind_rows)
+
+  rlang::env_poke(env = my_env, "power_bi_overall_qualitative_combined", power_bi_overall_qualitative_combined)
+
+  if(write_data){
+    readr::write_csv(my_env$power_bi_overall_qualitative_combined, my_env$power_bi_overall_qualitative_path)
+  }
+
+  return(invisible(power_bi_overall_qualitative_combined))
+}
+
+
+#' create_power_bi_break_down_qualitative_combined
+#'
+#' @param my_env my_env
+#'
+#' @return power_bi_break_down_qualitative_combined
+#' @export
+#'
+create_power_bi_break_down_qualitative_combined <- function(my_env = my_current_env) {
+
+  power_bi_break_down_qualitative_combined <- purrr::map(my_env$qualitative_coding_data_path_list, ~ {
+    if(file.exists(.x)){
+
+      power_bi_break_down_qualitative <- create_power_bi_data_qualitative_CALCULATED_TABLES(
+        df = my_env$survey_data_for_power_bi_df,
+        column_workbook_list = my_env$column_workbook_lists_single,
+        grouping_vars = grouping_vars,
+        name_of_column_details,
+        path_to_qual_coding_data = .x,
+        qualitative_type = "break_down_coding",
+        identifier = "RID")
+
+      power_bi_break_down_qualitative <- power_bi_break_down_qualitative[[1]]
+
+      order_information_lookup_table <- create_order_information_lookup_table(my_env$column_workbook_lists_single, name_of_column_details)
+
+      power_bi_break_down_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_break_down_qualitative$grouping_var_used)
+
+      power_bi_break_down_qualitative <- adjust_order_information_lookup_table_per_type(table = power_bi_break_down_qualitative, order_information_lookup_table, type = "grouping_var_")
+      power_bi_break_down_qualitative <- power_bi_break_down_qualitative %>%
+        dplyr::filter(!is.na(grouping_var_levels))
+
+      power_bi_break_down_qualitative$wave <- basename(dirname(.x))
+
+      return(power_bi_break_down_qualitative)
+    } else {
+      return(data.frame())
+    }
+
+  }) %>% purrr::reduce(dplyr::bind_rows)
+
+  rlang::env_poke(env = my_env, "power_bi_break_down_qualitative_combined", power_bi_break_down_qualitative_combined)
+
+  if(write_data){
+    readr::write_csv(my_env$power_bi_break_down_qualitative_combined, my_env$power_bi_break_down_qualitative_path)
+  }
+
+  return(invisible(power_bi_break_down_qualitative_combined))
+}
+
+
+
