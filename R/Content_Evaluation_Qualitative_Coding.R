@@ -1,6 +1,43 @@
+data_folder_location = "Qualitative Coding/Version 2"
+file_name_part = "Video_Coding_V2__"
+coder_names = c("Ben","Brian", "Jill", "Sarah", "Talia")
+ext__initial_name_qual_coding = ".xlsx"
+text_names = c(
+  "video_name", "section", "visual_type", "phone_and_url_present",
+  "type_of_text_on_screen", "story_chapter",
+  "global_variables_entered", "notes")
+numeric_names = c(
+  "time_point", "direct_eye_contact_with_camera_for_any_animals_or_people",
+  "visual_type", "qr_code_present", "logo_present", "lower_third_present",
+  "credit_card_symbols_present", "trust_indicator_present",
+  "donor_directed_language")
+multiple_choice_variables = c(
+  "visual_type", "phone_and_url_present", "type_of_text_on_screen",
+  "story_chapter", "global_variables_entered")
+category_variables = c(
+  "direct_eye_contact_with_camera_for_any_animals_or_people",
+  "qr_code_present", "logo_present", "lower_third_present",
+  "credit_card_symbols_present", "trust_indicator_present",
+  "donor_directed_language")
+remove_empty_sheets = TRUE
+other_vars_that_should_not_be_counted = c(
+  "time_point", "section_label", "video_name", "section", "coded_by",
+  "notes", "duration_of_video",
+  "visual_type", "phone_and_url_present", "type_of_text_on_screen",
+  "story_chapter", "original_video_name", "global_variables_entered")
+sheets_to_exclude = c("Template","Data Validation")
+column_names_details_name = "Version 2_column_names.xlsx"
+create_log_doc = TRUE
+storage_platform = "dropbox"
+storage_platform_name = "TCM Dropbox"
+group_dir_name = "04 MDM Neuro-Fundraising Lab"
+jobs_folder_name = "Research and Development/00 Jobs"
+project_year = 2024
+project_folder_name = "003_RD_CodingVideoContent"
+
+
 #' FULL_qualitative_coding_data
 #'
-#' @param man_wd man_wd
 #' @param coder_names coder_names
 #' @param ext__initial_name_qual_coding ext__initial_name_qual_coding
 #' @param text_names text_names
@@ -14,12 +51,18 @@
 #' @param sheets_to_exclude sheets_to_exclude
 #' @param column_names_details_name column_names_details_name
 #' @param create_log_doc create_log_doc
+#' @param storage_platform storage_platform
+#' @param storage_platform_name storage_platform_name
+#' @param group_dir_name group_dir_name
+#' @param jobs_folder_name jobs_folder_name
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
 #'
 #' @return prepared_video_data
 #' @export
 #'
 FULL_qualitative_coding_data <- function(
-    man_wd = NULL,
+    # man_wd = NULL,
     data_folder_location,
     file_name_part,
     coder_names,
@@ -32,19 +75,40 @@ FULL_qualitative_coding_data <- function(
     other_vars_that_should_not_be_counted,
     sheets_to_exclude = c("Template","Data Validation"),
     column_names_details_name = "Version 2_column_names.xlsx",
-    create_log_doc = TRUE
+    create_log_doc = TRUE,
+
+    storage_platform = "dropbox",
+    storage_platform_name = "TCM Dropbox",
+    group_dir_name = "04 MDM Neuro-Fundraising Lab",
+    jobs_folder_name = "Research and Development/00 Jobs",
+    project_year = 2024,
+    project_folder_name = "003_RD_CodingVideoContent"
 ) {
+
+  bkissell::set_up_project_environment_qualitative_coding(
+    storage_platform = storage_platform,
+    storage_platform_name = storage_platform_name,
+    group_dir_name = group_dir_name,
+    jobs_folder_name = jobs_folder_name,
+    project_year = project_year,
+    project_folder_name = project_folder_name,
+    should_create_nonexistant_dirs = should_create_nonexistant_dirs,
+    survey_version_name = survey_version_name,
+    survey_monkey_used = survey_monkey_used,
+    wave_names = wave_names)
+
+
 
   # Initiate a progress log
   progress_log <- list()
 
-  # If a manual working directory is provided,
-  if(!is.null(man_wd)) {
-    # Save current working directory
-    current_wd <- getwd()
-    # Change the working directory
-    setwd(man_wd)
-  }
+  # # If a manual working directory is provided,
+  # if(!is.null(man_wd)) {
+  #   # Save current working directory
+  #   current_wd <- getwd()
+  #   # Change the working directory
+  #   setwd(man_wd)
+  # }
 
   progress_log$wd_being_used <- glue::glue("Working Directory Being Used: {getwd()}")
 
@@ -55,7 +119,7 @@ FULL_qualitative_coding_data <- function(
   )
 
   # Create the column details list
-  column_workbook_list <- bkissell::create_column_details_and_named_vectors_list(column_names_details_path)
+  column_workbook_list <- bkissell::create_column_details_and_named_vectors_list(path_to_column_workbook = column_names_details_path)
 
   # Create a df that contains all of the paths and sheet names
   file_paths_df_all_paths <- bkissell::create_excel_file_paths_df(
@@ -120,7 +184,7 @@ FULL_qualitative_coding_data <- function(
         # Add that data to the entire dataset
         if(length(single_text_variables) > 0) {
           sheet_coding_data <- sheet_coding_data |>
-            mutate(dplyr::across(tidyselect::all_of(single_text_variables), ~{.x[[1]]}))
+            dplyr::mutate(dplyr::across(tidyselect::all_of(single_text_variables), ~{.x[[1]]}))
         }
 
         # Convert starts into 1 and 0s
@@ -179,7 +243,7 @@ FULL_qualitative_coding_data <- function(
 
         # Re-order the data
         sheet_coding_data_df <- sheet_coding_data_df |>
-          select("section_label", tidyselect::everything())
+          dplyr::select("section_label", tidyselect::everything())
 
         # Get the duration of the video
         sheet_coding_data_df <- sheet_coding_data_df |>
@@ -371,10 +435,10 @@ FULL_qualitative_coding_data <- function(
     openxlsx::saveWorkbook(wb, file = log_path, overwrite = TRUE)
   }
 
-  # If a manual working directory is provided, reset to original
-  if(!is.null(man_wd)) {
-    setwd(current_wd)
-  }
+  # # If a manual working directory is provided, reset to original
+  # if(!is.null(man_wd)) {
+  #   setwd(current_wd)
+  # }
 
   return(prepared_video_data)
 }

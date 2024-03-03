@@ -5,7 +5,6 @@
 \title{FULL_qualitative_coding_data}
 \usage{
 FULL_qualitative_coding_data(
-  man_wd = NULL,
   data_folder_location,
   file_name_part,
   coder_names,
@@ -18,12 +17,16 @@ FULL_qualitative_coding_data(
   other_vars_that_should_not_be_counted,
   sheets_to_exclude = c("Template", "Data Validation"),
   column_names_details_name = "Version 2_column_names.xlsx",
-  create_log_doc = TRUE
+  create_log_doc = TRUE,
+  storage_platform = "dropbox",
+  storage_platform_name = "TCM Dropbox",
+  group_dir_name = "04 MDM Neuro-Fundraising Lab",
+  jobs_folder_name = "Research and Development/00 Jobs",
+  project_year = 2024,
+  project_folder_name = "003_RD_CodingVideoContent"
 )
 }
 \arguments{
-\item{man_wd}{man_wd}
-
 \item{data_folder_location}{data_folder_location}
 
 \item{file_name_part}{file_name_part}
@@ -49,6 +52,18 @@ FULL_qualitative_coding_data(
 \item{column_names_details_name}{column_names_details_name}
 
 \item{create_log_doc}{create_log_doc}
+
+\item{storage_platform}{storage_platform}
+
+\item{storage_platform_name}{storage_platform_name}
+
+\item{group_dir_name}{group_dir_name}
+
+\item{jobs_folder_name}{jobs_folder_name}
+
+\item{project_year}{project_year}
+
+\item{project_folder_name}{project_folder_name}
 }
 \value{
 prepared_video_data

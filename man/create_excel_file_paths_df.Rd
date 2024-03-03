@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{create_excel_file_paths_df}
 \alias{create_excel_file_paths_df}
-\title{create_excel_file_paths_df}
+\title{Create the table that contains the information related to the variable names and column details}
 \usage{
 create_excel_file_paths_df(
   data_folder_location,
@@ -22,10 +22,16 @@ create_excel_file_paths_df(
 \item{file_ext}{file_ext}
 
 \item{sheets_to_exclude}{sheets_to_exclude}
+
+\item{path_to_column_workbook}{Path to where the column details workbook is located. This needs to be a character string and it needs to point to an existing file.}
+
+\item{name_of_column_details}{Name of the column details sheet, which is defaulted to "column_details". This only needs to be changed if you do not want to use column details as the sheet name in the column details workbook.}
 }
 \value{
+named_vectors_list
+
 file_paths_df_all_paths
 }
 \description{
-create_excel_file_paths_df
+Create the table that contains the information related to the variable names and column details
 }
