@@ -1,0 +1,108 @@
+---
+title: "Qualitative_Coding"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Qualitative_Coding}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(bkissell)
+```
+
+
+```{r}
+storage_platform = "dropbox"
+storage_platform_name = "TCM Dropbox"
+group_dir_name = "04 MDM Neuro-Fundraising Lab"
+jobs_folder_name = "00 Jobs"
+project_year = 2024
+project_folder_name = "SDZ_BC__Quarterly Survey_Wave_2"
+should_create_nonexistant_dirs = TRUE
+survey_version_name = "Member"
+survey_monkey_used = TRUE
+wave_names = c("w01_11_2023", "w02_02_2024")
+
+
+# survey_version_name = "Donor"
+
+
+
+
+
+
+
+
+
+convert_numeric_age_to_age_group = TRUE
+survey_file_ext = ".zip"
+survey_datetime_format_pattern = "_[0-9]{8}_[0-9]{4}"
+name_of_column_details = "column_details"
+write_data = TRUE
+variables_to_include_with_text = c("start_date", "end_date", "wave_info", "version_name",  "gender", "age", "age_group", "ethnicity", "marital_status", "h_c__no_children",	"h_c__under_12",	"h_c__12_to_17",	"h_c__18_to_65",	"h_c__65_and_up", "annual_household_income",	"zip_code", "audience_type")
+grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
+
+
+
+
+RUN_Qualitative_Coding <- function(
+    storage_platform, 
+    storage_platform_name,
+    group_dir_name,
+    jobs_folder_name,
+    project_year,
+    project_folder_name,
+    should_create_nonexistant_dirs,
+    survey_version_name,
+    survey_monkey_used,
+    wave_names
+    ) {
+  
+  bkissell::initiate_my_current_env(
+    storage_platform,
+    storage_platform_name,
+    group_dir_name,
+    jobs_folder_name,
+    project_year,
+    project_folder_name
+    )
+  
+  
+  bkissell::add_traditional_project_dir_list_to_env(my_current_env, should_create_nonexistant_dirs)
+  
+  bkissell::add_survey_related_dir_list_to_env(my_current_env, survey_version_name, survey_monkey_used, wave_names, should_create_nonexistant_dirs) 
+ 
+  my_current_env$survey_directory_paths
+  
+  getwd()
+  # # Create all of the needed file paths, and assign them to the my_current_env env.
+  # set_up_project_environment(
+  #   storage_platform = storage_platform,
+  #   storage_platform_name = storage_platform_name,
+  #   group_dir_name = group_dir_name,
+  #   jobs_folder_name = jobs_folder_name,
+  #   project_year = project_year,
+  #   project_folder_name = project_folder_name,
+  #   should_create_nonexistant_dirs = should_create_nonexistant_dirs,
+  #   survey_version_name = survey_version_name,
+  #   survey_monkey_used = survey_monkey_used,
+  #   wave_names = wave_names
+  # )
+}
+
+
+
+
+
+
+
+
+```

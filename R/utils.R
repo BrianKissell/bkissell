@@ -7115,15 +7115,20 @@ set_up_project_environment_qualitative_coding <- function(
 
   rlang::env_poke(env = my_current_env, "working_directory_path", working_directory_path)
 
-  # Check that the traditional project directories exist.
-  # There is an option to create them if they do not exist
-  traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
-
-  for(iteration in seq_along(traditional_project_dir_list)){
-    value_to_add <- traditional_project_dir_list[[iteration]]
-    name_to_add <- names(traditional_project_dir_list)[[iteration]]
-    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
-  }
+  #
+  # # Check that the traditional project directories exist.
+  # # There is an option to create them if they do not exist
+  # traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
+  #
+  # rlang::env_poke(env = my_current_env, "traditional_project_dir_list", traditional_project_dir_list)
+  #
+  # for(iteration in seq_along(traditional_project_dir_list)){
+  #   value_to_add <- traditional_project_dir_list[[iteration]]
+  #   name_to_add <- names(traditional_project_dir_list)[[iteration]]
+  #   rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  # }
+  #
+  # return(invisible(my_current_env))
 #
 #   # Check that the directories related to surveys exist according to the
 #   # included parameters. There is an option to create them if they do not exist
@@ -7235,3 +7240,224 @@ set_up_project_environment_qualitative_coding <- function(
   # Invisibly return the environment
   return(invisible(my_current_env))
 }
+
+
+
+
+
+
+
+
+
+
+
+
+#' initiate_my_current_env
+#'
+#' @param storage_platform storage_platform
+#' @param storage_platform_name storage_platform_name
+#' @param group_dir_name group_dir_name
+#' @param jobs_folder_name jobs_folder_name
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
+#'
+#' @return invisible(my_current_env)
+#' @export
+#'
+initiate_my_current_env <- function(
+    storage_platform,
+    storage_platform_name,
+    group_dir_name,
+    jobs_folder_name,
+    project_year,
+    project_folder_name
+) {
+  # Set the initial environment
+  my_current_env <<- rlang::current_env()
+
+  message("my_current_env has been initiated")
+
+  # Use the computer information to create the working directory according to
+  # the information included as a parameter. This will be used instead of using
+  # projects.
+  working_directory_path <- bkissell::set_project_working_directory(
+    storage_platform = storage_platform,
+    storage_platform_name = storage_platform_name,
+    group_dir_name = group_dir_name,
+    jobs_folder_name = jobs_folder_name,
+    project_year = project_year,
+    project_folder_name = project_folder_name
+  )
+
+  rlang::env_poke(env = my_current_env, "working_directory_path", working_directory_path)
+
+  return(invisible(my_current_env))
+}
+
+
+#' add_traditional_project_dir_list_to_env
+#'
+#' @param my_current_env my_current_env
+#' @param should_create_nonexistant_dirs should_create_nonexistant_dirs
+#'
+#' @return invisible(my_current_env)
+#' @export
+#'
+add_traditional_project_dir_list_to_env <- function(my_current_env, should_create_nonexistant_dirs) {
+  # Check that the traditional project directories exist.
+  # There is an option to create them if they do not exist
+  traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
+
+  rlang::env_poke(env = my_current_env, "traditional_project_dir_list", traditional_project_dir_list)
+
+  for(iteration in seq_along(traditional_project_dir_list)){
+    value_to_add <- traditional_project_dir_list[[iteration]]
+    name_to_add <- names(traditional_project_dir_list)[[iteration]]
+    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  }
+
+  return(invisible(my_current_env))
+}
+
+
+
+#' add_survey_related_dir_list_to_env
+#'
+#' @param my_current_env my_current_env
+#' @param survey_version_name survey_version_name
+#' @param survey_monkey_used survey_monkey_used
+#' @param wave_names wave_names
+#' @param should_create_nonexistant_dirs should_create_nonexistant_dirs
+#'
+#' @return invisible(my_current_env)
+#' @export
+#'
+add_survey_related_dir_list_to_env <- function(my_current_env, survey_version_name, survey_monkey_used, wave_names, should_create_nonexistant_dirs) {
+
+  # Check that the directories related to surveys exist according to the
+  # included parameters. There is an option to create them if they do not exist
+  survey_related_dir_list <- create_survey_related_dir_list(
+    survey_version_name = survey_version_name,
+    survey_monkey_used = survey_monkey_used,
+    wave_names = wave_names,
+    should_create_nonexistant_dirs = should_create_nonexistant_dirs
+  )
+
+  rlang::env_poke(env = my_current_env, "survey_related_dir_list", survey_related_dir_list)
+
+  for(iteration in seq_along(survey_related_dir_list)){
+    value_to_add <- survey_related_dir_list[[iteration]]
+    name_to_add <- names(survey_related_dir_list)[[iteration]]
+    rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+  }
+
+  # Obtain the names where the directories for the different survey versions
+  survey_directory_path_names <- names(survey_related_dir_list)[stringr::str_detect(names(survey_related_dir_list), "^p_path_dc_sm_svn_wave_names_")]
+
+  rlang::env_poke(env = my_current_env, "survey_directory_path_names", survey_directory_path_names)
+
+  # Obtain the actual paths for the survey version directories
+  survey_directory_paths <- survey_related_dir_list[survey_directory_path_names]
+
+  rlang::env_poke(env = my_current_env, "survey_directory_paths", survey_directory_paths)
+
+  return(invisible(my_current_env))
+}
+
+#
+#   function(
+#            should_create_nonexistant_dirs,
+#            survey_version_name,
+#            survey_monkey_used,
+#            wave_names) {
+#
+#
+#
+#
+#   # Obtain the paths where the column names documents should be
+#   column_names_paths <- purrr::map(survey_directory_paths, ~{
+#     file.path(.x, paste0(basename(.x), "_column_names.xlsx"))
+#   })
+#
+#   rlang::env_poke(env = my_current_env, "column_names_paths", column_names_paths)
+#
+#   for(iteration in seq_along(column_names_paths)){
+#     value_to_add <- column_names_paths[[iteration]]
+#     name_to_add <- names(column_names_paths)[[iteration]]
+#     rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+#   }
+#
+#   # Obtain the paths that contain the data where the text has gone through custom spell check process
+#   spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
+#
+#   for(iteration in seq_along(spellcheck_column_paths)){
+#     value_to_add <- spellcheck_column_paths[[iteration]]
+#     name_to_add <- names(spellcheck_column_paths)[[iteration]]
+#     rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
+#   }
+#
+#   # Create the path for the cleaned survey data that will be stored in the power bi directory
+#   power_bi_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/power_bi_deck/clean_data.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_clean_data_path", power_bi_clean_data_path)
+#
+#   # Create the path for the cleaned survey data that will be stored in the processed clean data folder
+#   processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+#   rlang::env_poke(env = my_current_env, "processed_data_clean_data_path", processed_data_clean_data_path)
+#
+#   # Create path for the text data from the survey
+#   text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+#   rlang::env_poke(env = my_current_env, "text_survey_data_path", text_survey_data_path)
+#
+#   # Create the path for the text of the selected responses that we are wanting to highlight, which will be stored in the power bi folder
+#   power_bi_text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_text_selected_example_text_survey_data_path", power_bi_text_selected_example_text_survey_data_path)
+#
+#   # Create the path for the text data that will be stored in the power bi folder
+#   power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_text_path", power_bi_text_path)
+#
+#   # Create the path for the selected example text survey data
+#   text_selected_example_text_survey_data_path <- paste0("Data Collection/survey_monkey_data/", survey_version_name, "/selected_example_text.xlsx")
+#   rlang::env_poke(env = my_current_env, "text_selected_example_text_survey_data_path", text_selected_example_text_survey_data_path)
+#
+#   # Create the path for the mc power bi
+#   power_bi_mc_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_multiple_choice.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_mc_path", power_bi_mc_path)
+#
+#   # Create the path for the power bi sa
+#   power_bi_sa_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_select_all.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_sa_path", power_bi_sa_path)
+#
+#   # Create the path for the power bi desc table
+#   power_bi_descr_table_num_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_descr_table_num.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_descr_table_num_path", power_bi_descr_table_num_path)
+#
+#   # Create the path for the net promoter
+#   power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_net_promoter_path", power_bi_net_promoter_path)
+#
+#   # Create the path for the quality coding
+#   qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
+#   rlang::env_poke(env = my_current_env, "qualitative_coding_data_path_list", qualitative_coding_data_path_list)
+#
+#   # Create the path for the power bi overall qual
+#   power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_overall_qualitative_path", power_bi_overall_qualitative_path)
+#
+#   # Create the path for the power bi breakdown qual
+#   power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_path", power_bi_break_down_qualitative_path)
+#
+#   # Create the path for the power bi breakdown list qual
+#   power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+#   rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_path_list", power_bi_break_down_qualitative_path_list)
+#
+#   # Get the example text repsonse sheets and put them together as a df in the env
+#   text_selected_example_response_vars <- readxl::excel_sheets(text_selected_example_text_survey_data_path)
+#   parameters_for_example_read <- data.frame(Var1 = text_selected_example_response_vars)
+#   parameters_for_example_read$Var2 <- text_selected_example_text_survey_data_path
+#   rlang::env_poke(env = my_current_env, "parameters_for_example_read", parameters_for_example_read)
+#
+#   # Invisibly return the environment
+#   return(invisible(my_current_env))
+# }
