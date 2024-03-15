@@ -174,3 +174,71 @@ DASHBOARD_CREATION_PLACEHOLDER <- function(
 #     "monthly_donor",	"support_sdzwa_again"),
 #   grouping_vars = c("wave_info", "gender", "age_group",  "ethnicity", "marital_status", "annual_household_income", "audience_type")
 # )
+
+
+
+RUN_Qualitative_Coding <- function(
+    storage_platform,
+    storage_platform_name,
+    group_dir_name,
+    jobs_folder_name,
+    project_year,
+    project_folder_name,
+    should_create_nonexistant_dirs,
+    survey_version_name,
+    survey_monkey_used,
+    wave_names,
+    write_data,
+    name_of_column_details = "column_details"
+) {
+
+  # 1) Initiate the current environment as "my_current_env". This allows us to create a bucket that contains copies of the things we do throughout the function.
+  bkissell::initiate_my_current_env(
+    storage_platform, storage_platform_name, group_dir_name, jobs_folder_name,
+    project_year, project_folder_name
+  )
+
+  # 2) Set up the needed folders and needed file paths
+
+  # Add traditional project dirs
+  bkissell::add_traditional_project_dir_list_to_env(my_current_env, should_create_nonexistant_dirs)
+
+  # Add dirs related to running surveys
+  bkissell::add_survey_related_dir_list_to_env(my_current_env, survey_version_name, survey_monkey_used, wave_names, should_create_nonexistant_dirs)
+
+  # Use vector to specify additional paths to create.
+  bkissell::create_specified_file_paths(
+    my_env = my_current_env,
+    survey_directory_paths = my_current_env$survey_directory_paths,
+    vector_of_path_names_or_objects_to_create = c("qualitative_coding_data_path_list", "column_names_paths", "column_workbook_lists", "spellcheck_column_paths", "power_bi_overall_qualitative_path", "power_bi_break_down_qualitative_path", "power_bi_break_down_qualitative_path_list"),
+    column_names_paths = my_current_env$column_names_paths,
+    name_of_column_details = name_of_column_details
+  )
+
+  message("1) Job specific paths have been created")
+
+  # 3) Process the survey data that will be used to create the calculations. This will be used to join other important information to the qual data.
+  suppressWarnings(bkissell::create_survey_data_for_power_bi_df(my_env = my_current_env, write_data = FALSE))
+
+
+  message("2) Survey data has been read in an processed")
+
+  # 4) Do all of the overall qualitative coding stuff (needs more work)
+  power_bi_qualitative_both <- bkissell::qualitative_coding_system(
+    qual_path_list = my_current_env$qualitative_coding_data_path_list,
+    processed_survey_data = my_current_env$survey_data_for_power_bi_df,
+    column_workbook_lists_single = my_current_env$column_workbook_lists_single,
+    grouping_vars,
+    name_of_column_details,
+    path_to_qual_coding_data_list = my_current_env$qualitative_coding_data_path_list,
+    write_data,
+    power_bi_overall_qualitative_path = my_current_env$power_bi_overall_qualitative_path
+  )
+
+  rlang::env_poke(env = my_current_env, "power_bi_overall_qualitative_combined", power_bi_qualitative_both$power_bi_overall_qualitative_combined)
+  rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_combined", power_bi_qualitative_both$power_bi_break_down_qualitative_combined)
+
+message("3) Qualitative data has been processed.")
+  return(invisible(my_current_env))
+
+}

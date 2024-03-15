@@ -4,10 +4,18 @@
 \alias{create_multiple_column_workbook_lists}
 \title{create_multiple_column_workbook_lists}
 \usage{
-create_multiple_column_workbook_lists(my_env = my_current_env)
+create_multiple_column_workbook_lists(
+  my_env = my_current_env,
+  column_names_paths = my_current_env$column_names_paths,
+  name_of_column_details
+)
 }
 \arguments{
 \item{my_env}{my_env}
+
+\item{column_names_paths}{column_names_paths}
+
+\item{name_of_column_details}{name_of_column_details}
 }
 \value{
 column_workbook_lists

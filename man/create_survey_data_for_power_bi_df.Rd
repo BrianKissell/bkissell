@@ -4,10 +4,15 @@
 \alias{create_survey_data_for_power_bi_df}
 \title{create_survey_data_for_power_bi_df}
 \usage{
-create_survey_data_for_power_bi_df(my_env = my_current_env)
+create_survey_data_for_power_bi_df(
+  my_env = my_current_env,
+  write_data = write_data
+)
 }
 \arguments{
 \item{my_env}{my_env}
+
+\item{write_data}{write_data}
 }
 \value{
 survey_data_for_power_bi_df

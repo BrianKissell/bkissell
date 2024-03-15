@@ -5941,11 +5941,13 @@ create_power_bi_data_qualitative_CALCULATED_TABLES <- function(
     # Loop through each sheet
     workbook_sheets_qualitative <- purrr::map(workbook_sheets_qualitative_names, ~{
 
+      current_sheet_name <- .x
       # Read in the data for it
-      coding_data <- readxl::read_excel(path_to_qualitative_coding_data, sheet = .x)
+      coding_data <- readxl::read_excel(path_to_qualitative_coding_data, sheet = current_sheet_name)
 
       df_used$RID <- as.numeric(df_used$RID)
       coding_data$RID <- as.numeric(coding_data$RID)
+
       qual_coding_data <- df_used %>%
         dplyr::left_join(coding_data, by = {{identifier}})
 
@@ -6689,12 +6691,17 @@ set_up_project_environment <- function(
 #' create_multiple_column_workbook_lists
 #'
 #' @param my_env my_env
+#' @param column_names_paths column_names_paths
+#' @param name_of_column_details name_of_column_details
 #'
 #' @return column_workbook_lists
 #' @export
 #'
-create_multiple_column_workbook_lists <- function(my_env = my_current_env) {
-  column_workbook_lists <- purrr::map(my_env$column_names_paths, ~{
+create_multiple_column_workbook_lists <- function(
+    my_env = my_current_env,
+    column_names_paths = my_current_env$column_names_paths,
+    name_of_column_details) {
+  column_workbook_lists <- purrr::map(column_names_paths, ~{
     column_workbook_list_attempt <- try({bkissell::create_column_details_and_named_vectors_list(
       path_to_column_workbook = .x,
       name_of_column_details = name_of_column_details)}, silent = TRUE)
@@ -6711,11 +6718,12 @@ create_multiple_column_workbook_lists <- function(my_env = my_current_env) {
 #' create_survey_data_for_power_bi_df
 #'
 #' @param my_env my_env
+#' @param write_data write_data
 #'
 #' @return survey_data_for_power_bi_df
 #' @export
 #'
-create_survey_data_for_power_bi_df <- function(my_env = my_current_env) {
+create_survey_data_for_power_bi_df <- function(my_env = my_current_env, write_data = write_data) {
 
   survey_data_for_power_bi_df <- purrr::map(seq_along(my_env$survey_directory_paths), ~{
     iteration <- .x
@@ -7374,90 +7382,403 @@ add_survey_related_dir_list_to_env <- function(my_current_env, survey_version_na
 #
 #
 #
-#   # Obtain the paths where the column names documents should be
-#   column_names_paths <- purrr::map(survey_directory_paths, ~{
-#     file.path(.x, paste0(basename(.x), "_column_names.xlsx"))
-#   })
 #
-#   rlang::env_poke(env = my_current_env, "column_names_paths", column_names_paths)
-#
-#   for(iteration in seq_along(column_names_paths)){
-#     value_to_add <- column_names_paths[[iteration]]
-#     name_to_add <- names(column_names_paths)[[iteration]]
-#     rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
-#   }
-#
-#   # Obtain the paths that contain the data where the text has gone through custom spell check process
-#   spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
-#
-#   for(iteration in seq_along(spellcheck_column_paths)){
-#     value_to_add <- spellcheck_column_paths[[iteration]]
-#     name_to_add <- names(spellcheck_column_paths)[[iteration]]
-#     rlang::env_poke(env = my_current_env, name_to_add, value_to_add)
-#   }
-#
-#   # Create the path for the cleaned survey data that will be stored in the power bi directory
-#   power_bi_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/power_bi_deck/clean_data.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_clean_data_path", power_bi_clean_data_path)
-#
-#   # Create the path for the cleaned survey data that will be stored in the processed clean data folder
-#   processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
-#   rlang::env_poke(env = my_current_env, "processed_data_clean_data_path", processed_data_clean_data_path)
-#
-#   # Create path for the text data from the survey
-#   text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
-#   rlang::env_poke(env = my_current_env, "text_survey_data_path", text_survey_data_path)
-#
-#   # Create the path for the text of the selected responses that we are wanting to highlight, which will be stored in the power bi folder
-#   power_bi_text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_text_selected_example_text_survey_data_path", power_bi_text_selected_example_text_survey_data_path)
-#
-#   # Create the path for the text data that will be stored in the power bi folder
-#   power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_text_path", power_bi_text_path)
-#
-#   # Create the path for the selected example text survey data
-#   text_selected_example_text_survey_data_path <- paste0("Data Collection/survey_monkey_data/", survey_version_name, "/selected_example_text.xlsx")
-#   rlang::env_poke(env = my_current_env, "text_selected_example_text_survey_data_path", text_selected_example_text_survey_data_path)
-#
-#   # Create the path for the mc power bi
-#   power_bi_mc_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_multiple_choice.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_mc_path", power_bi_mc_path)
-#
-#   # Create the path for the power bi sa
-#   power_bi_sa_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_select_all.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_sa_path", power_bi_sa_path)
-#
-#   # Create the path for the power bi desc table
-#   power_bi_descr_table_num_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_descr_table_num.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_descr_table_num_path", power_bi_descr_table_num_path)
-#
-#   # Create the path for the net promoter
-#   power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_net_promoter_path", power_bi_net_promoter_path)
-#
-#   # Create the path for the quality coding
-#   qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
-#   rlang::env_poke(env = my_current_env, "qualitative_coding_data_path_list", qualitative_coding_data_path_list)
-#
-#   # Create the path for the power bi overall qual
-#   power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_overall_qualitative_path", power_bi_overall_qualitative_path)
-#
-#   # Create the path for the power bi breakdown qual
-#   power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_path", power_bi_break_down_qualitative_path)
-#
-#   # Create the path for the power bi breakdown list qual
-#   power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
-#   rlang::env_poke(env = my_current_env, "power_bi_break_down_qualitative_path_list", power_bi_break_down_qualitative_path_list)
-#
-#   # Get the example text repsonse sheets and put them together as a df in the env
-#   text_selected_example_response_vars <- readxl::excel_sheets(text_selected_example_text_survey_data_path)
-#   parameters_for_example_read <- data.frame(Var1 = text_selected_example_response_vars)
-#   parameters_for_example_read$Var2 <- text_selected_example_text_survey_data_path
-#   rlang::env_poke(env = my_current_env, "parameters_for_example_read", parameters_for_example_read)
-#
-#   # Invisibly return the environment
-#   return(invisible(my_current_env))
 # }
+
+
+
+
+#' qualitative_coding_system
+#'
+#' @param qual_path_list qual_path_list
+#' @param processed_survey_data processed_survey_data
+#' @param column_workbook_lists_single column_workbook_lists_single
+#' @param grouping_vars grouping_vars
+#' @param name_of_column_details name_of_column_details
+#' @param path_to_qual_coding_data_list path_to_qual_coding_data_list
+#' @param write_data write_data
+#' @param power_bi_overall_qualitative_path power_bi_overall_qualitative_path
+#'
+#' @return power_bi_overall_qualitative_combined
+#' @export
+#'
+qualitative_coding_system <- function(
+    qual_path_list = my_current_env$qualitative_coding_data_path_list,
+    processed_survey_data = my_current_env$survey_data_for_power_bi_df,
+    column_workbook_lists_single = my_current_env$column_workbook_lists_single,
+    grouping_vars,
+    name_of_column_details,
+    path_to_qual_coding_data_list = my_current_env$qualitative_coding_data_path_list,
+    write_data,
+    power_bi_overall_qualitative_path = my_current_env$power_bi_overall_qualitative_path,
+    power_bi_break_down_qualitative_path = my_current_env$power_bi_break_down_qualitative_path
+    # ,
+    # combine_processed_qualified_lists = TRUE
+
+    ) {
+
+  # If I end up needing a combined set, I will need to add an optional piece that does those calculations
+  power_bi_overall_qualitative_combined <- purrr::map(seq_along(qual_path_list), ~ {
+
+    # Set the number for the iteration
+    iteration <- .x
+
+    # Check to see if this file exists
+    if(file.exists(qual_path_list[[iteration]])){
+
+      # Filter the processed data for the specific wave
+      ind_processed_survey_data <- processed_survey_data %>%
+        dplyr::filter(wave_info == basename(dirname(qual_path_list[[iteration]])))
+
+      # Create the calculated Overall Power BI table
+      power_bi_overall_qualitative <- bkissell::create_power_bi_data_qualitative_CALCULATED_TABLES(
+        df = ind_processed_survey_data,
+        column_workbook_list = column_workbook_lists_single,
+        grouping_vars = grouping_vars,
+        name_of_column_details,
+        path_to_qual_coding_data = path_to_qual_coding_data_list[[iteration]],
+        qualitative_type = "overall_coding",
+        identifier = "RID")[[1]]
+
+      order_information_lookup_table <- bkissell::create_order_information_lookup_table(column_workbook_lists_single, name_of_column_details)
+
+      power_bi_overall_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_overall_qualitative$grouping_var_used)
+
+      power_bi_overall_qualitative <- adjust_order_information_lookup_table_per_type(
+        table = power_bi_overall_qualitative,
+        order_information_lookup_table,
+        type = "grouping_var_"
+        )
+
+      power_bi_overall_qualitative <- power_bi_overall_qualitative %>%
+        dplyr::filter(!is.na(grouping_var_levels))
+
+      power_bi_overall_qualitative$wave <- basename(dirname(qual_path_list[[iteration]]))
+
+      return(power_bi_overall_qualitative)
+    } else {
+      return(data.frame())
+    }
+  }) %>% purrr::reduce(dplyr::bind_rows)
+
+
+  power_bi_break_down_qualitative_combined <- purrr::map(seq_along(qual_path_list), ~ {
+
+    # Set the number for the iteration
+    iteration <- .x
+
+    # Check to see if this file exists
+    if(file.exists(qual_path_list[[iteration]])){
+
+      # Filter the processed data for the specific wave
+      ind_processed_survey_data <- processed_survey_data %>%
+        dplyr::filter(wave_info == basename(dirname(qual_path_list[[iteration]])))
+
+
+      # Create the calculated Break Down Power BI table
+      power_bi_break_down_qualitative <- bkissell::create_power_bi_data_qualitative_CALCULATED_TABLES(
+        df = ind_processed_survey_data,
+        column_workbook_list = column_workbook_lists_single,
+        grouping_vars = grouping_vars,
+        name_of_column_details,
+        path_to_qual_coding_data = path_to_qual_coding_data_list[[iteration]],
+        qualitative_type = "break_down_coding",
+        identifier = "RID")[[1]]
+
+
+      order_information_lookup_table <- bkissell::create_order_information_lookup_table(column_workbook_lists_single, name_of_column_details)
+
+      power_bi_break_down_qualitative$grouping_var_used <- snakecase::to_snake_case(power_bi_break_down_qualitative$grouping_var_used)
+
+
+      power_bi_break_down_qualitative <- adjust_order_information_lookup_table_per_type(
+        table = power_bi_break_down_qualitative,
+        order_information_lookup_table,
+        type = "grouping_var_"
+      )
+
+      power_bi_break_down_qualitative <- power_bi_break_down_qualitative %>%
+        dplyr::filter(!is.na(grouping_var_levels))
+
+      power_bi_break_down_qualitative$wave <- basename(dirname(qual_path_list[[iteration]]))
+
+      return(power_bi_break_down_qualitative)
+    } else {
+      return(data.frame())
+    }
+  }) %>% purrr::reduce(dplyr::bind_rows)
+
+
+  if(write_data){
+    readr::write_csv(power_bi_overall_qualitative_combined, power_bi_overall_qualitative_path)
+    readr::write_csv(power_bi_break_down_qualitative_combined, power_bi_break_down_qualitative_path)
+  }
+
+  return(
+    invisible(
+      list(
+        power_bi_overall_qualitative_combined = power_bi_overall_qualitative_combined,
+        power_bi_break_down_qualitative_combined = power_bi_break_down_qualitative_combined
+        )
+      )
+  )
+}
+
+
+
+
+
+#' create_specified_file_paths
+#'
+#' @param my_env my_env
+#' @param vector_of_path_names_or_objects_to_create vector_of_path_names_or_objects_to_create
+#' @param survey_directory_paths survey_directory_paths
+#' @param column_names_paths column_names_paths
+#' @param name_of_column_details name_of_column_details
+#'
+#' @return invisible(my_env)
+#' @export
+#'
+create_specified_file_paths <- function(
+    my_env = NULL,
+    vector_of_path_names_or_objects_to_create = NULL,
+    survey_directory_paths = NULL,
+    column_names_paths = NULL,
+    name_of_column_details = NULL
+) {
+
+  # qualitative_coding_data_path_list ---------------------------------------
+  if("qualitative_coding_data_path_list" %in% vector_of_path_names_or_objects_to_create){
+    if(!is.null(survey_directory_paths)){
+      qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
+      if(!is.null(my_env)){
+        rlang::env_poke(env = my_env, "qualitative_coding_data_path_list", qualitative_coding_data_path_list)
+      }
+    } else {
+      stop("`survey_directory_paths` must be specificed to create `qualitative_coding_data_path_list`")
+    }
+  }
+
+  # column_names_paths ------------------------------------------------------
+  if("column_names_paths" %in% vector_of_path_names_or_objects_to_create){
+    if(!is.null(survey_directory_paths)){
+      column_names_paths <- purrr::map(survey_directory_paths, ~{
+        file.path(.x, paste0(basename(.x), "_column_names.xlsx"))
+      })
+      if(!is.null(my_env)){
+        rlang::env_poke(env = my_env, "column_names_paths", column_names_paths)
+
+        for(iteration in seq_along(column_names_paths)){
+          value_to_add <- column_names_paths[[iteration]]
+          name_to_add <- names(column_names_paths)[[iteration]]
+          rlang::env_poke(env = my_env, name_to_add, value_to_add)
+        }
+      }
+    } else {
+      stop("`survey_directory_paths` must be specificed to create `column_names_paths`")
+    }
+  }
+
+  # column_workbook_lists ------------------------------------------------------
+  if("column_workbook_lists" %in% vector_of_path_names_or_objects_to_create){
+    if(!is.null(column_names_paths) & !is.null(name_of_column_details)){
+      bkissell::create_multiple_column_workbook_lists(
+        my_env = my_env,
+        column_names_paths = column_names_paths,
+        name_of_column_details = name_of_column_details
+      )
+      if(!is.null(my_env)){
+        # There is a chance that I need to make a column workbook list specifically for the combined files. At this point, I will just take the first one.
+        rlang::env_poke(env = my_env, "column_workbook_lists_single", my_env$column_workbook_lists[[1]])
+      }
+    } else {
+      stop("`column_names_paths` and `name_of_column_details` must be specificed to create `column_workbook_lists`")
+    }
+  }
+
+
+  # spellcheck_column_paths ------------------------------------------------------
+  if("spellcheck_column_paths" %in% vector_of_path_names_or_objects_to_create){
+    if(!is.null(survey_directory_paths)){
+
+      # Obtain the paths that contain the data where the text has gone through custom spell check process
+      spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
+
+      if(!is.null(my_env)){
+        rlang::env_poke(env = my_env, "spellcheck_column_paths", spellcheck_column_paths)
+
+        for(iteration in seq_along(spellcheck_column_paths)){
+          value_to_add <- spellcheck_column_paths[[iteration]]
+          name_to_add <- names(spellcheck_column_paths)[[iteration]]
+          rlang::env_poke(env = my_env, name_to_add, value_to_add)
+        }
+      }
+    } else {
+      stop("`survey_directory_paths` must be specificed to create `spellcheck_column_paths`")
+    }
+  }
+
+  add_object_to_env <- function(
+    my_env,
+    name_of_object_to_add,
+    object_to_add,
+    vector_of_path_names_or_objects_to_create
+  ) {
+    if(name_of_object_to_add %in% vector_of_path_names_or_objects_to_create){
+      if(!is.null(my_env)){
+        rlang::env_poke(env = my_env, name_of_object_to_add, object_to_add)
+      }
+    }
+    return(invisible(my_env))
+  }
+
+  # Create the path for the cleaned survey data that will be stored in the power bi directory
+  power_bi_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/power_bi_deck/clean_data.csv")
+  add_object_to_env(my_env,"power_bi_clean_data_path", power_bi_clean_data_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the cleaned survey data that will be stored in the processed clean data folder
+  processed_data_clean_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_data/PROCESSED_", snakecase::to_snake_case(survey_version_name), "_data_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+  add_object_to_env(my_env,"processed_data_clean_data_path", processed_data_clean_data_path, vector_of_path_names_or_objects_to_create)
+
+  # Create path for the text data from the survey
+  text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/processed_text/TEXT_PROCESSED_", snakecase::to_snake_case(survey_version_name), "_", bkissell::create_time_chr_string_for_file_names("%Y%m%d_%H%M"), ".csv")
+  add_object_to_env(my_env,"text_survey_data_path", text_survey_data_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the text of the selected responses that we are wanting to highlight, which will be stored in the power bi folder
+  power_bi_text_selected_example_text_survey_data_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_selected_example_text.csv")
+  add_object_to_env(my_env,"power_bi_text_selected_example_text_survey_data_path", power_bi_text_selected_example_text_survey_data_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the text data that will be stored in the power bi folder
+  power_bi_text_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_text_survey_data.csv")
+  add_object_to_env(my_env,"power_bi_text_path", power_bi_text_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the selected example text survey data
+  text_selected_example_text_survey_data_path <- paste0("Data Collection/survey_monkey_data/", survey_version_name, "/selected_example_text.xlsx")
+  add_object_to_env(my_env,"text_selected_example_text_survey_data_path", text_selected_example_text_survey_data_path, vector_of_path_names_or_objects_to_create)
+
+
+  if(file.exists(text_selected_example_text_survey_data_path)){
+
+    # Obtain the paths that contain the data where the text has gone through custom spell check process
+    spellcheck_column_paths <- purrr::map(survey_directory_paths, ~paste0(.x, "/spellchecked_text_columns.xlsx"))
+
+    if(!is.null(my_env)){
+
+      # Get the example text repsonse sheets and put them together as a df in the env
+      text_selected_example_response_vars <- readxl::excel_sheets(text_selected_example_text_survey_data_path)
+      parameters_for_example_read <- data.frame(Var1 = text_selected_example_response_vars)
+      parameters_for_example_read$Var2 <- text_selected_example_text_survey_data_path
+      rlang::env_poke(env = my_current_env, "parameters_for_example_read", parameters_for_example_read)
+    }
+  } else {
+    stop("`text_selected_example_text_survey_data_path` must exist to create `parameters_for_example_read`")
+  }
+
+  # Create the path for the mc power bi
+  power_bi_mc_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_multiple_choice.csv")
+  add_object_to_env(my_env,"power_bi_mc_path", power_bi_mc_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the power bi sa
+  power_bi_sa_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_select_all.csv")
+  add_object_to_env(my_env,"power_bi_sa_path", power_bi_sa_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the power bi desc table
+  power_bi_descr_table_num_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_descr_table_num.csv")
+  add_object_to_env(my_env,"power_bi_descr_table_num_path", power_bi_descr_table_num_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the net promoter
+  power_bi_net_promoter_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_net_promoter.csv")
+  add_object_to_env(my_env,"power_bi_net_promoter_path", power_bi_net_promoter_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the quality coding
+  qualitative_coding_data_path_list <- paste0(survey_directory_paths, "/qualitative_coding_data.xlsx") %>% as.list()
+  add_object_to_env(my_env,"qualitative_coding_data_path_list", qualitative_coding_data_path_list, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the power bi overall qual
+  power_bi_overall_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_overall_qualitative.csv")
+  add_object_to_env(my_env,"power_bi_overall_qualitative_path", power_bi_overall_qualitative_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the power bi breakdown qual
+  power_bi_break_down_qualitative_path <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  add_object_to_env(my_env,"power_bi_break_down_qualitative_path", power_bi_break_down_qualitative_path, vector_of_path_names_or_objects_to_create)
+
+  # Create the path for the power bi breakdown list qual
+  power_bi_break_down_qualitative_path_list <- paste0("Analysis/Respondent Investigation/", survey_version_name, "/Power_BI_Deck/power_bi_break_down_qualitative.csv")
+  add_object_to_env(my_env,"power_bi_break_down_qualitative_path_list", power_bi_break_down_qualitative_path_list, vector_of_path_names_or_objects_to_create)
+
+  return(invisible(my_env))
+}
+
+
+
+
+
+
+
+
+
+
+# Create the URLs for the participant data pages ---------------------------
+
+#' create_user_participant_urls
+#'
+#' @param project_numbers Project numbers
+#'
+#' @return user_participant_urls
+#' @export
+#'
+create_user_participant_urls <- function(project_numbers) {
+  # Create a url for every project number
+  user_participant_urls <- purrr::map_chr(project_numbers, ~{
+    paste0("https://www.userinterviews.com/projects/", .x, "/participants")
+  })
+
+  # return the vector
+  return(user_participant_urls)
+}
+
+
+
+################################################################################
+# Initiate User Credentials -----------------------------------------------
+
+#' initiate_credentials_for_user
+#' Provide Credentials for User account through the use of selenium
+#'
+#' @param remDr Selenium client used to control the browser
+#'
+#' @return remDr
+#' @export
+#'
+
+initiate_credentials_for_user <- function(remDr){
+
+  # Obtain the credentials
+  user_credentials <- initiate_project_and_design_details()
+
+  # Set username for user
+  user_credentials_username <- user_credentials$username
+
+  # Set password for user
+  user_credentials_password <- user_credentials$password
+
+  # Navigate to User's sign-in page
+  remDr$navigate("https://www.userinterviews.com/accounts/signin?source=signin-page")
+
+  # Give the page a half second to load
+  Sys.sleep(.5)
+
+  # Enter your username
+  remDr$findElement('xpath', '//*[@id="email"]')$sendKeysToElement(list(user_credentials_username))
+
+  # Enter your password
+  remDr$findElement('xpath', '//*[@id="password"]')$sendKeysToElement(list(user_credentials_password))
+
+  # Submit your credentials to initialize the two step process
+  remDr$findElements("css", "button.Button:nth-child(1)")[[1]]$clickElement()
+
+  # To finish, you will need to mannually enter your verification code into the browser
+  message("Please go to your email and obtain the verification code. Manually enter the code into the selenium web-browser and click enter")
+
+  return(remDr)
+}
