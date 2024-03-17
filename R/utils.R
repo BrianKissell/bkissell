@@ -4671,7 +4671,7 @@ set_project_working_directory <- function(
     setwd(working_directory_path)
   } else {
     # Otherwise throw an error
-    stop(paste0("File directory was not found: ", working_directory_path))
+    warning(paste0("File directory was not found: ", working_directory_path))
   }
 
   # Return the path that will be used
