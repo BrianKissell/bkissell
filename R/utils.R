@@ -4648,6 +4648,9 @@ set_project_working_directory <- function(
   # What is the name of the username for the person running the program?
   computer_user <- Sys.info()[["user"]]
 
+  # Talia's computer is set up in a weird way, where it is under her name and Steves. This should fix the problem
+  computer_user <- ifelse(computer_user == "Talia Abbott", "SJAga", computer_user)
+
   # Create the path to the storage platform
   storage_platform_path <- paste0("C:/Users/", computer_user, "/", storage_platform_name)
 
@@ -4670,7 +4673,6 @@ set_project_working_directory <- function(
     # Otherwise throw an error
     stop(paste0("File directory was not found: ", working_directory_path))
   }
-
 
   # Return the path that will be used
   return(working_directory_path)
