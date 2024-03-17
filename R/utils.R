@@ -7744,25 +7744,64 @@ create_user_participant_urls <- function(project_numbers) {
 ################################################################################
 # Initiate User Credentials -----------------------------------------------
 
+#' get_path_part_to_adjust
+#'
+#' @return path_part_to_adjust
+#' @export
+#'
+get_path_part_to_adjust <- function() {
+
+  # Get the parts of the working directory
+  parts_of_wd <- unlist(strsplit(getwd(), .Platform$file.sep))
+
+  # Put the first 3 parts together
+  path_part_to_adjust <- paste0(parts_of_wd[1:3], collapse = "/")
+
+  # Return the string
+  return(path_part_to_adjust)
+}
+
+
+#' initiate_project_and_design_details
+#'
+#' @return user_credentials
+#' @export
+#'
+initiate_project_and_design_details <- function() {
+
+  # Break the parts down
+  the_path_part_to_adjust <- bkissell::get_path_part_to_adjust()
+
+  # Read in the credentials, and filter for the person using the program
+  user_credentials <- bkissell::obtain_user_credentials() %>%
+
+    # and filter for the person using the program
+    dplyr::filter(path_part_to_adjust == {{the_path_part_to_adjust}})
+
+  # # Set username for user
+  # user_credentials_username <<- user_credentials$username
+  #
+  # # Set password for user
+  # user_credentials_password <<- user_credentials$password
+
+  # Return the dataframe
+  return(user_credentials)
+}
+
+
+
 #' initiate_credentials_for_user
 #' Provide Credentials for User account through the use of selenium
 #'
 #' @param remDr Selenium client used to control the browser
+#' @param user_credentials_username user_credentials_username
+#' @param user_credentials_password user_credentials_password
 #'
 #' @return remDr
 #' @export
 #'
 
-initiate_credentials_for_user <- function(remDr){
-
-  # Obtain the credentials
-  user_credentials <- initiate_project_and_design_details()
-
-  # Set username for user
-  user_credentials_username <- user_credentials$username
-
-  # Set password for user
-  user_credentials_password <- user_credentials$password
+initiate_credentials_for_user <- function(remDr, user_credentials_username, user_credentials_password){
 
   # Navigate to User's sign-in page
   remDr$navigate("https://www.userinterviews.com/accounts/signin?source=signin-page")
@@ -7783,4 +7822,39 @@ initiate_credentials_for_user <- function(remDr){
   message("Please go to your email and obtain the verification code. Manually enter the code into the selenium web-browser and click enter")
 
   return(remDr)
+}
+
+
+#' obtain_path_for_user_credentials
+#'
+#' @param path_part_to_adjust path_part_to_adjust
+#'
+#' @return path_to_credentials
+#' @export
+#'
+obtain_path_for_user_credentials <- function(path_part_to_adjust){
+
+  # Create the path to the credentials file
+  path_to_credentials <- paste0(path_part_to_adjust, "/Dropbox (TCM)/04 MDM Neuro-Fundraising Lab/Research Tools/MNFLAB TOOLS/Misc/user_credential.csv")
+
+  # Return the path
+  return(path_to_credentials)
+}
+
+
+#' obtain_user_credentials
+#'
+#' @return user_credential_df
+#' @export
+#'
+obtain_user_credentials <- function() {
+
+  user_credential_df <- data.frame(
+    person_name = c("Talia Abbot", "Brian Kissell"),
+    path_part_to_adjust = c("C:/Users/SJAga", "C:/Users/Brian"),
+    username = c("tabbott@mnflab.com", "bkissell@wearemoore.com"),
+    password = c("Coolcat22_", "Blk9640061")
+  )
+
+  return(user_credential_df)
 }

@@ -5,10 +5,18 @@
 \title{initiate_credentials_for_user
 Provide Credentials for User account through the use of selenium}
 \usage{
-initiate_credentials_for_user(remDr)
+initiate_credentials_for_user(
+  remDr,
+  user_credentials_username,
+  user_credentials_password
+)
 }
 \arguments{
 \item{remDr}{Selenium client used to control the browser}
+
+\item{user_credentials_username}{user_credentials_username}
+
+\item{user_credentials_password}{user_credentials_password}
 }
 \value{
 remDr
