@@ -7858,3 +7858,250 @@ obtain_user_credentials <- function() {
 
   return(user_credential_df)
 }
+
+
+
+
+################################################################################
+# Download the User Data from the projects --------------------------------
+
+#' Download the user data from a vector of project urls
+#'
+#' @param user_participant_urls user_participant_urls
+#' @param remDr engine
+#'
+#' @export
+#'
+download_user_data_from_projects <- function(remDr, user_participant_urls) {
+
+  # Loop through each url
+  for(url in user_participant_urls){
+
+    # Navigate to the correct url
+    remDr$navigate(url)
+
+    # Click on Actions once it appears
+    css_Action_Button_initial = ".dropdown-toggle"
+    suppressMessages(click_once_element_appears(remDr = remDr, element = css_Action_Button_initial, using = "css selector"))
+
+    # Click second option in dropdown
+    css_Action_Button_initial_export_data = "a.DropdownItem:nth-child(2)"
+    suppressMessages(click_once_element_appears(remDr = remDr, element = css_Action_Button_initial_export_data, using = "css selector"))
+
+    # Click to begin to export the data once it appears
+    css_Export_Data = "button.Button:nth-child(2)"
+    suppressMessages(click_once_element_appears(remDr = remDr, element = css_Export_Data, using = "css selector"))
+
+    # Wait for export to become ready
+    suppressMessages(wait_for_text(remDr = remDr, element = "#export-participants-modal-title", desired_text = "Your export is ready for download", using = "css selector", sleep_time = 1, give_up_count_max = 500))
+
+    # # Wait for the button to appear
+    css_Export_Data_Download_Button = "button.btn-primary:nth-child(2)"
+    suppressMessages(wait_to_detect_element(remDr, element = css_Export_Data_Download_Button, using = "css selector"))
+
+    # Click Download data
+    suppressMessages(click_once_element_appears(remDr, element = css_Export_Data_Download_Button, using = "css selector"))
+
+    # Print a message to inform the user that it has been scraped
+    message(paste0("Website to scrape: ", url))
+  }
+
+  # Make it sleep a second
+  Sys.sleep(1)
+}
+#
+
+
+#' click on element once it appears
+#'
+#' @param remDr Selenium client used to control the browser.
+#' @param element A css element as a string.
+#' @param sleep_time second to wait between loops.
+#' @param give_up_count_max how many times to try the loops.
+#' @param using type of selector
+#'
+#' @return ele
+#' @export
+#'
+
+click_once_element_appears <- function(remDr, element, using = "css selector", sleep_time = .1, give_up_count_max = 999){
+  # Wait until the css element appears
+  wait_to_detect_element(remDr, element, using, sleep_time, give_up_count_max)
+  # Assign the element to ele
+  ele <- try(remDr$findElement(using, element), silent = TRUE)
+  # If the element is found,
+  if(!("try-error" %in% class(ele))){
+    # Click on the element
+    ele$clickElement()}
+  return(invisible(ele))
+}
+
+#' While using R Selenium, wait until an element appears
+#'
+#' @param remDr Selenium client used to control the browser.
+#' @param element A css element as a string.
+#' @param sleep_time second to wait between loops.
+#' @param give_up_count_max how many times to try the loops.
+#' @param using type of selector
+#'
+#' @return ele
+#' @export
+#'
+#'
+wait_to_detect_element <- function(remDr, element, using = "css selector", sleep_time = .1, give_up_count_max = 999){
+  # Set the search status to "Search" to begin looking for the element
+  search_status <- "Search"
+  give_up_count <- give_up_count_max
+  # Begin the while loop
+  while(search_status == "Search"){
+    # Try to find the specified element, and store the results of the attempt in ele.
+    ele <- try(remDr$findElement(using, element), silent = TRUE)
+    # Check to see if an error was detected, which would mean it has not been found.
+    if("try-error" %in% class(ele)){
+      # If not found, wait the specified time
+      Sys.sleep(sleep_time)
+      # And subtract 1 from the give_up_count
+      give_up_count <- give_up_count - 1
+      # Check whether count is at zero, and if so, stop
+      if(give_up_count == 0){
+        search_status <- "Stop"
+        # Throw error and indicate that the element was not found.
+        rlang::abort(paste0("We were not able to detect the css element ", element))
+      }
+    } else {
+      # If the element is found, change search status
+      search_status <- "Stop"
+    }
+  }
+  return(invisible(ele))
+}
+
+
+#' wait_for_text
+#' While using R Selenium, wait until specified text appears in an element
+#'
+#' @param remDr Selenium client used to control the browser.
+#' @param element A css element as a string.
+#' @param desired_text Specified text you are looking for
+#' @param sleep_time second to wait between loops.
+#' @param give_up_count_max ow many times to try the loops.
+#' @param using which type of selector is being used
+#'
+#' @export
+#'
+
+wait_for_text <- function(remDr, element, desired_text, using = "css selector", sleep_time = .1, give_up_count_max = 999){
+  # wait_to_detect_element(remDr, element, using, sleep_time, give_up_count_max)
+  search_status <- "Search"
+  give_up_count <- give_up_count_max
+  # Begin for loop
+  while(search_status == "Search"){
+    ele <- try(remDr$findElement(using, element), silent = TRUE)
+    if(!("try-error" %in% class(ele))){
+      # Read the html
+      html <- remDr$getPageSource()[[1]] %>% rvest::read_html()
+      text_of_html <- html %>% rvest::html_node(element) %>% rvest::html_text()
+      # Test if it matches the desired text and stop loop if found
+      if(give_up_count_max == 0) rlang::warn("Text was not found, so program was terminated")
+      if(identical(text_of_html, desired_text)){
+        search_status <- "Stop"
+      } else {
+        give_up_count_max <- give_up_count_max - 1
+      }
+    }
+  }
+}
+
+
+
+#' #' prepare_UPD_file_paths_for_processing
+#' #' Prepare User Participant Data File Paths for Processing
+#' #'
+#' #' @param home_dir Home directory for the study
+#' #' @param download_location Where the download folder is located.
+#' #' @param project_numbers project numbers
+#' #'
+#' #' @return path_for_UPD_files
+#' #' @export
+#' #'
+#' prepare_UPD_file_paths_for_processing <- function(
+#'     home_dir,
+#'     download_location,
+#'     project_numbers
+#' ) {
+#'   # Create the path where the UPD files will be temporarily held
+#'   path_for_UPD_folder <- paste0(home_dir, "/Data Collection/Project Files/Recruitment/user_participant_data")
+#'
+#'   # Obtain the names of all of csv files in the download folder
+#'   file_names_located_in_download_folder <- list.files(download_location, pattern = ".csv$")
+#'
+#'   # Detect which files should be moved
+#'   file_should_be_moved <- file_names_located_in_download_folder %>%
+#'     stringr::str_detect("participants.+csv")
+#'
+#'   # Select files that should be moved
+#'   file_names_located_in_download_folder_to_move <- file_names_located_in_download_folder[file_should_be_moved]
+#'
+#'   # If nothing is in it
+#'   if(identical(file_names_located_in_download_folder, character(0))){
+#'     path_to_file_in_download_folder <- character(0)
+#'     path_df <- data.frame()
+#'   } else {
+#'     # Create path to file in download location
+#'     path_to_file_in_download_folder <- paste0(download_location, "/", file_names_located_in_download_folder)
+#'     # Put file information into a dataframe
+#'     path_df <- data.frame(path_for_UPD_folder, file_names_located_in_download_folder, path_to_file_in_download_folder)
+#'   }
+#'
+#'   # Extract info about whether it is a copy or not
+#'   path_df$copy_number <- file_names_located_in_download_folder %>%
+#'     stringr::str_extract("\\([0-9]\\).csv$") %>%
+#'     stringr::str_extract("[0-9]{1,2}") %>%
+#'     as.numeric() %>%
+#'     tidyr::replace_na(0)
+#'
+#'   # Clean names
+#'   path_df$project_file_name <- file_names_located_in_download_folder %>%
+#'     stringr::str_replace("-participant.+$", "") %>%
+#'     snakecase::to_snake_case()
+#'
+#'   # Cause an error if the download folder is empty
+#'   if(identical(file_names_located_in_download_folder, character(0))) {
+#'     rlang::abort("No files are in the downloads folder. No files will be moved.")
+#'   } else if(length(path_to_file_in_download_folder) < length(project_numbers)) {
+#'     rlang::abort("There is not a file for every project in the download folder. No files will be moved.")
+#'   } else {
+#'
+#'     # Only obtain the most recent copies
+#'     path_df_to_use <- path_df %>%
+#'       group_by(project_file_name) %>%
+#'       dplyr::slice_max(order_by = copy_number, n = 1)
+#'
+#'     # Prepare path where you are getting it from
+#'     from_files <- path_df_to_use %>%
+#'       pull(path_to_file_in_download_folder)
+#'
+#'     # Prepare file names
+#'     project_file_name <- path_df_to_use %>%
+#'       pull(project_file_name)
+#'
+#'     # Prepare paths for where it should be sent
+#'     path_df_to_use$path_for_UPD_files_to <- paste0(path_df_to_use$path_for_UPD_folder, "/", project_file_name, ".csv")
+#'
+#'     # Extract the paths
+#'     path_for_UPD_files <- path_df_to_use %>%
+#'       pull(path_for_UPD_files_to)
+#'
+#'     # Grab the paths for the files that do not need to be read, and can just be removed
+#'     paths_to_remove <- path_df$path_to_file_in_download_folder[which(!(path_df$path_to_file_in_download_folder %in% from_files))]
+#'
+#'     # Send files to the correct location, depending on whether files were downloaded or not
+#'     purrr::walk2(from_files, path_for_UPD_files, ~{bktools::my_file_rename(.x, .y)})
+#'
+#'     # Remove the unnecessary files from download folder
+#'     purrr::walk(paths_to_remove, ~ file.remove(.x))
+#'   }
+#'
+#'   # Return Paths
+#'   return(path_for_UPD_files)
+#' }
