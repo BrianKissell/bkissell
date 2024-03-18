@@ -16,6 +16,8 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: 
+    AMR,
+    clipr,
     dplyr,
     glue,
     lubridate,
@@ -25,9 +27,12 @@ Imports:
     readr,
     readxl,
     rlang,
+    rvest,
     snakecase,
     stats,
+    stringi,
     stringr,
+    tibble,
     tidyr,
     tidyselect,
     writexl

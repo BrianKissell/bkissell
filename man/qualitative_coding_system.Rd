@@ -33,6 +33,8 @@ qualitative_coding_system(
 \item{write_data}{write_data}
 
 \item{power_bi_overall_qualitative_path}{power_bi_overall_qualitative_path}
+
+\item{power_bi_break_down_qualitative_path}{power_bi_break_down_qualitative_path}
 }
 \value{
 power_bi_overall_qualitative_combined

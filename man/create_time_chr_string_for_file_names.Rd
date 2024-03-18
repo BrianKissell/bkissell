@@ -2,18 +2,16 @@
 % Please edit documentation in R/utils.R
 \name{create_time_chr_string_for_file_names}
 \alias{create_time_chr_string_for_file_names}
-\title{Create time stamps to add to file names
-This function allows us to keep track of every version of a file, which can be important for record keeping and troubleshooting purposes.}
+\title{create_time_chr_string_for_file_names}
 \usage{
 create_time_chr_string_for_file_names(format_string = "\%m\%d\%Y_\%H\%M")
 }
 \arguments{
-\item{format_string}{Character string to indicate how the date/time object should be formatted. The default is '%m%d%Y_%H%M'.}
+\item{format_string}{format_string}
 }
 \value{
 time_stamp
 }
 \description{
-Create time stamps to add to file names
-This function allows us to keep track of every version of a file, which can be important for record keeping and troubleshooting purposes.
+create_time_chr_string_for_file_names
 }

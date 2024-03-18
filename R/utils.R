@@ -875,7 +875,7 @@ create_power_bi_data_mc <- function(
     grouping_vars
 ) {
 
-  library(progress)
+  # library(progress)
 
   name_of_column_details = "column_details"
 
@@ -1751,7 +1751,7 @@ create_power_bi_data_sa <- function(
     grouping_vars
 ) {
 
-  library(progress)
+  # library(progress)
 
   name_of_column_details = "column_details"
 
@@ -1873,7 +1873,7 @@ create_power_bi_data_num <- function(
     grouping_vars
 ) {
 
-  library(progress)
+  # library(progress)
 
   name_of_column_details = "column_details"
 
@@ -1985,7 +1985,7 @@ create_power_bi_data_nps <- function(
     grouping_vars
 ) {
 
-  library(progress)
+  # library(progress)
 
   name_of_column_details = "column_details"
 
@@ -2089,7 +2089,7 @@ create_power_bi_data_qualitative <- function(
 
   df_used <- df
 
-  library(progress)
+  # library(progress)
 
   name_of_column_details = "column_details"
 
@@ -2471,21 +2471,19 @@ create_survey_folder_structure_paths_list_power_bi <- function(
 }
 
 
-#' Create time stamps to add to file names
-#' This function allows us to keep track of every version of a file, which can be important for record keeping and troubleshooting purposes.
+
+#' create_time_chr_string_for_file_names
 #'
-#' @param format_string Character string to indicate how the date/time object should be formatted. The default is '%m%d%Y_%H%M'.
+#' @param format_string format_string
 #'
 #' @return time_stamp
 #' @export
 #'
 create_time_chr_string_for_file_names <- function(format_string = '%m%d%Y_%H%M') {
-
+  # This function allows us to keep track of every version of a file, which can be important for record keeping and troubleshooting purposes.
   # Obtain the current time and put it into our preferred file format
-  time_stamp <- Sys.time() |>
-
-    # and put it into the proper format
-    format({{format_string}})
+  # and put it into the proper format
+  time_stamp <-  format(Sys.time(), {{format_string}})
 
   # Return the time_stamp
   return(time_stamp)
@@ -2979,7 +2977,8 @@ get_full_column_details_from_dir <- function(
     silent = TRUE
   )
 
-  if(class(newest_files_for_project) != "try-error"){
+  if(inherits(newest_files_for_project, "try-error")){
+  # if(class(newest_files_for_project) != "try-error"){
     # Obtain the paths for the column names excel files
     version_column_names_path <- bkissell::obtain_column_name_path(survey_directory_path)
 
@@ -7400,6 +7399,7 @@ add_survey_related_dir_list_to_env <- function(my_current_env, survey_version_na
 #' @param path_to_qual_coding_data_list path_to_qual_coding_data_list
 #' @param write_data write_data
 #' @param power_bi_overall_qualitative_path power_bi_overall_qualitative_path
+#' @param power_bi_break_down_qualitative_path power_bi_break_down_qualitative_path
 #'
 #' @return power_bi_overall_qualitative_combined
 #' @export
@@ -7908,6 +7908,8 @@ download_user_data_from_projects <- function(remDr, user_participant_urls) {
 
   # Make it sleep a second
   Sys.sleep(1)
+
+  return(remDr)
 }
 #
 
@@ -8014,94 +8016,900 @@ wait_for_text <- function(remDr, element, desired_text, using = "css selector", 
 
 
 
-#' #' prepare_UPD_file_paths_for_processing
-#' #' Prepare User Participant Data File Paths for Processing
-#' #'
-#' #' @param home_dir Home directory for the study
-#' #' @param download_location Where the download folder is located.
-#' #' @param project_numbers project numbers
-#' #'
-#' #' @return path_for_UPD_files
-#' #' @export
-#' #'
-#' prepare_UPD_file_paths_for_processing <- function(
-#'     home_dir,
-#'     download_location,
-#'     project_numbers
-#' ) {
-#'   # Create the path where the UPD files will be temporarily held
-#'   path_for_UPD_folder <- paste0(home_dir, "/Data Collection/Project Files/Recruitment/user_participant_data")
+#' prepare_environmental_variables_for_current_project
 #'
-#'   # Obtain the names of all of csv files in the download folder
-#'   file_names_located_in_download_folder <- list.files(download_location, pattern = ".csv$")
+#' @param environment_name environment_name
+#' @param storage_platform storage_platform
+#' @param storage_platform_name storage_platform_name
+#' @param group_dir_name group_dir_name
+#' @param jobs_folder_name jobs_folder_name
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
+#' @param should_create_nonexistant_dirs should_create_nonexistant_dirs
+#' @param project_numbers project_numbers
 #'
-#'   # Detect which files should be moved
-#'   file_should_be_moved <- file_names_located_in_download_folder %>%
-#'     stringr::str_detect("participants.+csv")
+#' @return environment_name
+#' @export
 #'
-#'   # Select files that should be moved
-#'   file_names_located_in_download_folder_to_move <- file_names_located_in_download_folder[file_should_be_moved]
+prepare_environmental_variables_for_current_project <- function(
+    environment_name,
+    storage_platform,
+    storage_platform_name,
+    group_dir_name,
+    jobs_folder_name,
+    project_year,
+    project_folder_name,
+    should_create_nonexistant_dirs,
+    project_numbers
+) {
+  # Use the computer information to create the working directory according to
+  # the information included as a parameter. This will be used instead of using
+  # projects.
+  environment_name$working_directory_path <- bkissell::set_project_working_directory(
+    storage_platform = storage_platform,
+    storage_platform_name = storage_platform_name,
+    group_dir_name = group_dir_name,
+    jobs_folder_name = jobs_folder_name,
+    project_year = project_year,
+    project_folder_name = project_folder_name
+  )
+
+  environment_name$path_to_labs_main_folder <-  stringr::str_replace(environment_name$working_directory_path, "\\/00 Jobs.+", "")
+
+  # Check that the traditional project directories exist.
+  # There is an option to create them if they do not exist
+  environment_name$traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
+
+  for(iteration in seq_along(environment_name$traditional_project_dir_list)){
+    value_to_add <- traditional_project_dir_list[[iteration]]
+    name_to_add <- names(traditional_project_dir_list)[[iteration]]
+    rlang::env_poke(env = environment_name, name_to_add, value_to_add)
+  }
+
+  # Get the parts of your working directory
+  environment_name$parts_of_wd <- unlist(strsplit(environment_name$working_directory_path, .Platform$file.sep))
+
+  # Re-Combine the first 3 parts
+  environment_name$path_part_to_adjust <- paste0(parts_of_wd[1:3], collapse = "/")
+
+  # Create the downloads folder
+  environment_name$download_location <- paste0(path_part_to_adjust, "/Downloads")
+
+  ## Use this to obtain the User Participant Data
+  environment_name$user_participant_urls <- bkissell::create_user_participant_urls(project_numbers)
+
+  # Enter credentials into user. This program should detect the appropriate username and password depending on what computer is being used.
+  # Obtain the credentials
+  environment_name$user_credentials <- bkissell::initiate_project_and_design_details()
+
+  # Set username for user
+  environment_name$user_credentials_username <- environment_name$user_credentials$username
+
+  # Set password for user
+  environment_name$user_credentials_password <- environment_name$user_credentials$password
+
+  # Location of the completed user data
+  environment_name$project_data_collection_folder_location <-
+    file.path(environment_name$working_directory_path, "Data Collection")
+
+  environment_name$project_data_collection_project_files_folder_location <-
+    file.path(environment_name$project_data_collection_folder_location, "Project Files")
+
+  environment_name$project_data_collection_project_files_recruitment_folder_location <-
+    file.path(environment_name$project_data_collection_project_files_folder_location, "Recruitment")
+
+  environment_name$project_data_collection_project_files_recruitment_user_participant_data_folder_location <-
+    file.path(environment_name$project_data_collection_project_files_recruitment_folder_location, "user_participant_data")
+
+  environment_name$UPD_file_location <-
+    environment_name$project_data_collection_project_files_recruitment_user_participant_data_folder_location
+
+  environment_name$UPD_folder_complete_location <-
+    file.path(environment_name$UPD_file_location, "combined")
+
+  environment_name$UPD_folder_col_names_location <-
+    file.path(environment_name$UPD_file_location, "col_names")
+
+  environment_name$UPD_folder_schedule <-
+    file.path(environment_name$project_data_collection_project_files_recruitment_folder_location, "Schedule")
+
+  environment_name$UPD_folder_schedule_combined <-
+    file.path(environment_name$UPD_folder_schedule, "combined")
+
+  environment_name$project_analysis_folder_path <-
+    file.path(environment_name$working_directory_path, "Analysis")
+
+  environment_name$project_analysis_immersion_folder_path <-
+    file.path(environment_name$project_analysis_folder_path, "Immersion")
+
+  environment_name$raw_immersion_folder_path <-
+    file.path(environment_name$project_analysis_immersion_folder_path, "Raw Data")
+
+  # Create the file path
+  environment_name$UPD_file_complete_location <- file.path(environment_name$UPD_folder_complete_location, "most_recent_combined.csv")
+
+  return(invisible(environment_name))
+}
+
+
+
+
+#' prepare_UPD_file_paths_for_processing
+#' Prepare User Participant Data File Paths for Processing
 #'
-#'   # If nothing is in it
-#'   if(identical(file_names_located_in_download_folder, character(0))){
-#'     path_to_file_in_download_folder <- character(0)
-#'     path_df <- data.frame()
-#'   } else {
-#'     # Create path to file in download location
-#'     path_to_file_in_download_folder <- paste0(download_location, "/", file_names_located_in_download_folder)
-#'     # Put file information into a dataframe
-#'     path_df <- data.frame(path_for_UPD_folder, file_names_located_in_download_folder, path_to_file_in_download_folder)
-#'   }
+#' @param environment_name environment_name
 #'
-#'   # Extract info about whether it is a copy or not
-#'   path_df$copy_number <- file_names_located_in_download_folder %>%
-#'     stringr::str_extract("\\([0-9]\\).csv$") %>%
-#'     stringr::str_extract("[0-9]{1,2}") %>%
-#'     as.numeric() %>%
-#'     tidyr::replace_na(0)
+#' @return invisible(environment_name)
+#' @export
 #'
-#'   # Clean names
-#'   path_df$project_file_name <- file_names_located_in_download_folder %>%
-#'     stringr::str_replace("-participant.+$", "") %>%
-#'     snakecase::to_snake_case()
+prepare_UPD_file_paths_for_processing <- function(
+    environment_name
+) {
+  # Create the path where the UPD files will be temporarily held
+  environment_name$path_for_UPD_folder <- environment_name$UPD_file_location
+
+  # Obtain the names of all of csv files in the download folder
+  environment_name$file_names_located_in_download_folder <- list.files(environment_name$download_location, pattern = ".csv$")
+
+  # Detect which files should be moved
+  environment_name$file_should_be_moved <- environment_name$file_names_located_in_download_folder %>%
+    stringr::str_detect("participants.+csv")
+
+  # Select files that should be moved
+  environment_name$file_names_located_in_download_folder_to_move <- environment_name$file_names_located_in_download_folder[environment_name$file_should_be_moved]
+
+  # If nothing is in it
+  if(identical(environment_name$file_names_located_in_download_folder_to_move, character(0))){
+    environment_name$path_to_file_in_download_folder <- character(0)
+    environment_name$path_df <- data.frame()
+  } else {
+    # Create path to file in download location
+    environment_name$path_to_file_in_download_folder <- paste0(environment_name$download_location, "/", environment_name$file_names_located_in_download_folder_to_move)
+    # Put file information into a dataframe
+    environment_name$path_df <- data.frame(
+      path_for_UPD_folder = environment_name$path_for_UPD_folder,
+      file_names_located_in_download_folder = environment_name$file_names_located_in_download_folder_to_move,
+      path_to_file_in_download_folder = environment_name$path_to_file_in_download_folder)
+  }
+
+  # Extract info about whether it is a copy or not
+  environment_name$path_df$copy_number <- environment_name$file_names_located_in_download_folder_to_move %>%
+    stringr::str_extract("\\([0-9]\\).csv$") %>%
+    stringr::str_extract("[0-9]{1,2}") %>%
+    as.numeric() %>%
+    tidyr::replace_na(0)
+
+  # Clean names
+  environment_name$path_df$project_file_name <- environment_name$file_names_located_in_download_folder_to_move %>%
+    stringr::str_replace("-participant.+$", "") %>%
+    snakecase::to_snake_case()
+
+  # Cause an error if the download folder is empty
+  if(identical(environment_name$file_names_located_in_download_folder_to_move, character(0))) {
+    rlang::abort("No files are in the downloads folder. No files will be moved.")
+  } else if(length(environment_name$file_names_located_in_download_folder_to_move) < length(environment_name$project_numbers)) {
+    rlang::abort("There is not a file for every project in the download folder. No files will be moved.")
+  } else {
+
+    # Only obtain the most recent copies
+    environment_name$path_df_to_use <- environment_name$path_df %>%
+      group_by(.data[["project_file_name"]]) %>%
+      dplyr::slice_max(order_by = .data[["copy_number"]], n = 1)
+
+    # Prepare path where you are getting it from
+    environment_name$from_files <- environment_name$path_df_to_use %>%
+      pull(.data[["path_to_file_in_download_folder"]])
+
+    # Prepare file names
+    environment_name$project_file_name <- environment_name$path_df_to_use %>%
+      pull(.data[["project_file_name"]])
+
+    # Prepare paths for where it should be sent
+    environment_name$path_df_to_use$path_for_UPD_files_to <- paste0(environment_name$path_df_to_use$path_for_UPD_folder, "/", environment_name$project_file_name, ".csv")
+
+    # Extract the paths
+    environment_name$path_for_UPD_files <- environment_name$path_df_to_use %>%
+      pull(.data[["path_for_UPD_files_to"]])
+
+    # Grab the paths for the files that do not need to be read, and can just be removed
+    environment_name$paths_to_remove <- environment_name$path_df$path_to_file_in_download_folder[which(!(environment_name$path_df$path_to_file_in_download_folder %in% environment_name$from_files))]
+
+    # Send files to the correct location, depending on whether files were downloaded or not
+    purrr::walk2(environment_name$from_files, environment_name$path_for_UPD_files, ~{bkissell::my_file_rename(.x, .y)})
+
+    # Remove the unnecessary files from download folder
+    purrr::walk(environment_name$paths_to_remove, ~ file.remove(.x))
+  }
+
+  # Return Paths
+  return(invisible(environment_name))
+}
+
+
+# Create function to move files
+#' my_file_rename
 #'
-#'   # Cause an error if the download folder is empty
-#'   if(identical(file_names_located_in_download_folder, character(0))) {
-#'     rlang::abort("No files are in the downloads folder. No files will be moved.")
-#'   } else if(length(path_to_file_in_download_folder) < length(project_numbers)) {
-#'     rlang::abort("There is not a file for every project in the download folder. No files will be moved.")
-#'   } else {
+#' @param from from file
+#' @param to to file
 #'
-#'     # Only obtain the most recent copies
-#'     path_df_to_use <- path_df %>%
-#'       group_by(project_file_name) %>%
-#'       dplyr::slice_max(order_by = copy_number, n = 1)
+#' @export
 #'
-#'     # Prepare path where you are getting it from
-#'     from_files <- path_df_to_use %>%
-#'       pull(path_to_file_in_download_folder)
+my_file_rename <- function(from, to) {
+  todir <- dirname(to)
+  if (!isTRUE(file.info(todir)$isdir)) dir.create(todir, recursive=TRUE)
+  file.rename(from = from,  to = to)
+}
+
+
+#' read_and_process_UPD
+#' Read and process user data
 #'
-#'     # Prepare file names
-#'     project_file_name <- path_df_to_use %>%
-#'       pull(project_file_name)
+#' @param upd_paths paths for the data to read
+#' @param Clip_data should it put the files in the clipboard
 #'
-#'     # Prepare paths for where it should be sent
-#'     path_df_to_use$path_for_UPD_files_to <- paste0(path_df_to_use$path_for_UPD_folder, "/", project_file_name, ".csv")
+#' @return user_participant_data
+#' @export
 #'
-#'     # Extract the paths
-#'     path_for_UPD_files <- path_df_to_use %>%
-#'       pull(path_for_UPD_files_to)
+
+read_and_process_UPD <- function(upd_paths, Clip_data = FALSE) {
+  # Read each of the files
+  user_data_df <- purrr::map_df(upd_paths, ~ readr::read_csv(.x, show_col_types = FALSE))
+
+  initial_col_names <- colnames(user_data_df)
+
+  column_names_folder <- paste0(dirname(upd_paths)[[1]], "/", "col_names")
+
+  column_names_file <- paste0(column_names_folder, "/column_names.csv")
+
+  if(!file.exists(column_names_file)) {
+    characteristics_vars <- c(
+      "id", "participant_status", "screener_version", "response_time", "review_tier",
+      "date_added", "other_id", "first_name", "last_name", "email", "phone_number",
+      "timezone", "occupation", "age", "locality", "region", "country", "browsers",
+      "children", "company_size", "computer_with_a_webcam", "computer_operating_system",
+      "employment_status", "gender", "home_owner", "household_income", "industry",
+      "level_of_education", "living_situation", "marital_status", "race_ethnicity",
+      "seniority", "small_business_owner", "smartphone_manufacturer", "smartphone_operating_system",
+      "tablet_operating_system", "type_of_income", "session", "internet_connection",
+      "available_devices", "cord_cutter", "available_devices_2", "fitness_watch",
+      "smart_watch", "state_of_residence", "donated_within_12_months", "gave_to_these_organizations",
+      "frequency_of_charitable_giving", "read_and_follow_instructions", "download_app"
+    )
+
+    if(length(characteristics_vars) > length(initial_col_names)) {
+      characteristics_vars <- characteristics_vars[seq(1, length(initial_col_names))]
+    } else if(length(characteristics_vars) < length(initial_col_names)) {
+      n_to_add <- length(initial_col_names) - length(characteristics_vars)
+      characteristics_vars <- c(characteristics_vars, rep("NA", n_to_add))
+    }
+
+    col_names_df <- data.frame(
+      old_name = initial_col_names,
+      new_name = initial_col_names,
+      possible = characteristics_vars
+    )
+
+    readr::write_csv(col_names_df, column_names_file)
+
+    stop("Please fix the column names in dropbox")
+
+  } else {
+    col_names_df <- readr::read_csv(column_names_file, show_col_types = FALSE)
+  }
+
+  colnames(user_data_df) <- col_names_df$new_name
+
+  ## ------------------ run code for all upd_paths ----------------- ##
+  # # Consolidate and read files
+  # user_data_df <- purrr::map_df(upd_paths, consolidate_repeated_error_columns_for_one)
+  # Clean and process files
+  user_data <- bkissell::clean_UPD_df(user_data_df)
+
+  user_data <- user_data %>%
+    dplyr::select(-other_id)
+
+  #If indicated, add df to the clipboard, otherwise just return the dataframe
+  if(Clip_data == TRUE){
+    # Save the data to your clipboard so you can paste it into the workbook
+    clipr::write_clip(user_data)
+  }
+  return(user_data)
+}
+
+
+
+
+#' Clean the upd df
 #'
-#'     # Grab the paths for the files that do not need to be read, and can just be removed
-#'     paths_to_remove <- path_df$path_to_file_in_download_folder[which(!(path_df$path_to_file_in_download_folder %in% from_files))]
+#' @param user_data_df dataframe containing the user participant data
+#' @param age_group_levels what age groups should be included
 #'
-#'     # Send files to the correct location, depending on whether files were downloaded or not
-#'     purrr::walk2(from_files, path_for_UPD_files, ~{bktools::my_file_rename(.x, .y)})
+#' @return user_data
+#' @export
 #'
-#'     # Remove the unnecessary files from download folder
-#'     purrr::walk(paths_to_remove, ~ file.remove(.x))
-#'   }
+clean_UPD_df <- function(user_data_df, age_group_levels = c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")){
+  # Remove participants who have been labeled "Deleted"
+  user_data <- dplyr::filter(user_data_df, first_name != "Deleted")
+
+  # Take out duplicate rows
+  user_data <- dplyr::distinct(user_data)
+
+  # Extract the numeric value for the age group
+  min_level_age <-  as.numeric(stringr::str_extract(age_group_levels, "^[0-9]{2}"))
+
+  # Set-up Age Groups
+  user_data$age_group <- AMR::age_groups(as.numeric(user_data$age), split_at = min_level_age, na.rm = FALSE)
+
+  # Set-up Ethnicity
+  user_data$race_ethnicity <- dplyr::case_when(
+    user_data$race_ethnicity == "Hispanic or Latino" ~ "Hispanic",
+    user_data$race_ethnicity == "White" ~ "White",
+    user_data$race_ethnicity == "Black or African American" ~ "African American",
+    user_data$race_ethnicity == "Asian" ~ "Asian",
+    user_data$race_ethnicity == "native american" ~ "American Indian",
+    TRUE ~ "Other"
+  )
+
+  # Set-up state
+  user_data$state <- user_data$region
+
+  # Create state vectors
+  Northeast_states <- c("Connecticut", "Maine", "Massachusetts", "New Hampshire", "New Jersey", "New York", "Pennsylvania", "Rhode Island", "Vermont", "Northeast")
+  Midwest_states <- c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan", "Minnesota", "Missouri", "Nebraska", "North Dakota", "Ohio", "South Dakota", "Wisconsin", "Midwest")
+  West_states <- c("Alaska", "Arizona", "California", "Colorado", "Hawaii", "Idaho", "Montana", "Nevada", "New Mexico", "Oregon", "Utah", "Washington", "Wyoming", "West")
+  South_states <- c("Alabama", "Arkansas", "Delaware", "Florida", "Georgia", "Kentucky", "Louisiana", "Maryland", "Mississippi", "North Carolina", "Oklahoma", "South Carolina", "Tennessee", "Texas", "Virginia", "West Virginia", "South")
+
+  # Set-up Region
+  user_data$region <- dplyr::case_when(
+    user_data$region %in% Northeast_states ~ "Northeast",
+    user_data$region %in% Midwest_states ~ "Midwest",
+    user_data$region %in% West_states ~ "West",
+    user_data$region %in% South_states ~ "South",
+    TRUE ~ "ERROR"
+  )
+
+  # # Set up income levels vectors
+  # income_150 <- c("$150,000 - $199,999", "> $200,000")
+  # income_100 <- c("$100,000 - $149,999")
+  # income_50 <- c("$50,000 - $59,999", "$60,000 - $69,999", "$70,000 - $79,999", "$80,000 - $89,999", "$90,000 - $99,999")
+  # income_20 <- c("<$20,000", "$20,000 - $29,999", "$30,000 - $39,999", "$40,000 - $49,999")
+
+  # # Set up income labels
+  # user_data$household_income <- dplyr::case_when(
+  #   user_data$household_income %in% income_150 ~ "150+",
+  #   user_data$household_income %in% income_100 ~ "100-150k",
+  #   user_data$household_income %in% income_50 ~ "50-100k",
+  #   user_data$household_income %in% income_20 ~ "Under 50k",
+  #   TRUE ~ "Other"
+  # )
+
+  # Set up income labels
+  user_data$household_income  <- factor(user_data$household_income, c("< $30,000", "$30,000 - $39,999", "$40,000 - $59,999", "$60,000 - $79,999", "$80,000 - $99,999", "$100,000 - $149,999", "$150,000 - $199,999", "> $200,000"), ordered = TRUE)
+
+  # Set-up Children status
+  user_data$children <- dplyr::case_when(
+    stringr::str_detect(as.character(user_data$children), "Adult") ~ "Adult Children",
+    stringr::str_detect(as.character(user_data$children), "No children") ~ "No Children",
+    TRUE ~ "Under 18 Children"
+  )
+
+  # Set up gender (labeling gender2, as that is what it has been for a while)
+  user_data$gender2 <- dplyr::case_when(
+    user_data$gender == "Woman" ~ "Female",
+    user_data$gender == "Man" ~ "Male",
+    TRUE ~ "Other"
+  )
+
+  # Set up ethnicity
+  user_data$ethnicity <- dplyr::case_when(
+    user_data$race_ethnicity == "African American" ~ "African American",
+    TRUE ~ "Not African American"
+  )
+
+  # Create the names of participants variable
+  user_data$names <- paste0(user_data$first_name, " ", user_data$last_name)
+
+  # Organize Columns
+  user_data <- dplyr::select(user_data, names, everything(), state)
+
+  # Remove those who are not qualified
+  user_data <- dplyr::filter(user_data, participant_status != "Unqualified")
+
+  # # Rename real duplicates
+  # user_data <- user_data %>%
+  #   dplyr::mutate(names = ifelse(names %in% c("Michael Allen", "Patrick Brown"), paste0(names, " ", as.character(age)), names))
+  # # Remove specific ids (for duplicate issues)
+  # user_data <- dplyr::filter(user_data, !(id %in% c("pp_k0gho7xj4j", "pp_k0gho7xg5g", "pp_rlkhyrv090", "pp_yy3hded137", "pp_9exh510356")))
+  return(user_data)
+}
+
+
+
+################################################################################
+# Download and save html schedules ----------------------------------------
+
+#' download_schedule_data_from_user
 #'
-#'   # Return Paths
-#'   return(path_for_UPD_files)
-#' }
+#' @param remDr remDr
+#' @param home_dir home_dir
+#' @param project_numbers project_numbers
+#'
+#' @return file_paths
+#' @export
+#'
+download_schedule_data_from_user <- function(remDr, home_dir, project_numbers){
+
+  user_session_urls <- paste0("https://www.userinterviews.com/projects/", project_numbers, "/sessions")
+
+  file_paths <- c()
+
+  for(i in user_session_urls){
+    # Navigate to the website
+    remDr$navigate(i)
+
+    is_the_element_present  <- bkissell::is_element_or_text_present(
+      remDr,
+      element = "section.card.ui-card",
+      using = "css selector",
+      text_element = "h4.EmptyState__title",
+      desired_text = "No sessions currently scheduled",
+      num_of_iterations = 10000,
+      wait_time = .25
+    )
+
+    # obtain the html from this page
+    html <- remDr$getPageSource()[[1]] %>% rvest::read_html()
+
+    # Scrape the project name
+    project_name <- html %>% rvest::html_node("h1") %>% rvest::html_text() %>% stringr::str_trim()
+
+    # Set where the file should be saved
+    dir_path <- paste0(home_dir, "/Data Collection/Project Files/Recruitment/Schedule")
+    file_path <- paste0(dir_path, "/", snakecase::to_snake_case(project_name), ".html")
+    file_paths <- c(file_paths, file_path)
+
+    # Save the file
+    fileConn <- file(file_path)
+    writeLines(as.character(html), fileConn)
+    close(fileConn)
+
+    # Provide Message
+    message(paste0("Successfully downloaded project # ", project_name))
+  }
+
+  return(file_paths)
+}
+
+
+#' is_element_or_text_present
+#'
+#' @param remDr Selenium client used to control the browser.
+#' @param element A css element as a string.
+#' @param using type of selector
+#' @param text_element text_element
+#' @param desired_text desired_text
+#' @param num_of_iterations num_of_iterations
+#' @param wait_time wait_time
+#'
+#' @return found_element
+#' @export
+#'
+#'
+is_element_or_text_present <- function(
+    remDr,
+    element,
+    using = "css selector",
+    text_element,
+    desired_text,
+    num_of_iterations = 10,
+    wait_time = .25
+){
+  for(iteration in seq(1, num_of_iterations)){
+
+    # Try to find the specified element, and store the results of the attempt in ele.
+    ele <- try(remDr$findElement(using, element), silent = TRUE)
+
+    # Check to see if an error was detected, which would mean it has not been found.
+    if("try-error" %in% class(ele)){
+
+      found_element <- FALSE
+
+      found_text <- bkissell::is_text_present(
+        text_element = text_element, desired_text = desired_text,
+        num_of_iterations = 2, wait_time = wait_time
+      )
+
+      if(found_text) {
+        found_element <- FALSE
+        break()
+      } else {
+        next()
+      }
+    } else {
+      found_element <- TRUE
+      break()
+    }
+  }
+  return(found_element)
+}
+
+
+# Test if text is present -------------------------------------------------
+
+#' is_text_present
+#'
+#' @param desired_text desired_text
+#' @param wait_time wait_time
+#' @param text_element text_element
+#' @param num_of_iterations num_of_iterations
+#' @param remDr remDr
+#'
+#' @return found_text
+#' @export
+#'
+is_text_present <- function(
+    remDr,
+    text_element,
+    desired_text,
+    num_of_iterations = 10,
+    wait_time = .25
+) {
+  # Make N attempts in a loop
+  for(attempt in seq(1, num_of_iterations)){
+
+    # Look to see if the element is present
+    ele <- try(remDr$findElement(using, text_element), silent = TRUE)
+
+    # If it is not
+    if(("try-error" %in% class(ele))){
+
+      # Mark that it is not, and
+      found_text <- FALSE
+
+      # And wait for assigned ammount of time
+      Sys.sleep(wait_time)
+
+      # Move to next iteration
+      next()
+    } else {
+
+      # Read the html
+      html <- remDr$getPageSource()[[1]] %>% rvest::read_html()
+
+      # Obtain the text
+      text_of_html <- html %>% rvest::html_node(text_element) %>% rvest::html_text()
+
+      # Test if it matches the desired text and stop loop if found
+      if(identical(text_of_html, desired_text)){
+
+        # If it does, label it true
+        found_text <- TRUE
+
+        # and end the function
+        break()
+      } else {
+        # Otherwise mark it false
+        found_text <- FALSE
+
+        # and wait
+        sys.sleep(wait_time)
+
+        # and then move to next iteration
+        next()
+      }
+    }
+  }
+
+  # Return the result of the test
+  return(found_text)
+}
+
+
+
+################################################################################
+# Process the scraped data ------------------------------------------------
+
+#' Process scraped schedules
+#'
+#' @param home_dir home_dir
+#'
+#' @return scrape_df
+#' @export
+#'
+process_scraped_schedules <- function(home_dir){
+  # Obtain location of the schedule folder
+  path_for_scraped_schedule_folder <- paste0(home_dir, "/Data Collection/Project Files/Recruitment/Schedule")
+
+  # Obtain file names
+  html_schedule_file_names <- list.files(path_for_scraped_schedule_folder, pattern = ".html")
+
+  # Obtain file paths
+  paths_for_html_schedule <- paste0(path_for_scraped_schedule_folder, "/", html_schedule_file_names)
+
+  # Obtain location of the combined folder
+  dir_for_html_combined <- paste0(path_for_scraped_schedule_folder, "/combined")
+
+  # Combined timeslots paths
+  html_combined_file_location <- paste0(dir_for_html_combined, "/", bkissell::combine_file_string_with_time("combined_timeslots_"))
+
+
+
+  # Cleaned file names
+  html_schedule_file_names_2 <- stringr::str_replace(html_schedule_file_names, ".html", "")
+
+  # Read the html files
+  html_list <- purrr::map(paths_for_html_schedule, ~{rvest::read_html(.x)})
+
+  # Obtain the ui-cards
+  ui_cards_list <- purrr::map(html_list, ~{rvest::html_nodes(.x, ".ui-card")})
+
+  # Detect the number of sessions
+  number_of_sessions <- purrr::map_dbl(ui_cards_list, ~{length(.x %>% rvest::html_children())})
+
+  if(sum(number_of_sessions) != 0) {
+
+    # Create a vector that has the project name for every time slot
+    session_project_names <- purrr::map2(html_schedule_file_names_2, number_of_sessions, ~{rep(.x, .y)}) %>% purrr::flatten() %>% unlist()
+
+    # Get a list of all of the sections
+    ui_card_sections_list <- purrr::map(ui_cards_list, ~{.x %>% rvest::html_children()}) %>% purrr::flatten()
+
+    ui_card_sections_list_2 <- purrr::map(seq_along(ui_card_sections_list), ~{
+      iteration = .x
+      ui_card_sections_list[[iteration]] %>% rvest::html_children()})
+
+    # Get the form list for the date
+    date_form_list <- purrr::map(ui_card_sections_list, ~{(.x %>% rvest::html_children())[[2]]})
+
+    # Extract it
+    date_form_list_2 <- purrr::map(seq_along(ui_card_sections_list), ~{
+      iteration = .x
+      try(ui_card_sections_list[[iteration]] %>% rvest::html_children()) })
+
+    # Find where the date is located
+    which_has_date <- purrr::map(date_form_list_2, ~{which(.x %>% rvest::html_attr("class") == "SessionView__header")})
+
+    # Clean this variable
+    has_date <- purrr::map_dbl(which_has_date, ~{ifelse(identical(.x, integer(0)), 0, .x)})
+
+    # Obtain the Date for all of the sections
+    date_vector <- purrr::map2_chr(date_form_list_2, has_date, ~{ifelse(.y > 1, (.x[[.y]] %>% rvest::html_text()), NA)}) %>% bkissell::na_fill()
+
+    ############################################################################
+
+
+    # Find where the time is located
+    which_has_time <- purrr::map(ui_card_sections_list_2, ~{which(.x %>% rvest::html_attr("class") == "SessionView__details")})
+
+    # Clean this variable
+    has_time <- purrr::map_dbl(which_has_time, ~{ifelse(identical(.x, integer(0)), 0, .x)})
+
+    # Obtain the Time Slot Form for all sections
+    time_slot_form <- purrr::map2(ui_card_sections_list_2, has_time, ~{.x[[.y]]})
+
+    # Obtain the Time for all of the sections
+    time_vector <- purrr::map2_chr(date_form_list_2, which_has_time, ~{
+      ifelse(
+        .y > 0,
+        .x[[.y]]  %>% rvest::html_text() %>% stringr::str_extract("[0-9].+CDT"),
+        NA)
+    })
+
+    # Create a time_slot vector
+    date_time_vector_chr <- paste0(date_vector, " ", time_vector)
+
+
+
+
+
+    # # Find where the Ntimeslots are located
+    # which_has_Ntimeslots <- purrr::map(time_slot_form, ~{.x %>% rvest::html_attr("class") == "session-num-slots"})
+    #
+    # # Clean the missing data
+    # which_has_Ntimeslots <- purrr::map(which_has_Ntimeslots, ~{tidyr::replace_na(.x, replace = 0)})
+    #
+    # # Clean this variable
+    # has_Ntimeslots <- purrr::map_dbl(which_has_Ntimeslots, ~{ifelse(identical(.x, integer(0)), 0, which(.x))})
+    #
+    # # Obtain the Time for all of the sections
+    # Ntimeslots_vector <- purrr::map2_chr(time_slot_form, has_Ntimeslots, ~{ifelse(.y > 0, .x[[.y]] %>% rvest::html_text(), NA)})
+    #
+    # # How many people are actually signed up?
+    # number_of_real_signups <- stringr::str_extract(Ntimeslots_vector, "[0-9]{1,2}/") %>% stringr::str_replace("/", "") %>% as.numeric()
+    #
+    # # How many potential slots are there?
+    # number_of_potential_signups <- stringr::str_extract(Ntimeslots_vector, "/[0-9]{1,2}") %>% stringr::str_replace("/", "") %>% as.numeric()
+    #
+    # # How many empty timeslots
+    # number_of_empty_slots <- number_of_potential_signups - number_of_real_signups
+
+    which_has_participant_info <- purrr::map(ui_card_sections_list_2, ~{which(.x %>% rvest::html_attr("class") == "project-workspace__sessions__participant")})
+    has_participant_info <- purrr::map_dbl(which_has_participant_info, ~{ifelse(identical(.x, integer(0)), 0, .x)})
+    participant_info_list <- purrr::map2(ui_card_sections_list_2, has_participant_info, ~{try(.x[[.y]] %>% rvest::html_children())})
+
+    participant_info_list <- participant_info_list[[1]]
+    x_participant_info_list <- participant_info_list[[participant_info_list %>% rvest::html_attr("class") == "project-workspace__sessions__participant__avatar"]]
+
+
+    obtain_the_signups_1_file <- function(a_time_slot_form, a_number) {
+      names_form <- a_time_slot_form %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children()
+      where_names <- which(names_form %>% rvest::html_attr("class") == "ProfileCell__content__name")
+      names_list <- names_form[where_names] %>% rvest::html_text()
+      names_list_w_empty <- c(names_list, rep("", number_of_empty_slots[[a_number]]))
+      timeslot_w_empty <-  rep(date_time_vector_chr[[a_number]], length(names_list_w_empty))
+      data.frame(names = names_list_w_empty, timeslot = timeslot_w_empty, project_file_name = session_project_names[a_number])
+    }
+
+    # Obtain the sign-ups
+    sign_ups <- purrr::map2_df(time_slot_form, seq_along(date_time_vector_chr), ~{
+      obtain_the_signups_1_file(.x, .y)
+      # names_form <- .x %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children()
+      # where_names <- which(names_form %>% rvest::html_attr("class") == "ProfileCell__content__name")
+      # names_list <- names_form[where_names] %>% rvest::html_text()
+      # names_list_w_empty <- c(names_list, rep("", number_of_empty_slots[[.y]]))
+      # timeslot_w_empty <-  rep(date_time_vector_chr[[.y]], length(names_list_w_empty))
+      # data.frame(names = names_list_w_empty, timeslot = timeslot_w_empty, project_file_name = session_project_names[.y])
+    })
+
+    # Clean up day, date, and time
+    sign_ups$day <- stringr::str_extract(sign_ups$timeslot, ".+day")
+    use_to_get_date <- stringr::str_replace(sign_ups$timeslot, ".+day - ", "")
+
+    sign_ups$date <- stringr::str_extract(use_to_get_date, "^[A-z]+ [0-9]{1,2}th, [0-9]{4}")
+    use_to_get_time <- stringr::str_replace(use_to_get_date, "^[A-z]+ [0-9]{1,2}th, [0-9]{4} ", "")
+
+    sign_ups$time <- stringr::str_extract(use_to_get_time, "([0-9]{1,2}:[0-9]{2} [AP]M) -") %>% stringr::str_replace_all(" -", "")
+
+    # Prepare to clean
+    scrape_df <- sign_ups
+
+    # Get the weekday from the date
+    scrape_df$weekday <- stringr::str_extract(scrape_df$timeslot, pattern = "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday")
+
+    # Get the date from the date
+    scrape_df$day <- stringr::str_extract( use_to_get_date, pattern = "1st|2nd|3rd|4th|5th|6th|7th|8th|9th|10th|11th|12th|13th|14th|15th|16th|17th|18th|19th|20th|21st|22nd|23rd|24th|25th|26th|27th|28th|29th|30th|31st")
+
+    # Get the month from the date
+    scrape_df$month <- stringr::str_extract(use_to_get_date, pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec")
+
+    # Create a list of the months
+    possible_months <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    # Create a list of the numeric values for the months
+    numeric_months <- as.character(1:12)
+
+    # Prepare the column that will become numeric month
+    scrape_df$month_numeric <- scrape_df$month
+
+    # Loop through every month
+    for(i in seq_along(possible_months)){
+      # Replace the month with the proper number
+      scrape_df$month_numeric <- stringr::str_replace(scrape_df$month_numeric, possible_months[[i]], numeric_months[[i]])
+    }
+
+    # Change it to numeric
+    scrape_df$month_numeric <- as.numeric(scrape_df$month_numeric)
+
+    # Extract the day
+    scrape_df$day <- stringr::str_extract(scrape_df$day, "[0-9]{1,2}")
+
+    # Make it numeric
+    scrape_df$day <- as.numeric(scrape_df$day)
+    # scrape_df$time <- stringr::str_extract(scrape_df$timeslot, "[0-9]{2}:[0-9]{2} [AP]M - ")
+
+    # Extract the hour
+    scrape_df$hour <- as.numeric(stringr::str_extract(scrape_df$time, "^[0-9]{1,2}"))
+
+    # Remove the hour
+    time_to_clean <- stringr::str_replace(use_to_get_time, "^[0-9]{1,2}:", "")
+
+    # Extract the minutes
+    scrape_df$minute <- stringr::str_extract(time_to_clean, "^[0-9]{1,2}")
+
+    # Remove the minutes
+    time_to_clean <- stringr::str_replace(time_to_clean , "^[0-9]{2}\\s", "")
+
+    # Extract the period
+    scrape_df$period <- stringr::str_extract(time_to_clean, "^[a-zA-Z]{2}")
+
+    # Extract the year
+    scrape_df$year <- stringr::str_extract(scrape_df$timeslot, "[0-9]{4}")
+
+    # Convert the hour to military time
+    scrape_df$military_hour <- ifelse(scrape_df$period == "AM", scrape_df$hour, ifelse(scrape_df$hour == 12, scrape_df$hour, scrape_df$hour + 12))
+
+    # Put the data frame columns in the desired order
+    scrape_df <- scrape_df %>% dplyr::select(tidyselect::all_of("weekday"), tidyselect::all_of("month"), tidyselect::all_of("day"), tidyselect::all_of("hour"), tidyselect::all_of("minute"), dplyr::everything())
+
+    # Order the rows by date
+    scrape_df <- scrape_df %>% dplyr::arrange(.data[["month_numeric"]], .data[["day"]], .data[["military_hour"]], .data[["minute"]])
+
+    # Create session date string
+    scrape_df$Session_Date <- glue::glue("{scrape_df$month_numeric}/{scrape_df$day}/{scrape_df$year}")
+
+    # Create session time string
+    scrape_df$Session_Time <- glue::glue("{scrape_df$military_hour}:{scrape_df$minute}")
+    scrape_df$Data_Cleaning_Notes = ""
+
+    # Put the df in the desired order
+    scrape_df <- scrape_df %>% dplyr::select(tidyselect::all_of("Session_Date"), tidyselect::all_of("Session_Time"), tidyselect::all_of("project_file_name"), tidyselect::all_of("Data_Cleaning_Notes"), tidyselect::all_of("names"), tidyselect::all_of("weekday"))
+
+    # Write the file to dropbox
+    readr::write_csv(scrape_df, html_combined_file_location)
+
+  } else {
+
+    # Create an empty df
+    scrape_df <- data.frame(
+      Session_Date = NA,
+      Session_Time = NA,
+      project_file_name = NA,
+      Data_Cleaning_Notes = NA,
+      names = NA,
+      weekday = NA
+    )
+
+    # Write the file to dropbox
+    readr::write_csv(scrape_df, html_combined_file_location)
+  }
+
+  # Return the df
+  return(scrape_df)
+}
+
+
+################################################################################
+# Fill NAs that follow a label with that label ----------------------------
+
+# This function replaces NA values with the most recent valid label. NA's in a vector or factor are replaced with last non-NA values. If firstBack is TRUE, it will fill in leading NA's with the first non-NA value. If FALSE, it will not change leading NA's.
+#' Replace missing data with the appropriate label.
+#'
+#' Replaces NA values with the most recent valid label.
+#'
+#' @param x A vector of categorical values or labels.
+#'
+#' @param firstBack A Boolean variable which should usually be false, so that it will keep the first NAs as NA. However, if I want to fill in the first NAs with the first label, I would need to make first back TRUE.
+#'
+#' @author Brian Kissell
+#'
+#' @import dplyr
+#' @return x
+#'
+#' @export
+
+na_fill <- function(x, firstBack=FALSE) {
+
+  # If it's a factor, store the level labels and convert to integer
+  lvls <- NULL
+  if(is.factor(x)){
+    lvls <- levels(x)
+    x <- as.integer(x)
+  }
+
+  # Save which indices are valid labels
+  goodIdx <- !is.na(x)
+
+  # Create a vector that has all of the valid labels
+
+  if (firstBack){
+    goodVals <- c(x[goodIdx][1], x[goodIdx])
+  } else {
+    goodVals <- c(NA, x[goodIdx])
+  }
+
+  # Fill the indices of the output vector with the indices pulled from
+  # these offsets of goodVals. Add 1 to avoid indexing to zero.
+  # In other words, cumsum is what will decide which values need to be changed,
+  # as NAs will not increase the index
+  fillIdx <- cumsum(goodIdx) + 1
+
+  # Convert these numbers back into the valid labels
+  x <- goodVals[fillIdx]
+
+  # If it was originally a factor, convert it back
+  if (!is.null(lvls)) {
+    x <- factor(x, levels=seq_along(lvls), labels=lvls)
+  }
+
+  return(x)
+}
