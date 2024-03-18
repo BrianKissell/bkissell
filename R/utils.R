@@ -8913,3 +8913,47 @@ na_fill <- function(x, firstBack=FALSE) {
 
   return(x)
 }
+
+
+
+
+
+#' RUN_AND_CLIP_USER_PARTICIPANT_DATA
+#'
+#' @param environment_name environment_name
+#' @param remDr remDr
+#' @param user_participant_urls user_participant_urls
+#'
+#' @return invisible(environment_name)
+#' @export
+#'
+RUN_AND_CLIP_USER_PARTICIPANT_DATA <- function(
+    environment_name,
+    remDr,
+    user_participant_urls
+){
+  # Download the user participant data files to the download folder
+  download_data <- try(bkissell::download_user_data_from_projects(remDr, user_participant_urls), silent = TRUE)
+
+  # Move files from download folder to correct location
+  my_current_env <- try(bkissell::prepare_UPD_file_paths_for_processing(environment_name = environment_name), silent = TRUE)
+
+  # If there are not files in the download folder, the above function will not make any changes to the files.
+  # If that is the case, we will need to still go to the proper location and get the paths.
+  if(class(download_data) == "try-error" | class(environment_name) == "try-error"){
+
+    # Find the file names
+    environment_name$UPD_file_names <- list.files(environment_name$UPD_file_location, ".csv$")
+
+    # Combine the filenames and the directory to make a path
+    environment_name$path_for_UPD_files <- paste0(environment_name$UPD_file_location, "/", environment_name$UPD_file_names)
+  }
+
+  # Process the User Participant Data
+  environment_name$user_participant_data <- bkissell::read_and_process_UPD(upd_paths = environment_name$path_for_UPD_files)
+
+  # Save user participant data
+  readr::write_csv(environment_name$user_participant_data, environment_name$UPD_file_complete_location)
+
+  return(invisible(environment_name))
+}

@@ -3,6 +3,7 @@
 export(FILES_find_newest_file)
 export(FULL_global_coding)
 export(FULL_qualitative_coding_data)
+export(RUN_AND_CLIP_USER_PARTICIPANT_DATA)
 export(abort_bad_argument)
 export(add_survey_related_dir_list_to_env)
 export(add_traditional_project_dir_list_to_env)
