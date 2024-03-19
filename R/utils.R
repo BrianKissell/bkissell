@@ -8075,10 +8075,10 @@ prepare_environmental_variables_for_current_project <- function(
   environment_name$parts_of_wd <- unlist(strsplit(environment_name$working_directory_path, .Platform$file.sep))
 
   # Re-Combine the first 3 parts
-  environment_name$path_part_to_adjust <- paste0(parts_of_wd[1:3], collapse = "/")
+  environment_name$path_part_to_adjust <- paste0(environment_name$parts_of_wd[1:3], collapse = "/")
 
   # Create the downloads folder
-  environment_name$download_location <- paste0(path_part_to_adjust, "/Downloads")
+  environment_name$download_location <- paste0(environment_name$path_part_to_adjust, "/Downloads")
 
   ## Use this to obtain the User Participant Data
   environment_name$user_participant_urls <- bkissell::create_user_participant_urls(project_numbers)
