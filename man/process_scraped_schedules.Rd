@@ -4,7 +4,7 @@
 \alias{process_scraped_schedules}
 \title{Process scraped schedules}
 \usage{
-process_scraped_schedules(home_dir)
+process_scraped_schedules(home_dir, html_file_paths)
 }
 \arguments{
 \item{home_dir}{home_dir}

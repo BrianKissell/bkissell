@@ -7873,10 +7873,8 @@ obtain_user_credentials <- function() {
 #' @export
 #'
 download_user_data_from_projects <- function(remDr, user_participant_urls) {
-
   # Loop through each url
   for(url in user_participant_urls){
-
     # Navigate to the correct url
     remDr$navigate(url)
 
@@ -7884,26 +7882,30 @@ download_user_data_from_projects <- function(remDr, user_participant_urls) {
     css_Action_Button_initial = ".dropdown-toggle"
     suppressMessages(bkissell::click_once_element_appears(remDr = remDr, element = css_Action_Button_initial, using = "css selector"))
 
-    # Click second option in dropdown
+        # Click second option in dropdown
     css_Action_Button_initial_export_data = "a.DropdownItem:nth-child(2)"
     suppressMessages(bkissell::click_once_element_appears(remDr = remDr, element = css_Action_Button_initial_export_data, using = "css selector"))
 
-    # Click to begin to export the data once it appears
+        # Click to begin to export the data once it appears
     css_Export_Data = "button.Button:nth-child(2)"
     suppressMessages(bkissell::click_once_element_appears(remDr = remDr, element = css_Export_Data, using = "css selector"))
 
-    # Wait for export to become ready
+        # # Wait for export to become ready
+    # css_Export_Data_download = "button.btn-primary:nth-child(2) > svg:nth-child(1)"
+    # suppressMessages(bkissell::wait_for_text(remDr = remDr, element = css_Export_Data_download, desired_text = "Download", using = "css selector", sleep_time = 1, give_up_count_max = 500))
+
     suppressMessages(bkissell::wait_for_text(remDr = remDr, element = "#export-participants-modal-title", desired_text = "Your export is ready for download", using = "css selector", sleep_time = 1, give_up_count_max = 500))
 
-    # # Wait for the button to appear
+        # # Wait for the button to appear
     css_Export_Data_Download_Button = "button.btn-primary:nth-child(2)"
-    suppressMessages(bkissell::wait_to_detect_element(remDr, element = css_Export_Data_Download_Button, using = "css selector"))
+    suppressMessages(bkissell::wait_to_detect_element(remDr = remDr, element = css_Export_Data_Download_Button, using = "css selector"))
 
-    # Click Download data
+        # Click Download data
     suppressMessages(bkissell::click_once_element_appears(remDr, element = css_Export_Data_Download_Button, using = "css selector"))
 
-    # Print a message to inform the user that it has been scraped
+        # Print a message to inform the user that it has been scraped
     message(paste0("Website to scrape: ", url))
+    Sys.sleep(1)
   }
 
   # Make it sleep a second
@@ -7912,6 +7914,9 @@ download_user_data_from_projects <- function(remDr, user_participant_urls) {
   return(remDr)
 }
 #
+
+# bkissell::download_user_data_from_projects(remDr, user_participant_urls = my_current_env$user_participant_urls)
+
 
 
 #' click on element once it appears
@@ -8142,9 +8147,7 @@ prepare_environmental_variables_for_current_project <- function(
 #' @return invisible(environment_name)
 #' @export
 #'
-prepare_UPD_file_paths_for_processing <- function(
-    environment_name
-) {
+prepare_UPD_file_paths_for_processing <- function(environment_name) {
   # Create the path where the UPD files will be temporarily held
   environment_name$path_for_UPD_folder <- environment_name$UPD_file_location
 
@@ -8186,9 +8189,22 @@ prepare_UPD_file_paths_for_processing <- function(
 
   # Cause an error if the download folder is empty
   if(identical(environment_name$file_names_located_in_download_folder_to_move, character(0))) {
-    rlang::abort("No files are in the downloads folder. No files will be moved.")
+    message("No files are in the downloads folder. No files will be moved.")
+
+    # Find the file names
+    environment_name$UPD_file_names <- list.files(environment_name$UPD_file_location, ".csv$")
+
+    # Combine the filenames and the directory to make a path
+    environment_name$path_for_UPD_files <- paste0(environment_name$UPD_file_location, "/", environment_name$UPD_file_names)
+
   } else if(length(environment_name$file_names_located_in_download_folder_to_move) < length(environment_name$project_numbers)) {
-    rlang::abort("There is not a file for every project in the download folder. No files will be moved.")
+    message("There is not a file for every project in the download folder. No files will be moved.")
+
+    # Find the file names
+    environment_name$UPD_file_names <- list.files(environment_name$UPD_file_location, ".csv$")
+
+    # Combine the filenames and the directory to make a path
+    environment_name$path_for_UPD_files <- paste0(environment_name$UPD_file_location, "/", environment_name$UPD_file_names)
   } else {
 
     # Only obtain the most recent copies
@@ -8616,7 +8632,7 @@ is_text_present <- function(
 #' @return scrape_df
 #' @export
 #'
-process_scraped_schedules <- function(home_dir){
+process_scraped_schedules <- function(home_dir, html_file_paths){
   # Obtain location of the schedule folder
   path_for_scraped_schedule_folder <- paste0(home_dir, "/Data Collection/Project Files/Recruitment/Schedule")
 
@@ -8632,8 +8648,6 @@ process_scraped_schedules <- function(home_dir){
   # Combined timeslots paths
   html_combined_file_location <- paste0(dir_for_html_combined, "/", bkissell::combine_file_string_with_time("combined_timeslots_"))
 
-
-
   # Cleaned file names
   html_schedule_file_names_2 <- stringr::str_replace(html_schedule_file_names, ".html", "")
 
@@ -8642,6 +8656,7 @@ process_scraped_schedules <- function(home_dir){
 
   # Obtain the ui-cards
   ui_cards_list <- purrr::map(html_list, ~{rvest::html_nodes(.x, ".ui-card")})
+
 
   # Detect the number of sessions
   number_of_sessions <- purrr::map_dbl(ui_cards_list, ~{length(.x %>% rvest::html_children())})
@@ -8727,38 +8742,90 @@ process_scraped_schedules <- function(home_dir){
     has_participant_info <- purrr::map_dbl(which_has_participant_info, ~{ifelse(identical(.x, integer(0)), 0, .x)})
     participant_info_list <- purrr::map2(ui_card_sections_list_2, has_participant_info, ~{try(.x[[.y]] %>% rvest::html_children())})
 
-    participant_info_list <- participant_info_list[[1]]
-    x_participant_info_list <- participant_info_list[[participant_info_list %>% rvest::html_attr("class") == "project-workspace__sessions__participant__avatar"]]
-
-
-    obtain_the_signups_1_file <- function(a_time_slot_form, a_number) {
-      names_form <- a_time_slot_form %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children()
-      where_names <- which(names_form %>% rvest::html_attr("class") == "ProfileCell__content__name")
-      names_list <- names_form[where_names] %>% rvest::html_text()
-      names_list_w_empty <- c(names_list, rep("", number_of_empty_slots[[a_number]]))
-      timeslot_w_empty <-  rep(date_time_vector_chr[[a_number]], length(names_list_w_empty))
-      data.frame(names = names_list_w_empty, timeslot = timeslot_w_empty, project_file_name = session_project_names[a_number])
-    }
-
-    # Obtain the sign-ups
-    sign_ups <- purrr::map2_df(time_slot_form, seq_along(date_time_vector_chr), ~{
-      obtain_the_signups_1_file(.x, .y)
-      # names_form <- .x %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children()
-      # where_names <- which(names_form %>% rvest::html_attr("class") == "ProfileCell__content__name")
-      # names_list <- names_form[where_names] %>% rvest::html_text()
-      # names_list_w_empty <- c(names_list, rep("", number_of_empty_slots[[.y]]))
-      # timeslot_w_empty <-  rep(date_time_vector_chr[[.y]], length(names_list_w_empty))
-      # data.frame(names = names_list_w_empty, timeslot = timeslot_w_empty, project_file_name = session_project_names[.y])
+    which_has_participant_avatar <- purrr::map(seq_along(participant_info_list), ~{
+      which_has_participant_avatar_attempt <- try(participant_info_list[[.x]] %>% rvest::html_attr("class") == "project-workspace__sessions__participant__avatar")
+      if(class(which_has_participant_avatar_attempt) == "try-error"){
+        integer(0)
+      } else {
+        which_has_participant_avatar_attempt
+      }
     })
 
-    # Clean up day, date, and time
-    sign_ups$day <- stringr::str_extract(sign_ups$timeslot, ".+day")
-    use_to_get_date <- stringr::str_replace(sign_ups$timeslot, ".+day - ", "")
+    has_participant_avatar <- purrr::map_dbl(which_has_participant_avatar, ~{try(ifelse(identical(.x, integer(0)), 0, .x))})
 
-    sign_ups$date <- stringr::str_extract(use_to_get_date, "^[A-z]+ [0-9]{1,2}th, [0-9]{4}")
-    use_to_get_time <- stringr::str_replace(use_to_get_date, "^[A-z]+ [0-9]{1,2}th, [0-9]{4} ", "")
+    participant_avatar <- purrr::map2(participant_info_list, has_participant_avatar, ~{try(.x[[.y]] %>% rvest::html_children())})
 
-    sign_ups$time <- stringr::str_extract(use_to_get_time, "([0-9]{1,2}:[0-9]{2} [AP]M) -") %>% stringr::str_replace_all(" -", "")
+    df_participant_names <- purrr::map_df(seq_along(participant_avatar), ~{
+      iteration <- .x
+      ind_participant_avatar_name_info <- try(participant_avatar[[iteration]] %>% rvest::html_children()  %>% rvest::html_children()  %>% rvest::html_children() %>% rvest::html_text())
+      if(class(ind_participant_avatar_name_info) == "try-error") {
+        ind_participant_avatar_name_info_initial <- ""
+        ind_participant_avatar_name_info_name <- ""
+        ind_participant_avatar_name_info_email <- ""
+        ind_session_project_name <- ""
+      } else {
+        ind_participant_avatar_name_info_initial <- ind_participant_avatar_name_info[[1]]
+        ind_participant_avatar_name_info_name <- ind_participant_avatar_name_info[[2]]
+        ind_participant_avatar_name_info_email <- ind_participant_avatar_name_info[[3]]
+        ind_session_project_name <- session_project_names[iteration]
+      }
+
+      data.frame(
+        participant_initials = ind_participant_avatar_name_info_initial,
+        names = ind_participant_avatar_name_info_name,
+        participant_email = ind_participant_avatar_name_info_email,
+        project_file_name = ind_session_project_name
+      )
+    })
+
+
+
+
+    # df_participant_names$ind_participant_avatar_name_info_name %>% clipr::write_clip()
+    # time_vector %>% clipr::write_clip()
+    # date_vector %>% clipr::write_clip()
+
+    # rvest::html_attr("class") == "ProfileCell__content__name__container"
+    # participant_info_list <- participant_info_list[[1]]
+    # x_participant_info_list <- participant_info_list[[participant_info_list %>% rvest::html_attr("class") == "project-workspace__sessions__participant__avatar"]]
+    #
+    #
+    # participant_avatar[[1]] %>% rvest::html_children() %>% clipr::write_clip()
+    #
+    #
+    # obtain_the_signups_1_file <- function(a_time_slot_form, a_number) {
+    #   names_form <- a_time_slot_form %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children()
+    #   where_names <- which(names_form %>% rvest::html_attr("class") == "ProfileCell__content__name")
+    #   names_list <- names_form[where_names] %>% rvest::html_text()
+    #   names_list_w_empty <- c(names_list, rep("", number_of_empty_slots[[a_number]]))
+    #   timeslot_w_empty <-  rep(date_time_vector_chr[[a_number]], length(names_list_w_empty))
+    #   data.frame(names = names_list_w_empty, timeslot = timeslot_w_empty, project_file_name = session_project_names[a_number])
+    # }
+#
+#     # Obtain the sign-ups
+#     sign_ups <- purrr::map2_df(time_slot_form, seq_along(date_time_vector_chr), ~{
+#       obtain_the_signups_1_file(.x, .y)
+#       # names_form <- .x %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children() %>% rvest::html_children()
+#       # where_names <- which(names_form %>% rvest::html_attr("class") == "ProfileCell__content__name")
+#       # names_list <- names_form[where_names] %>% rvest::html_text()
+#       # names_list_w_empty <- c(names_list, rep("", number_of_empty_slots[[.y]]))
+#       # timeslot_w_empty <-  rep(date_time_vector_chr[[.y]], length(names_list_w_empty))
+#       # data.frame(names = names_list_w_empty, timeslot = timeslot_w_empty, project_file_name = session_project_names[.y])
+#     })
+
+    sign_ups <- df_participant_names
+    sign_ups$time <- time_vector
+    sign_ups$date <- date_vector
+    sign_ups$timeslot <- date_time_vector_chr
+
+    # # Clean up day, date, and time
+    # sign_ups$day <- stringr::str_extract(sign_ups$timeslot, ".+day")
+    # use_to_get_date <- stringr::str_replace(sign_ups$timeslot, ".+day - ", "")
+    #
+    # sign_ups$date <- stringr::str_extract(use_to_get_date, "^[A-z]+ [0-9]{1,2}[thsnd]{2}, [0-9]{4}")
+    # use_to_get_time <- stringr::str_replace(use_to_get_date, "^[A-z]+ [0-9]{1,2}[thsnd]{2}, [0-9]{4} ", "")
+    #
+    # sign_ups$time <- stringr::str_extract(use_to_get_time, "([0-9]{1,2}:[0-9]{2} [AP]M) -") %>% stringr::str_replace_all(" -", "")
 
     # Prepare to clean
     scrape_df <- sign_ups
@@ -8767,10 +8834,10 @@ process_scraped_schedules <- function(home_dir){
     scrape_df$weekday <- stringr::str_extract(scrape_df$timeslot, pattern = "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday")
 
     # Get the date from the date
-    scrape_df$day <- stringr::str_extract( use_to_get_date, pattern = "1st|2nd|3rd|4th|5th|6th|7th|8th|9th|10th|11th|12th|13th|14th|15th|16th|17th|18th|19th|20th|21st|22nd|23rd|24th|25th|26th|27th|28th|29th|30th|31st")
+    scrape_df$day <- stringr::str_extract(sign_ups$date, pattern = "1st|2nd|3rd|4th|5th|6th|7th|8th|9th|10th|11th|12th|13th|14th|15th|16th|17th|18th|19th|20th|21st|22nd|23rd|24th|25th|26th|27th|28th|29th|30th|31st")
 
     # Get the month from the date
-    scrape_df$month <- stringr::str_extract(use_to_get_date, pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec")
+    scrape_df$month <- stringr::str_extract(sign_ups$date, pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec")
 
     # Create a list of the months
     possible_months <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -8795,13 +8862,12 @@ process_scraped_schedules <- function(home_dir){
 
     # Make it numeric
     scrape_df$day <- as.numeric(scrape_df$day)
-    # scrape_df$time <- stringr::str_extract(scrape_df$timeslot, "[0-9]{2}:[0-9]{2} [AP]M - ")
 
     # Extract the hour
     scrape_df$hour <- as.numeric(stringr::str_extract(scrape_df$time, "^[0-9]{1,2}"))
 
     # Remove the hour
-    time_to_clean <- stringr::str_replace(use_to_get_time, "^[0-9]{1,2}:", "")
+    time_to_clean <- stringr::str_replace(scrape_df$time, "^[0-9]{1,2}:", "")
 
     # Extract the minutes
     scrape_df$minute <- stringr::str_extract(time_to_clean, "^[0-9]{1,2}")
@@ -8813,7 +8879,7 @@ process_scraped_schedules <- function(home_dir){
     scrape_df$period <- stringr::str_extract(time_to_clean, "^[a-zA-Z]{2}")
 
     # Extract the year
-    scrape_df$year <- stringr::str_extract(scrape_df$timeslot, "[0-9]{4}")
+    scrape_df$year <- stringr::str_extract(sign_ups$date, "[0-9]{4}")
 
     # Convert the hour to military time
     scrape_df$military_hour <- ifelse(scrape_df$period == "AM", scrape_df$hour, ifelse(scrape_df$hour == 12, scrape_df$hour, scrape_df$hour + 12))
