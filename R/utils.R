@@ -8066,8 +8066,8 @@ prepare_environmental_variables_for_current_project <- function(
   environment_name$traditional_project_dir_list <- bkissell::create_traditional_project_dir_list(should_create_nonexistant_dirs = should_create_nonexistant_dirs)
 
   for(iteration in seq_along(environment_name$traditional_project_dir_list)){
-    value_to_add <- traditional_project_dir_list[[iteration]]
-    name_to_add <- names(traditional_project_dir_list)[[iteration]]
+    value_to_add <- environment_name$traditional_project_dir_list[[iteration]]
+    name_to_add <- names(environment_name$traditional_project_dir_list)[[iteration]]
     rlang::env_poke(env = environment_name, name_to_add, value_to_add)
   }
 
