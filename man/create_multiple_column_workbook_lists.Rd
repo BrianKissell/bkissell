@@ -6,7 +6,7 @@
 \usage{
 create_multiple_column_workbook_lists(
   my_env = my_current_env,
-  column_names_paths = my_current_env$column_names_paths,
+  column_names_paths,
   name_of_column_details
 )
 }
@@ -18,7 +18,7 @@ create_multiple_column_workbook_lists(
 \item{name_of_column_details}{name_of_column_details}
 }
 \value{
-column_workbook_lists
+my_env
 }
 \description{
 create_multiple_column_workbook_lists

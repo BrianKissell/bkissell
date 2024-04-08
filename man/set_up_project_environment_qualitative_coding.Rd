@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{set_up_project_environment_qualitative_coding}
 \alias{set_up_project_environment_qualitative_coding}
-\title{set_up_project_environment}
+\title{set_up_project_environment_qualitative_coding}
 \usage{
 set_up_project_environment_qualitative_coding(
   storage_platform,
@@ -42,5 +42,5 @@ set_up_project_environment_qualitative_coding(
 my_current_env
 }
 \description{
-set_up_project_environment
+set_up_project_environment_qualitative_coding
 }

@@ -4,13 +4,20 @@
 \alias{process_all_of_the_text_stuff_for_power_bi}
 \title{process_all_of_the_text_stuff_for_power_bi}
 \usage{
-process_all_of_the_text_stuff_for_power_bi(my_env = my_current_env)
+process_all_of_the_text_stuff_for_power_bi(
+  my_env = my_current_env,
+  vars_to_include_with_text = variables_to_include_with_text,
+  survey_data_for_power_bi_df = my_env$survey_data_for_power_bi_df,
+  survey_dir_paths_list = my_env$survey_directory_paths,
+  text_survey_data_path = dirname(my_env$text_survey_data_path),
+  working_directory_path = my_env$working_directory_path
+)
 }
 \arguments{
 \item{my_env}{my_env}
 }
 \value{
-combined_df_selected_examples_text_df
+invisible(my_env)
 }
 \description{
 process_all_of_the_text_stuff_for_power_bi

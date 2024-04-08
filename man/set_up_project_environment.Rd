@@ -5,6 +5,7 @@
 \title{set_up_project_environment}
 \usage{
 set_up_project_environment(
+  my_env,
   storage_platform,
   storage_platform_name,
   group_dir_name,

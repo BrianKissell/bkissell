@@ -10,7 +10,7 @@ create_power_bi_break_down_qualitative_combined(my_env = my_current_env)
 \item{my_env}{my_env}
 }
 \value{
-power_bi_break_down_qualitative_combined
+invisible(env)
 }
 \description{
 create_power_bi_break_down_qualitative_combined

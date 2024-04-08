@@ -10,7 +10,7 @@ create_power_bi_net_promoter(my_env = my_current_env)
 \item{my_env}{my_env}
 }
 \value{
-power_bi_net_promoter
+invisible(my_env)
 }
 \description{
 create_power_bi_net_promoter

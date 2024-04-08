@@ -6,7 +6,7 @@
 \usage{
 read_survey_data_for_power_bi_single(
   survey_directory_path,
-  file_ext = ".zip",
+  file_ext,
   format_pattern = "_[0-9]{8}_[0-9]{4}",
   survey_version_name,
   column_workbook_list
@@ -14,6 +14,14 @@ read_survey_data_for_power_bi_single(
 }
 \arguments{
 \item{survey_directory_path}{survey_directory_path}
+
+\item{file_ext}{default should be ".zip"}
+
+\item{format_pattern}{default should be "_[0-9]{8}_[0-9]{4}"}
+
+\item{survey_version_name}{survey_version_name}
+
+\item{column_workbook_list}{column_workbook_list}
 }
 \value{
 survey_data_list

@@ -6,19 +6,20 @@
 \usage{
 process_survey_data_for_single_power_bi(
   survey_directory_path_pb,
-  column_workbook_list_pb,
+  column_workbook_list,
   survey_file_ext,
   survey_datetime_format_pattern,
   survey_version_name,
   convert_numeric_age_to_age_group,
   spellcheck_column_path_pb,
-  name_of_column_details = "column_details"
+  name_of_column_details,
+  working_directory_path
 )
 }
 \arguments{
 \item{survey_directory_path_pb}{survey_directory_path_pb}
 
-\item{column_workbook_list_pb}{column_workbook_list_pb}
+\item{column_workbook_list}{column_workbook_list}
 
 \item{survey_file_ext}{survey_file_ext}
 
@@ -30,7 +31,9 @@ process_survey_data_for_single_power_bi(
 
 \item{spellcheck_column_path_pb}{spellcheck_column_path_pb}
 
-\item{name_of_column_details}{name_of_column_details}
+\item{name_of_column_details}{name_of_column_details default should be "column_details"}
+
+\item{working_directory_path}{working_directory_path}
 }
 \value{
 survey_data_for_power_bi_single
