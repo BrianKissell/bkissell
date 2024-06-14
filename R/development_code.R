@@ -6,8 +6,8 @@
 # of the data frames should then be done in this function. This will leave us
 # with a nested function, but it should make more theoretical sense.
 
-# survey_version_name = "Member"
-survey_version_name = "Donor"
+survey_version_name = "Member"
+# survey_version_name = "Donor"
 should_create_nonexistant_dirs = TRUE
 survey_monkey_used = TRUE
 wave_names = c("w01_11_2023", "w02_02_2024")

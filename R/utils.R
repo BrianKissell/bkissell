@@ -1151,7 +1151,7 @@ create_table_single <- function(df, response_var_name, grouping_var_name, respon
 
 
     list_of_variable_names <- find_var_names_that_start_with(df, starts_with = response_var_name)
-    df <- prepare_VAR_ORDER_variables_single(df, response_var_name = NULL, grouping_var_name)
+    df <- bkissell::prepare_VAR_ORDER_variables_single(df, response_var_name = NULL, grouping_var_name)
     order_grouping_var <- paste0("VAR_ORDER__", {{grouping_var_name}})
     df <- cts_create_grouping_and_order_var(df, grouping_var_name, order_grouping_var)
     df <- df  %>% dplyr::select("grouping_var_levels", "grouping_var_order", all_of(list_of_variable_names))
@@ -4695,6 +4695,50 @@ set_project_working_directory <- function(
 }
 
 
+#' set_project_working_directory_simple
+#'
+#' @param storage_platform_part storage_platform_part
+#' @param project_year project_year
+#' @param project_folder_name project_folder_name
+#'
+#' @return working_directory_path
+#' @export
+#'
+set_project_working_directory_simple <- function(
+    storage_platform_part = "OneDrive - Moore DM Group/Shared Documents - TCM MNFLab/00 DROPBOX IMPORT/Moore Neuro-Fundraising Lab/00 Jobs",
+    project_year,
+    project_folder_name
+) {
+
+  # What is the name of the username for the person running the program?
+  computer_user <- Sys.info()[["user"]]
+
+  # Talia's computer is set up in a weird way, where it is under her name and Steves. This should fix the problem
+  computer_user <- ifelse(computer_user == "Talia Abbott", "SJAga", computer_user)
+
+  # Create the path to the storage platform
+  storage_platform_path <- paste0("C:/Users/", computer_user, "/", storage_platform_part)
+
+  # Create the working directory that will be used
+  working_directory_path <- file.path(
+    storage_platform_path,
+    project_year, project_folder_name)
+
+  # If this path exists
+  if(file.exists(working_directory_path)) {
+    # set it as the working directory
+    setwd(working_directory_path)
+  } else {
+    # Otherwise throw an error
+    warning(paste0("File directory was not found: ", working_directory_path))
+  }
+
+  # Return the path that will be used
+  return(working_directory_path)
+}
+
+
+
 #' Select all of the data that should be provided in the text df
 #'
 #' @param data data frame with the survey data
@@ -4803,7 +4847,7 @@ use_column_workbook_to_convert_vars_to_factors <- function(df, column_details_qu
   # If the indicator is "mc"
   if(question_type_indicator == "mc") {
     # Convert variables to factors - Note that'ord' is an ordered factor
-    df <- factor_vars_with_named_vectors(
+    df <- bkissell::factor_vars_with_named_vectors(
       df = df,
       list_with_variable_names_to_reorder = variables_names,
       list_with_named_vectors = named_vectors
@@ -4834,8 +4878,41 @@ use_column_workbook_to_convert_vars_to_factors <- function(df, column_details_qu
 
 
 
+#' factor_vars_with_named_vectors
+#'
+#' @param df df
+#' @param list_with_variable_names_to_reorder list_with_variable_names_to_reorder
+#' @param list_with_named_vectors list_with_named_vectors
+#'
+#' @return df
+#' @export
+#'
+factor_vars_with_named_vectors <- function(df, list_with_variable_names_to_reorder, list_with_named_vectors) {
+  purrr::walk2(list_with_variable_names_to_reorder, list_with_named_vectors, ~ {
+
+    index_for_var_to_change <- which(colnames(df) == {{.x}})
+    # index_for_var_to_change <- which(colnames(df) == "version")
+    vector_to_change <- df[,index_for_var_to_change][[1]]
+
+    df[,index_for_var_to_change] <<- recode_as_factor(variable = vector_to_change, named_vec_levels = .y)
+  })
+
+  return(df)
+}
 
 
+#' recode_as_factor
+#'
+#' @param variable variable
+#' @param named_vec_levels named_vec_levels
+#'
+#' @return variable
+#' @export
+#'
+recode_as_factor <- function(variable, named_vec_levels) {
+  variable <- factor(variable, levels = named_vec_levels, labels = names(named_vec_levels), ordered = TRUE)
+  return(variable)
+}
 
 
 
@@ -5370,11 +5447,15 @@ create_grouped_percentages_table <- function(df, grouping_var_name, response_var
     rbind(combined_group_level_counts)
 
 
-  # Get the counts for the groups
-  group_n_table_2 <- grouped_count_table |>
-    dplyr::group_by(grouping_var_levels) |>
-    dplyr::summarise(group_n = sum(counts))
-
+  if(is.null(group_n_table)) {
+    # Get the counts for the groups
+    group_n_table_2 <- grouped_count_table |>
+      dplyr::group_by(grouping_var_levels) |>
+      dplyr::summarise(group_n = sum(counts))
+  } else {
+    group_n_table_2 <- group_n_table
+    colnames(group_n_table_2) <- c("grouping_var_levels", "group_n")
+  }
 
   # Convert the grouping_var_levels_to_character
   group_n_table_2[["grouping_var_levels"]] <- as.character(group_n_table_2[["grouping_var_levels"]])
@@ -6048,9 +6129,27 @@ create_power_bi_data_qualitative_CALCULATED_TABLES <- function(
 
       pb <- progress::progress_bar$new(total = n_iterations)
 
+      # for(param_var_name_it in seq_along(single_parameter_df$response_var_names)) {
+      #   number_for_row <- param_var_name_it
+      #   t <- bkissell::create_table_single(
+      #     df = overall_code_data,
+      #     response_var_name = single_parameter_df$response_var_names[[number_for_row]],
+      #     grouping_var_name = single_parameter_df$grouping_vars[[number_for_row]],
+      #     response_var_type = "sa")
+      #
+      #   pb$tick()
+      #
+      #   t$response_var_used <- single_parameter_df$response_var_names[[number_for_row]]
+      #   t$response_var_used_order <- single_parameter_df$response_var_used_order[[number_for_row]]
+      #   t$grouping_var_used <- single_parameter_df$grouping_vars[[number_for_row]]
+      #   t$grouping_var_used_order <- single_parameter_df$grouping_var_used_order[[number_for_row]]
+      #
+      #   t
+      # }
+
       table <- purrr::map_df(seq_along(single_parameter_df$response_var_names), ~{
         number_for_row <- .x
-        t <- create_table_single(
+        t <- bkissell::create_table_single(
           df = overall_code_data,
           response_var_name = single_parameter_df$response_var_names[[number_for_row]],
           grouping_var_name = single_parameter_df$grouping_vars[[number_for_row]],
